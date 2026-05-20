@@ -32,7 +32,6 @@ docs/
   002-Architecture-Graph-Domain-Model/
 	spec-wp002-architecture-graph-domain-model.md
 	plan-wp002-architecture-graph-domain-model.md
-	implementation-notes-wp002.md
 
 src/
   Archon.Domain/
@@ -69,14 +68,14 @@ The exact folder names may be adjusted to match existing repository conventions 
 - Fingerprints must be represented by a dedicated value object and generated from canonical, deterministic input.
 - Metadata must have a deterministic canonical representation so fingerprinting is stable across executions.
 - Unknown state and confidence must be explicit in the model and cannot be bypassed for nodes, edges, evidence, or findings.
-- Implementation notes must record design decisions, validation commands, wiki review outcome, and any intentionally deferred capabilities that are out of scope for WP002.
+- Wiki guidance must record design decisions, validation commands, wiki review outcome, and any intentionally deferred capabilities that are out of scope for WP002.
 
 ## Work Items
 
 ## 1. Domain Controlled Values and Developer-Facing Serialization Slice
 
 - [x] Work Item 1: Implement smart-enum/value-object controlled values with deterministic string serialization - Completed
-  - **Completion Summary**: Implemented documented controlled-value infrastructure and concrete WP002 graph classification value sets in `src/Archon.Domain/Graph/ControlledValues`, added focused xUnit coverage in `test/Archon.Domain.Tests/Graph/ControlledValues/ControlledValueTests.cs`, recorded design decisions and validation in `docs/002-Architecture-Graph-Domain-Model/implementation-notes-wp002.md`, and updated `wiki/home.md` for controlled-value terminology and domain-model impact. Validation performed: `dotnet test .\test\Archon.Domain.Tests\Archon.Domain.Tests.csproj --filter FullyQualifiedName~ControlledValue` passed with 136 tests. Wiki review result: updated `wiki/home.md` with current-state guidance for controlled values, smart-enum-style stable external strings, numeric enum drift, and the pure-domain scope of this slice.
+	- **Completion Summary**: Implemented documented controlled-value infrastructure and concrete WP002 graph classification value sets in `src/Archon.Domain/Graph/ControlledValues`, added focused xUnit coverage in `test/Archon.Domain.Tests/Graph/ControlledValues/ControlledValueTests.cs`, and updated `wiki/home.md` for controlled-value terminology and domain-model impact. Validation performed: `dotnet test .\test\Archon.Domain.Tests\Archon.Domain.Tests.csproj --filter FullyQualifiedName~ControlledValue` passed with 136 tests. Wiki review result: updated `wiki/home.md` with current-state guidance for controlled values, smart-enum-style stable external strings, numeric enum drift, and the pure-domain scope of this slice.
   - **Purpose**: Provide the first runnable domain capability for WP002: developers can create, parse, serialize, and validate graph classification values without numeric enum drift. This proves the smart-enum/value-object pattern before other graph contracts depend on it.
   - **Acceptance Criteria**:
 	- `NodeKind`, `EdgeKind`, `EvidenceKind`, `RuleCategory`, `FindingSeverity`, `FindingStatus`, `KnowledgeKind`, metric scope kind, and summary kind exist as smart-enum/value-object controlled values.
@@ -91,7 +90,7 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- Source code complies with `./.github/instructions/documentation-pass.instructions.md`, including developer-level comments for every class, method, constructor, and non-public type touched in this work item.
 	- Public methods and constructors document every parameter; properties whose meaning is not obvious from their names are commented.
 	- Logging is not required because this slice is pure domain behavior with no runtime side effects.
-	- Wiki review is performed for terminology and domain-model impact; relevant wiki or repository guidance is updated, or an explicit no-change result is recorded in the implementation notes.
+	- Wiki review is performed for terminology and domain-model impact; relevant wiki or repository guidance is updated, or an explicit no-change result is recorded in the plan.
 	- Foundational documentation explains terms such as controlled value, smart enum, stable external string identity, and numeric enum drift when they are first introduced.
 	- Can execute end-to-end via: `dotnet test .\test\Archon.Domain.Tests\Archon.Domain.Tests.csproj --filter FullyQualifiedName~ControlledValue`.
 	- Executor must not stop mid-work-item; execution continues through implementation, validation, documentation/wiki review, and plan-record updates unless the work item is complete, the user explicitly interrupts, or a true blocker prevents further autonomous progress.
@@ -119,15 +118,15 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- [x] Verify equality does not depend on object reference identity.
 	- [x] Verify representative JSON serialization if JSON converter support is included in this slice.
 	- **Task Summary**: Added `ControlledValueTests` covering required values, stable strings, parsing, invalid input, equality, deterministic declaration ordering, and representative System.Text.Json serialization/deserialization.
-  - [x] Task 5: Update implementation notes and wiki review result - Completed
-	- [x] Create or update `docs/002-Architecture-Graph-Domain-Model/implementation-notes-wp002.md`.
+	- [x] Task 5: Update wiki guidance and wiki review result - Completed
+	- [x] Update `wiki/home.md` when contributor-facing guidance is required.
 	- [x] Record controlled-value design decisions and validation commands.
 	- [x] Record wiki review result with either exact pages updated or a grounded no-change explanation.
-	- **Task Summary**: Created implementation notes for Work Item 1 and recorded the mandatory wiki review outcome. Updated `wiki/home.md` because the work item introduced contributor-facing graph vocabulary and terminology.
+	- **Task Summary**: Recorded the mandatory wiki review outcome in this plan. Updated `wiki/home.md` because the work item introduced contributor-facing graph vocabulary and terminology.
   - **Files**:
 	- `src/Archon.Domain/Graph/ControlledValues/*.cs`: Controlled-value base and concrete value sets.
 	- `test/Archon.Domain.Tests/Graph/ControlledValues/*.cs`: Controlled-value tests.
-	- `docs/002-Architecture-Graph-Domain-Model/implementation-notes-wp002.md`: Implementation record and wiki outcome.
+	- `wiki/home.md`: Controlled-value guidance and wiki outcome.
   - **Work Item Dependencies**: WP001 project skeleton exists.
   - **Run / Verification Instructions**:
 	- `dotnet test .\test\Archon.Domain.Tests\Archon.Domain.Tests.csproj --filter FullyQualifiedName~ControlledValue`
@@ -150,7 +149,7 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- Tests passing in `Archon.Domain.Tests` for all required prefixes, determinism, validation, and path normalization.
 	- Source code complies with `./.github/instructions/documentation-pass.instructions.md` for all touched classes, methods, constructors, parameters, properties, and internal helpers.
 	- Wiki review is performed for stable-key terminology and architecture identity impact; relevant wiki or repository guidance is updated, or an explicit no-change result is recorded.
-	- Documentation or implementation notes explain stable key, repository-relative path, and why keys must not depend on database IDs.
+	- Wiki guidance explains stable key, repository-relative path, and why keys must not depend on database IDs.
 	- Can execute end-to-end via: `dotnet test .\test\Archon.Domain.Tests\Archon.Domain.Tests.csproj --filter FullyQualifiedName~StableKey`.
 	- Executor must not stop mid-work-item; execution continues through implementation, validation, documentation/wiki review, and plan-record updates unless the work item is complete, the user explicitly interrupts, or a true blocker prevents further autonomous progress.
 	- [x] Task 1: Implement identity value objects - Completed
@@ -174,14 +173,14 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- [x] Verify path normalization across Windows and forward-slash input forms.
 	- [x] Verify invalid input is rejected.
 	- **Task Summary**: Added `StableKeyTests` covering value validation/equality, path normalization and absolute-path rejection, every required prefix, deterministic equivalent input handling, and invalid generator input failures.
-  - [x] Task 5: Update implementation notes and wiki review result - Completed
+	- [x] Task 5: Update wiki guidance and wiki review result - Completed
 	- [x] Record stable-key decisions and validation commands.
 	- [x] Record wiki pages updated or no-change rationale.
-	- **Task Summary**: Updated `implementation-notes-wp002.md` with stable-key design and validation details. Updated `wiki/home.md` because stable keys and repository-relative paths are developer-facing identity concepts.
+	- **Task Summary**: Updated `wiki/home.md` with stable-key design and validation details because stable keys and repository-relative paths are developer-facing identity concepts.
   - **Files**:
 	- `src/Archon.Domain/Graph/Identity/*.cs`: Stable-key value objects and generator.
 	- `test/Archon.Domain.Tests/Graph/Identity/*.cs`: Stable-key tests.
-	- `docs/002-Architecture-Graph-Domain-Model/implementation-notes-wp002.md`: Implementation record and wiki outcome.
+	- `wiki/home.md`: Stable-key guidance and wiki outcome.
   - **Work Item Dependencies**: Work Item 1.
   - **Run / Verification Instructions**:
 	- `dotnet test .\test\Archon.Domain.Tests\Archon.Domain.Tests.csproj --filter FullyQualifiedName~StableKey`
@@ -191,7 +190,7 @@ The exact folder names may be adjusted to match existing repository conventions 
 ## 3. Metadata and Fingerprint Slice
 
 - [x] Work Item 3: Implement deterministic metadata and fingerprint generation - Completed
-  - **Completion Summary**: Implemented deterministic metadata and fingerprint support in `Archon.Domain` with `GraphMetadata`, `Fingerprint`, `FingerprintInput`, and `FingerprintGenerator`; added focused xUnit coverage in `test/Archon.Domain.Tests/Graph/Metadata/GraphMetadataTests.cs` and `test/Archon.Domain.Tests/Graph/Identity/FingerprintTests.cs`; updated implementation notes with a metadata fingerprint example; and updated `wiki/home.md` for metadata and fingerprint terminology. Validation performed: `dotnet test .\test\Archon.Domain.Tests\Archon.Domain.Tests.csproj --filter "FullyQualifiedName~Metadata|FullyQualifiedName~Fingerprint"` passed with 22 tests. Wiki review result: updated `wiki/home.md` with current-state guidance for metadata, normalized graph fields, canonical metadata, stable-key-vs-fingerprint semantics, and diff-relevant fingerprint behavior.
+	- **Completion Summary**: Implemented deterministic metadata and fingerprint support in `Archon.Domain` with `GraphMetadata`, `Fingerprint`, `FingerprintInput`, and `FingerprintGenerator`; added focused xUnit coverage in `test/Archon.Domain.Tests/Graph/Metadata/GraphMetadataTests.cs` and `test/Archon.Domain.Tests/Graph/Identity/FingerprintTests.cs`; and updated `wiki/home.md` for metadata and fingerprint terminology, including a metadata fingerprint example. Validation performed: `dotnet test .\test\Archon.Domain.Tests\Archon.Domain.Tests.csproj --filter "FullyQualifiedName~Metadata|FullyQualifiedName~Fingerprint"` passed with 22 tests. Wiki review result: updated `wiki/home.md` with current-state guidance for metadata, normalized graph fields, canonical metadata, stable-key-vs-fingerprint semantics, and diff-relevant fingerprint behavior.
   - **Purpose**: Provide diff-ready graph fact support. Developers can create metadata payloads and compute stable fingerprints for graph records without depending on machine-local values, dictionary order, or database IDs.
   - **Acceptance Criteria**:
 	- `Fingerprint` rejects null, empty, and whitespace-only values.
@@ -205,7 +204,7 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- Tests passing in `Archon.Domain.Tests` for metadata canonicalization, fingerprint determinism, and fingerprint change detection.
 	- Source code complies with `./.github/instructions/documentation-pass.instructions.md`.
 	- Wiki review is performed for fingerprint and metadata terminology; relevant wiki or repository guidance is updated, or an explicit no-change result is recorded.
-	- Documentation or implementation notes define fingerprint, canonical metadata, and diff-relevant content with examples.
+	- Wiki guidance defines fingerprint, canonical metadata, and diff-relevant content with examples.
 	- Can execute end-to-end via: `dotnet test .\test\Archon.Domain.Tests\Archon.Domain.Tests.csproj --filter "FullyQualifiedName~Metadata|FullyQualifiedName~Fingerprint"`.
 	- Executor must not stop mid-work-item; execution continues through implementation, validation, documentation/wiki review, and plan-record updates unless the work item is complete, the user explicitly interrupts, or a true blocker prevents further autonomous progress.
 	- [x] Task 1: Implement metadata value object - Completed
@@ -231,17 +230,17 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- [x] Verify changed diff-relevant content produces different fingerprints.
 	- [x] Verify excluded values do not affect fingerprints.
 	- **Task Summary**: Added `GraphMetadataTests` and `FingerprintTests` covering deterministic canonical metadata, invalid/reserved metadata, fingerprint validation, equivalent fingerprints, changed content, metadata changes, excluded non-input values, and required helper coverage.
-  - [x] Task 5: Update implementation notes and wiki review result - Completed
+	- [x] Task 5: Update wiki guidance and wiki review result - Completed
 	- [x] Record fingerprint and metadata decisions.
 	- [x] Include at least one example showing how metadata affects a fingerprint.
 	- [x] Record wiki pages updated or no-change rationale.
-	- **Task Summary**: Updated `implementation-notes-wp002.md` with metadata and fingerprint decisions plus a metadata fingerprint example. Updated `wiki/home.md` because metadata and fingerprints are developer-facing graph-domain concepts.
+	- **Task Summary**: Updated `wiki/home.md` with metadata and fingerprint decisions plus a metadata fingerprint example because metadata and fingerprints are developer-facing graph-domain concepts.
   - **Files**:
 	- `src/Archon.Domain/Graph/Metadata/*.cs`: Metadata value object and canonicalization support.
 	- `src/Archon.Domain/Graph/Identity/*.cs`: Fingerprint value object and generator.
 	- `test/Archon.Domain.Tests/Graph/Metadata/*.cs`: Metadata tests.
 	- `test/Archon.Domain.Tests/Graph/Identity/*.cs`: Fingerprint tests.
-	- `docs/002-Architecture-Graph-Domain-Model/implementation-notes-wp002.md`: Implementation record and wiki outcome.
+	- `wiki/home.md`: Metadata/fingerprint guidance and wiki outcome.
   - **Work Item Dependencies**: Work Items 1 and 2.
   - **Run / Verification Instructions**:
 	- `dotnet test .\test\Archon.Domain.Tests\Archon.Domain.Tests.csproj --filter "FullyQualifiedName~Metadata|FullyQualifiedName~Fingerprint"`
@@ -251,7 +250,7 @@ The exact folder names may be adjusted to match existing repository conventions 
 ## 4. Evidence-First Graph Fact Model Slice
 
 - [x] Work Item 4: Implement snapshot-scoped graph fact models with confidence and unknown-state invariants - Completed
-  - **Completion Summary**: Implemented the WP002 graph fact domain contract layer in `src/Archon.Domain/Graph/Model`, including `Confidence`, `UnknownState`, repository, solution, snapshot header, architecture node, architecture edge, evidence, rule, finding, metric, and generated summary models. Added focused coverage in `test/Archon.Domain.Tests/Graph/Model/GraphFactModelTests.cs` for construction, validation, unknown invariants, edge endpoint requirements, finding rule identity requirements, metric value requirements, representative JSON serialization, and absence of Neo4j database IDs. Updated `docs/002-Architecture-Graph-Domain-Model/implementation-notes-wp002.md` with graph model decisions, validation commands, and narrative examples of node, edge, evidence, and finding contracts. Validation performed: `dotnet test .\test\Archon.Domain.Tests\Archon.Domain.Tests.csproj --filter "FullyQualifiedName~GraphFact|FullyQualifiedName~Unknown|FullyQualifiedName~Evidence"` passed with 36 tests, and workspace build validation passed. Wiki review result: updated `wiki/home.md` with current-state narrative guidance for graph facts, evidence-first modeling, confidence, knowledge kind, unknown state, rules/findings/metrics/summaries, and why Neo4j IDs are excluded from domain contracts.
+	- **Completion Summary**: Implemented the WP002 graph fact domain contract layer in `src/Archon.Domain/Graph/Model`, including `Confidence`, `UnknownState`, repository, solution, snapshot header, architecture node, architecture edge, evidence, rule, finding, metric, and generated summary models. Added focused coverage in `test/Archon.Domain.Tests/Graph/Model/GraphFactModelTests.cs` for construction, validation, unknown invariants, edge endpoint requirements, finding rule identity requirements, metric value requirements, representative JSON serialization, and absence of Neo4j database IDs. Validation performed: `dotnet test .\test\Archon.Domain.Tests\Archon.Domain.Tests.csproj --filter "FullyQualifiedName~GraphFact|FullyQualifiedName~Unknown|FullyQualifiedName~Evidence"` passed with 36 tests, and workspace build validation passed. Wiki review result: updated `wiki/home.md` with current-state narrative guidance for graph facts, evidence-first modeling, confidence, knowledge kind, unknown state, rules/findings/metrics/summaries, why Neo4j IDs are excluded from domain contracts, and narrative examples of node, edge, evidence, and finding contracts.
   - **Purpose**: Provide the complete domain contract model for architecture facts. Developers can construct repositories, solutions, snapshots, nodes, edges, evidence, rules, findings, metrics, and generated summaries with stable keys, fingerprints, metadata, confidence, and explicit unknown state.
   - **Acceptance Criteria**:
 	- Repository, solution, snapshot header, architecture node, architecture edge, evidence, rule, finding, metric, and generated summary models exist.
@@ -266,7 +265,7 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- Tests passing in `Archon.Domain.Tests` for model construction, validation, unknown invariants, and representative serialization.
 	- Source code complies with `./.github/instructions/documentation-pass.instructions.md`, including comments for every class, method, constructor, public parameter, internal helper, and non-obvious property.
 	- Wiki review is performed for graph fact, evidence, confidence, and unknown terminology; relevant wiki or repository guidance is updated, or an explicit no-change result is recorded.
-	- Documentation or implementation notes explain evidence-first modeling, confidence, knowledge kind, unknown state, and why Neo4j IDs are excluded from the domain contract.
+	- Wiki guidance explains evidence-first modeling, confidence, knowledge kind, unknown state, and why Neo4j IDs are excluded from the domain contract.
 	- Can execute end-to-end via: `dotnet test .\test\Archon.Domain.Tests\Archon.Domain.Tests.csproj --filter "FullyQualifiedName~GraphFact|FullyQualifiedName~Unknown|FullyQualifiedName~Evidence"`.
 	- Executor must not stop mid-work-item; execution continues through implementation, validation, documentation/wiki review, and plan-record updates unless the work item is complete, the user explicitly interrupts, or a true blocker prevents further autonomous progress.
 	- [x] Task 1: Implement confidence and unknown-state value objects - Completed
@@ -299,16 +298,16 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- [x] Verify finding rule code and version validation.
 	- [x] Verify representative JSON serialization preserves stable string values and nullability.
 	- **Task Summary**: Added `GraphFactModelTests` covering confidence comparison and validation, unknown-state reason enforcement, representative construction for all graph models, edge endpoint validation, finding rule identity validation, metric value validation, JSON serialization, and no public Neo4j-style `Id` properties.
-  - [x] Task 6: Update implementation notes and wiki review result - Completed
+	- [x] Task 6: Update wiki guidance and wiki review result - Completed
 	- [x] Record graph model decisions and validation commands.
 	- [x] Include narrative examples of a node, edge, evidence record, and finding.
 	- [x] Record wiki pages updated or no-change rationale.
-	- **Task Summary**: Updated `implementation-notes-wp002.md` with Work Item 4 decisions, examples, targeted validation results, and wiki outcome. Updated `wiki/home.md` with current-state contributor guidance for graph facts, evidence-first modeling, confidence, unknown state, and no-Neo4j-ID domain boundaries.
+	- **Task Summary**: Updated `wiki/home.md` with Work Item 4 decisions, examples, targeted validation results, wiki outcome, and current-state contributor guidance for graph facts, evidence-first modeling, confidence, unknown state, and no-Neo4j-ID domain boundaries.
   - **Files**:
 	- `src/Archon.Domain/Graph/Model/*.cs`: Graph fact models.
 	- `src/Archon.Domain/Graph/Identity/*.cs`: Supporting identifiers such as rule code and version if needed.
 	- `test/Archon.Domain.Tests/Graph/Model/*.cs`: Graph fact model tests.
-	- `docs/002-Architecture-Graph-Domain-Model/implementation-notes-wp002.md`: Implementation record and wiki outcome.
+	- `wiki/home.md`: Graph fact guidance and wiki outcome.
   - **Work Item Dependencies**: Work Items 1, 2, and 3.
   - **Run / Verification Instructions**:
 	- `dotnet test .\test\Archon.Domain.Tests\Archon.Domain.Tests.csproj --filter "FullyQualifiedName~GraphFact|FullyQualifiedName~Unknown|FullyQualifiedName~Evidence"`
@@ -318,7 +317,7 @@ The exact folder names may be adjusted to match existing repository conventions 
 ## 5. Application Snapshot Accumulation Slice
 
 - [x] Work Item 5: Implement extracted architecture snapshot and accumulation contracts - Completed
-  - **Completion Summary**: Implemented application-layer snapshot assembly contracts in `src/Archon.Application/Extraction/Contracts/ExtractedArchitectureSnapshot.cs` and accumulation behavior in `src/Archon.Application/Extraction/Accumulation/ArchitectureSnapshotAccumulator.cs`. Added focused xUnit coverage in `test/Archon.Application.Tests/Extraction/Accumulation/ArchitectureSnapshotAccumulatorTests.cs` for representative snapshot assembly, deterministic latest-wins duplicate stable-key replacement, stable-key output ordering, warning/error preservation, snapshot merge behavior, and absence of persistence, host, Roslyn, Neo4j, or infrastructure dependencies. Updated `docs/002-Architecture-Graph-Domain-Model/implementation-notes-wp002.md` with design decisions, validation, and a future extractor walkthrough. Validation performed: `dotnet test .\test\Archon.Application.Tests\Archon.Application.Tests.csproj --filter FullyQualifiedName~Accumulation` passed with 5 tests, and workspace build validation passed. Wiki review result: updated `wiki/home.md` with current-state narrative guidance for snapshot assembly, extraction accumulator terminology, latest-wins duplicate policy, warning/error diagnostics, and the application-layer no-I/O boundary.
+	- **Completion Summary**: Implemented application-layer snapshot assembly contracts in `src/Archon.Application/Extraction/Contracts/ExtractedArchitectureSnapshot.cs` and accumulation behavior in `src/Archon.Application/Extraction/Accumulation/ArchitectureSnapshotAccumulator.cs`. Added focused xUnit coverage in `test/Archon.Application.Tests/Extraction/Accumulation/ArchitectureSnapshotAccumulatorTests.cs` for representative snapshot assembly, deterministic latest-wins duplicate stable-key replacement, stable-key output ordering, warning/error preservation, snapshot merge behavior, and absence of persistence, host, Roslyn, Neo4j, or infrastructure dependencies. Validation performed: `dotnet test .\test\Archon.Application.Tests\Archon.Application.Tests.csproj --filter FullyQualifiedName~Accumulation` passed with 5 tests, and workspace build validation passed. Wiki review result: updated `wiki/home.md` with current-state narrative guidance for snapshot assembly, extraction accumulator terminology, latest-wins duplicate policy, warning/error diagnostics, and the application-layer no-I/O boundary.
   - **Purpose**: Provide the first application-layer, end-to-end in-memory snapshot assembly capability. Future extractor slices can contribute repositories, solutions, nodes, edges, evidence, findings, metrics, generated summaries, warnings, and errors into one snapshot contract without owning separate persistence models.
   - **Acceptance Criteria**:
 	- `ExtractedArchitectureSnapshot` or equivalent authoritative snapshot assembly contract exists in `Archon.Application`.
@@ -332,7 +331,7 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- Tests passing in `Archon.Application.Tests` for accumulation across all snapshot sections, duplicate behavior, and warnings/errors.
 	- Source code complies with `./.github/instructions/documentation-pass.instructions.md` for every class, method, constructor, parameter, property, and internal helper touched in this work item.
 	- Wiki review is performed for extraction accumulation terminology and workflow impact; relevant wiki or repository guidance is updated, or an explicit no-change result is recorded.
-	- Documentation or implementation notes define extraction accumulator, snapshot assembly, duplicate stable-key policy, warning, and error in developer-facing terms.
+	- Wiki guidance defines extraction accumulator, snapshot assembly, duplicate stable-key policy, warning, and error in developer-facing terms.
 	- Can execute end-to-end via: `dotnet test .\test\Archon.Application.Tests\Archon.Application.Tests.csproj --filter FullyQualifiedName~Accumulation`.
 	- Executor must not stop mid-work-item; execution continues through implementation, validation, documentation/wiki review, and plan-record updates unless the work item is complete, the user explicitly interrupts, or a true blocker prevents further autonomous progress.
 	- [x] Task 1: Inspect application project dependencies - Completed
@@ -356,16 +355,16 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- [x] Verify duplicate stable-key behavior.
 	- [x] Verify no persistence or host dependency is required.
 	- **Task Summary**: Added `ArchitectureSnapshotAccumulatorTests` covering representative accumulation, duplicate replacement and deterministic ordering, warning/error preservation, merge behavior, and assembly dependency boundaries.
-  - [x] Task 5: Update implementation notes and wiki review result - Completed
+	- [x] Task 5: Update wiki guidance and wiki review result - Completed
 	- [x] Record accumulator design decisions and validation commands.
 	- [x] Include a walkthrough of a future extractor contributing facts into the accumulator.
 	- [x] Record wiki pages updated or no-change rationale.
-	- **Task Summary**: Updated `implementation-notes-wp002.md` with Work Item 5 design decisions, validation, and extractor walkthrough, and updated `wiki/home.md` with contributor-facing guidance for snapshot assembly, accumulation, duplicate policy, diagnostics, and no-I/O boundaries.
+	- **Task Summary**: Updated `wiki/home.md` with Work Item 5 design decisions, validation, an extractor walkthrough, and contributor-facing guidance for snapshot assembly, accumulation, duplicate policy, diagnostics, and no-I/O boundaries.
   - **Files**:
 	- `src/Archon.Application/Extraction/Contracts/*.cs`: Snapshot assembly contracts.
 	- `src/Archon.Application/Extraction/Accumulation/*.cs`: Accumulator or builder implementation.
 	- `test/Archon.Application.Tests/Extraction/Accumulation/*.cs`: Accumulation tests.
-	- `docs/002-Architecture-Graph-Domain-Model/implementation-notes-wp002.md`: Implementation record and wiki outcome.
+	- `wiki/home.md`: Contributor-facing guidance and wiki outcome.
   - **Work Item Dependencies**: Work Items 1 through 4.
   - **Run / Verification Instructions**:
 	- `dotnet test .\test\Archon.Application.Tests\Archon.Application.Tests.csproj --filter FullyQualifiedName~Accumulation`
@@ -375,13 +374,13 @@ The exact folder names may be adjusted to match existing repository conventions 
 ## 6. Cross-Slice Validation and Documentation Completion Slice
 
 - [x] Work Item 6: Validate WP002 domain and application behavior and complete repository documentation - Completed
-  - **Completion Summary**: Completed cross-slice WP002 validation across domain and application contracts, verified documentation-pass compliance for representative touched production and test files, and updated `docs/002-Architecture-Graph-Domain-Model/implementation-notes-wp002.md` with validation results, design decisions, out-of-scope boundaries, and wiki review outcome. Validation performed: targeted `Archon.Domain.Tests` command passed with 218 tests after retrying a terminal-split command, targeted `Archon.Application.Tests` accumulation command passed with 5 tests, and `dotnet build .\Archon.slnx` succeeded. Wiki review result: reviewed `wiki/home.md` and implementation notes; no additional wiki update was required because Work Items 1 through 5 had already updated `wiki/home.md` with current-state narrative guidance for WP002 concepts and boundaries, and the review confirmed no documentation presents Neo4j persistence, Roslyn extraction, API orchestration, MCP tools, markdown export, or UI behavior as complete in WP002.
+	- **Completion Summary**: Completed cross-slice WP002 validation across domain and application contracts and verified documentation-pass compliance for representative touched production and test files. Validation performed: targeted `Archon.Domain.Tests` command passed with 218 tests after retrying a terminal-split command, targeted `Archon.Application.Tests` accumulation command passed with 5 tests, and `dotnet build .\Archon.slnx` succeeded. Wiki review result: reviewed `wiki/home.md`; no additional wiki update was required because Work Items 1 through 5 had already updated `wiki/home.md` with current-state narrative guidance for WP002 concepts and boundaries, and the review confirmed no documentation presents Neo4j persistence, Roslyn extraction, API orchestration, MCP tools, markdown export, or UI behavior as complete in WP002.
   - **Purpose**: Prove the WP002 implementation works as a coherent developer-facing capability across domain and application projects, then finalize documentation and plan records.
   - **Acceptance Criteria**:
 	- Targeted domain tests pass.
 	- Targeted application tests pass.
 	- The solution builds.
-	- Implementation notes summarize completed work, validation commands, design decisions, and out-of-scope boundaries.
+	- This plan summarizes completed work and validation commands; wiki guidance records current-state design decisions and out-of-scope boundaries.
 	- Documentation explains stable keys, fingerprints, unknowns, confidence, controlled values, metadata, and accumulation behavior.
 	- No code or documentation presents Neo4j persistence, Roslyn extraction, API orchestration, MCP tools, markdown export, or UI behavior as complete in WP002.
   - **Definition of Done**:
@@ -401,19 +400,19 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- [x] Run `dotnet build .\Archon.slnx`.
 	- [x] Fix ordinary compile or analyzer failures and rerun until successful or a true blocker is identified.
 	- **Task Summary**: Ran `dotnet build .\Archon.slnx`; the full solution build succeeded without requiring code changes.
-  - [x] Task 3: Complete implementation notes - Completed
+	- [x] Task 3: Complete documentation record - Completed
 	- [x] Summarize each completed work item.
 	- [x] Record all validation commands and outcomes.
 	- [x] Record key design decisions, including smart-enum/value-object controlled values.
 	- [x] Record out-of-scope boundaries preserved by WP002.
-	- **Task Summary**: Added Work Item 6 notes summarizing validated slices, validation commands and outcomes, design decisions, and preserved WP002 out-of-scope boundaries.
+	- **Task Summary**: Recorded Work Item 6 validated slices, validation commands and outcomes, design decisions, and preserved WP002 out-of-scope boundaries in this plan and in `wiki/home.md` where contributor-facing guidance was required.
   - [x] Task 4: Review source documentation-pass compliance - Completed
 	- [x] Inspect touched production files for required comments on all classes, methods, constructors, parameters, and non-obvious properties.
 	- [x] Inspect touched test files for scenario, setup, action, assertion, and behavioral-significance comments.
 	- [x] Correct documentation gaps without changing behavior.
 	- **Task Summary**: Reviewed representative touched source and test files in `Archon.Domain`, `Archon.Application`, `Archon.Domain.Tests`, and `Archon.Application.Tests`; no documentation-only corrections were required.
   - **Files**:
-	- `docs/002-Architecture-Graph-Domain-Model/implementation-notes-wp002.md`: Final implementation notes and validation record.
+	- `docs/002-Architecture-Graph-Domain-Model/plan-wp002-architecture-graph-domain-model.md`: Final validation record.
 	- `src/Archon.Domain/**/*.cs`: Documentation-pass review scope for touched files.
 	- `src/Archon.Application/**/*.cs`: Documentation-pass review scope for touched files.
 	- `test/Archon.Domain.Tests/**/*.cs`: Documentation-pass review scope for touched tests.
@@ -429,7 +428,7 @@ The exact folder names may be adjusted to match existing repository conventions 
 ## 7. Final Mandatory Wiki Review or Wiki Update Slice
 
 - [x] Work Item 7: Complete final wiki review and record the work-package documentation outcome - Completed
-  - **Completion Summary**: Completed the final mandatory WP002 wiki review, identified `wiki/home.md` as the active workspace wiki page, reviewed WP002 architecture graph terminology and contributor guidance, and recorded the final outcome in `docs/002-Architecture-Graph-Domain-Model/implementation-notes-wp002.md`. Wiki review result: no additional wiki page update was required for Work Item 7 because `wiki/home.md` already contains current-state, book-like narrative guidance for controlled values, stable keys, fingerprints, metadata, evidence-first graph facts, confidence, unknown state, extraction accumulation, duplicate stable-key behavior, diagnostic preservation, and WP002 no-I/O/out-of-scope boundaries. No wiki pages were created, split, renamed, retired, or left stale.
+	- **Completion Summary**: Completed the final mandatory WP002 wiki review, identified `wiki/home.md` as the active workspace wiki page, reviewed WP002 architecture graph terminology and contributor guidance, and recorded the final outcome in this plan. Wiki review result: no additional wiki page update was required for Work Item 7 because `wiki/home.md` already contains current-state, book-like narrative guidance for controlled values, stable keys, fingerprints, metadata, evidence-first graph facts, confidence, unknown state, extraction accumulation, duplicate stable-key behavior, diagnostic preservation, and WP002 no-I/O/out-of-scope boundaries. No wiki pages were created, split, renamed, retired, or left stale.
   - **Purpose**: Satisfy the mandatory repository wiki-maintenance gate for the complete WP002 work package. This work item ensures contributor-facing architecture, terminology, and workflow documentation either reflects the new graph domain model or has an explicit reviewed no-change rationale.
   - **Acceptance Criteria**:
 	- `./.github/instructions/wiki.instructions.md` has been followed for the full work package.
@@ -438,7 +437,7 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- If no wiki update is needed, the exact reviewed scope and rationale are recorded.
 	- The final execution record states which wiki or repository guidance pages were updated, created, retired, left unchanged, or why no wiki page update was needed.
   - **Definition of Done**:
-	- Wiki review outcome is recorded in `docs/002-Architecture-Graph-Domain-Model/implementation-notes-wp002.md`.
+	- Wiki review outcome is recorded in this plan.
 	- Any required wiki update uses book-like narrative depth for conceptually dense model or architecture content.
 	- Technical terms such as architecture graph, stable key, fingerprint, controlled value, evidence, confidence, unknown state, and extraction accumulator are defined on first use or linked to an explicit glossary entry where applicable.
 	- Relevant examples or walkthroughs are included when they materially improve understanding.
@@ -461,16 +460,16 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- [x] If no update is needed or no wiki location exists, record the reviewed scope and rationale explicitly.
 	- **Task Summary**: No additional wiki edit was required because `wiki/home.md` already uses current-state long-form narrative guidance for WP002 concepts and explicitly preserves WP002 out-of-scope boundaries.
   - [x] Task 4: Record final wiki outcome - Completed
-	- [x] Add the final wiki review result to implementation notes.
+	- [x] Add the final wiki review result to the plan completion record.
 	- [x] Ensure the final execution summary can state exactly what was updated, created, retired, or left unchanged.
-	- **Task Summary**: Added the final Work Item 7 wiki scope, impact review, and no-additional-change result to `implementation-notes-wp002.md`; no wiki pages were created, split, renamed, retired, or left stale.
+	- **Task Summary**: Recorded the final Work Item 7 wiki scope, impact review, and no-additional-change result in this plan; no wiki pages were created, split, renamed, retired, or left stale.
   - **Files**:
 	- `wiki/**/*.md`: Wiki pages if a wiki directory exists and updates are required.
-	- `docs/002-Architecture-Graph-Domain-Model/implementation-notes-wp002.md`: Required final wiki review record.
+	- `docs/002-Architecture-Graph-Domain-Model/plan-wp002-architecture-graph-domain-model.md`: Required final wiki review record.
 	- Repository guidance markdown files if they are acting as wiki substitutes and updates are required.
   - **Work Item Dependencies**: Work Items 1 through 6.
   - **Run / Verification Instructions**:
-	- Review `docs/002-Architecture-Graph-Domain-Model/implementation-notes-wp002.md` and any updated wiki or repository guidance files for the required wiki review result.
+	- Review this plan and any updated wiki or repository guidance files for the required wiki review result.
   - **User Instructions**:
 	- None expected unless the repository wiki is external and not available in the workspace.
 
@@ -576,7 +575,7 @@ This flow gives a runnable developer demonstration for each slice while preservi
 
 ## Summary of Approach and Key Considerations
 
-This plan implements WP002 through small developer-facing vertical slices: controlled values first, then stable identities, deterministic fingerprints, evidence-first graph models, and finally application-level snapshot accumulation. Each work item includes tests, documentation-pass compliance, wiki review, implementation notes, and explicit run instructions.
+This plan implements WP002 through small developer-facing vertical slices: controlled values first, then stable identities, deterministic fingerprints, evidence-first graph models, and finally application-level snapshot accumulation. Each work item includes tests, documentation-pass compliance, wiki review, concise plan history, and explicit run instructions.
 
 The most important implementation considerations are determinism, explicit unknowns, stable external strings, and Onion Architecture boundaries. The plan deliberately avoids Neo4j, Roslyn, API endpoints, MCP tools, markdown export, and UI behavior so later work packages can build on a clean, well-tested contract model.
 

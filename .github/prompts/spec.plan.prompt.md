@@ -11,6 +11,8 @@ You MUST load and follow `./.github/instructions/wiki.instructions.md` for every
 - The plan MUST carry forward the repository standard that architecture, runtime foundations, setup flows, workflow-heavy guidance, and other conceptually dense documentation must be written in longer, book-like narrative prose rather than terse bullet-heavy summaries.
 - The plan MUST require technical terms to be explained when first introduced, either inline or through explicit glossary linkage.
 - The plan MUST require relevant examples or walkthrough material when they materially improve understanding.
+- The plan MUST require wiki information-architecture review for every work package: identify the correct topic page, decide whether a new page is needed, prevent `wiki/home.md` from becoming a catch-all page, and require cross-links/glossary updates where needed.
+- The plan MUST require a wiki impact matrix or equivalent final record covering affected concepts, pages reviewed, pages updated, pages created, pages intentionally unchanged, and the page-structure decision.
 - The plan MUST require uninterrupted execution of each active Work Item: once implementation starts, the executor must continue through all tasks and steps for that Work Item, including validation, documentation/wiki review, and plan-record updates, without stopping for status messages, step announcements, ordinary fixable failures, or confirmation prompts. The only allowed stops during an active Work Item are full Work Item completion, explicit user interruption/change of direction, or a true blocker that cannot be resolved from the specification, plan, codebase, or repository guidance.
 
 ## Mandatory Documentation Pass Instruction
@@ -22,12 +24,15 @@ When planning any work that creates or updates source code, you MUST treat `./.g
 - If the specification for a work item includes documentation-only constraints, the plan MUST preserve them exactly.
 
 ## Documentation location (Work Package folder)
-All documents for this piece of work MUST be created under a single subfolder of `./docs/`.
+Work-package planning artifacts for this piece of work MUST be created under a single subfolder of `./docs/`.
 
 - Folder naming: `xxx-<descriptor>` where `xxx` is the next incremental number (e.g. `001`, `002`, ...) and `<descriptor>` succinctly describes the work.
 - Use `./docs/001-Initial-Shell/` as the reference example for structure and naming.
 - The implementation plan MUST be stored in the same Work Package folder as the related specifications.
-- Architecture content MUST be included as a section or appendix inside the implementation plan document. Do not create a separate architecture markdown document for this workflow unless the user explicitly asks for one.
+- Architecture planning content MUST be included as a section or appendix inside the implementation plan document. Do not create a separate architecture markdown document for this workflow unless the user explicitly asks for one.
+- The plan MUST NOT require or permit standalone implementation notes, implementation ledgers, architecture notes, or similar narrative completion records for contributor-facing detail. Current-state design rationale, architecture guidance, setup steps, validation workflows, troubleshooting guidance, terminology, and contributor-facing behavior MUST be written into `./wiki` according to `./.github/instructions/wiki.instructions.md`.
+- The plan MUST NOT allow `wiki/home.md` to be used as the default destination for contributor-facing detail. `home.md` is a landing page; topic pages must carry detailed architecture, runtime, domain, persistence, validation, setup, and workflow guidance.
+- The plan may require concise plan-status updates and validation outcomes for traceability, but those updates must link to wiki guidance instead of duplicating wiki content.
 - Do not write plans to `docs/plans/` for this workflow.
 - In outputs, include the target output path for each document (relative to repo root).
 
@@ -69,6 +74,8 @@ Evolution Strategy:
    - Add wiki review/update expectations to each Work Item's Definition of Done where the slice affects developer-facing behaviour, architecture, workflows, terminology, prompts, instructions, or contributor guidance.
    - Require the implementation to record the wiki review result explicitly, including when no wiki page update is needed.
    - Require foundational documentation slices to preserve substantial explanatory depth, define technical terms clearly, and include examples or walkthroughs where relevant.
+    - Require page-structure assessment: selected topic page, whether a new page is needed, whether `home.md` remains concise, and whether cross-links/glossary entries are sufficient.
+    - Require a final wiki impact matrix or equivalent prose in the completion record.
 5. Ensure logical sequencing.
    - Each Work Item depends only on prior slices and shared foundational infrastructure.
    - Clearly state dependencies between Work Items and Tasks.
@@ -123,6 +130,9 @@ The plan MUST also include a final explicit wiki review or wiki update Work Item
 - MANDATORY: Every implementation plan must explicitly require fully commented code for all code written during execution. Ensure the plan includes work to add developer-level comments to every class, every method, and every constructor, including internal and other non-public types and members; comments for every public method and constructor parameter explaining that parameter's purpose; and comments on every property whose meaning is not obvious from its name. Plans must also require sufficient inline or block comments so a developer reading the code can understand its purpose, logical flow, and any algorithms used. Code is not acceptable unless this commenting standard is planned for and delivered.
 - MANDATORY: The plan must explicitly require compliance with `./.github/instructions/documentation-pass.instructions.md` and must treat that file as a hard gate for implementation completion.
 - MANDATORY: The plan must explicitly require compliance with `./.github/instructions/wiki.instructions.md`, must include wiki-review obligations in relevant Work Item Definitions of Done, and must end with a final explicit wiki review or wiki update Work Item.
+- MANDATORY: The plan must prohibit standalone implementation notes or implementation ledgers for contributor-facing detail. If contributor-facing explanation is needed, the plan must route it to `./wiki` and require stale implementation-note-style artifacts to be retired.
+- MANDATORY: The plan must prohibit home-page dumping. Detailed contributor-facing content must be routed to the correct topic page or to a newly created page, with `wiki/home.md` limited to orientation and links.
+- MANDATORY: The plan must require page-structure reporting in the final wiki review result, including pages reviewed, updated, created, intentionally unchanged, and why the selected structure remains readable.
 - MANDATORY: For architecture, runtime, workflow, setup, extension, and other conceptually dense documentation slices, the plan must require long-form, book-like narrative explanation, explicit technical-term definition, and relevant examples or walkthrough material rather than terse bullet-heavy treatment.
 - MANDATORY: Every implementation plan must make non-stop active Work Item execution explicit and absolute. Plans must not include approval gates, confirmation pauses, or status-only stopping points inside a Work Item. They may require clarification only for true blockers that cannot be resolved from the specification, plan, codebase, or repository guidance.
 

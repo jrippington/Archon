@@ -11,6 +11,8 @@ You MUST load and follow `./.github/instructions/wiki.instructions.md` for every
 - Update `./wiki` whenever developer-facing behaviour, architecture, workflows, technical concepts, terminology, or contributor guidance have changed or been materially clarified.
 - If a careful review concludes that no wiki page change is needed, record that result explicitly and explain why.
 - When updating wiki content for architecture, runtime foundations, setup, workflow-heavy areas, or other conceptually dense topics, require book-like narrative depth: use longer explanatory prose, define technical terms when first introduced, preserve rationale, and include examples or walkthrough material where relevant instead of collapsing the subject into terse bullet-heavy lists.
+- Do not use `wiki/home.md` as a catch-all destination. It is a landing page and table of contents; detailed contributor-facing guidance belongs on the correct topic page or a newly created page.
+- Every wiki review must include a page-structure assessment and final wiki impact matrix or equivalent prose covering affected concepts, pages reviewed, pages updated, pages created, pages intentionally unchanged, and the page-structure decision.
 
 ## Mandatory Documentation Pass Instruction
 You MUST load and follow `./.github/instructions/documentation-pass.instructions.md` for every coding task.
@@ -35,8 +37,8 @@ Workflow Per Work Item / Task / Step:
 4. If implementing logic: (a) write/modify tests first (TDD) where feasible; (b) implement code to satisfy tests and specs; (c) ensure error handling, logging, docs/comments).
 5. Add/adjust imports, dependencies, configuration, and registration (DI, settings) as needed.
 6. Run build and tests; fix failures before marking complete.
-7. Perform the mandatory wiki review required by `./.github/instructions/wiki.instructions.md`; update the wiki or record explicitly why no wiki page change was needed.
-8. Update the plan markdown document immediately after completing any Work Item, Task, or Step: mark the unit completed with a concise summary of changes, validation performed, and the wiki review result (do NOT remove historical context).
+7. Perform the mandatory wiki review required by `./.github/instructions/wiki.instructions.md`; include page-structure assessment, update the correct topic page or create a new page when needed, update cross-links/glossary entries where appropriate, and record explicitly why no wiki page change was needed if none was required.
+8. Update the plan markdown document immediately after completing any Work Item, Task, or Step: mark the unit completed with a concise summary of changes, validation performed, and the wiki review result (do NOT remove historical context). Do not create implementation notes, implementation ledgers, architecture notes, or similar narrative completion records; contributor-facing implementation detail belongs in `./wiki`, not in parallel markdown artifacts.
 9. Continue immediately to the next required task or step without waiting for user input. Stop only for full active-work-item completion, an explicit user interruption/change of direction, or a true blocker as defined above.
 10. Output the required completion message and any user follow-up instructions only after the current work item is fully complete, validated, and recorded.
 
@@ -51,6 +53,9 @@ Workflow Per Work Item / Task / Step:
 - Code is not acceptable unless this commenting standard is met.
 - Validation for documentation-only or documentation-heavy work must still meet the build-and-test requirements defined in `./.github/instructions/documentation-pass.instructions.md`.
 - Wiki review is mandatory for every work package, and relevant wiki updates are mandatory whenever the change affects developer-facing behaviour, architecture, workflows, terminology, or contributor understanding.
+- Standalone implementation notes, implementation ledgers, architecture notes, or similarly named markdown files must not be created for contributor-facing details. If such detail is needed, update `./wiki`; if an existing implementation-note-style artifact is encountered, retire it after moving still-current guidance to the wiki.
+- `wiki/home.md` must stay concise. Never add detailed architecture, runtime, setup, domain, persistence, validation, or workflow guidance to `home.md`; add it to a topic page and link it from `home.md` only when a reader path changes.
+- Final wiki review reporting must include the wiki impact matrix or equivalent: affected concepts, pages reviewed, pages updated, pages created, pages intentionally unchanged, and the page-structure decision.
 - For conceptually dense documentation, especially architecture, runtime foundations, setup journeys, extension models, and workflow-heavy material, preserve and expand deep conceptual explanation. The expected style is longer-form, book-like prose that explains technical terms and rationale, not dry bullet-led summaries.
 
 General Rules:
@@ -78,6 +83,8 @@ Testing:
 Plan Update Format:
 - Mark item as Completed (e.g., "[x] Work Item3: <title> - Completed")
 - Add a short summary: changes made, files touched, tests/validation performed, and the wiki review result.
+- Keep plan updates concise. Do not turn the plan into an implementation-notes substitute; move current-state contributor guidance to the wiki and link to it when needed.
+- Include the wiki impact matrix or equivalent prose in the final work-item/work-package record whenever wiki review is part of the work.
 - Do not remove or rewrite previous items; maintain chronological integrity.
 
 Completion Output (per item):
@@ -89,6 +96,7 @@ Finalization (after last item):
 - Provide a final summary of all work items completed.
 - Indicate any follow-up recommendations.
 - Record the outcome of the mandatory wiki review, including which wiki or repository guidance pages were updated, created, retired, or intentionally left unchanged.
+- Record the page-structure decision: why the selected topic pages were correct, whether new pages were created, and why `home.md` remained only a landing page.
 - Ensure that the wiki (if present) at `./wiki` is updated with any relevant documentation changes or new pages created during implementation.
 - Confirm that foundational documentation topics retained book-like narrative depth, explicit technical-term explanations, and relevant examples where they were needed for comprehension.
 

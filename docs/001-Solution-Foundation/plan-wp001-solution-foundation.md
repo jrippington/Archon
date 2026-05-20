@@ -33,7 +33,6 @@ docs/
   001-Solution-Foundation/
 	spec-wp001-solution-foundation.md
 	plan-wp001-solution-foundation.md
-	implementation-notes-wp001.md
 
 src/
   Archon/
@@ -115,7 +114,7 @@ No `ArchonUi` or `ArchonUi.Tests` project will be created in WP001 because the s
 ## 1. Foundation Solution Skeleton
 
 - [x] Work Item 1: Create the buildable Archon solution and complete project skeleton - Completed
-  - **Completion Summary**: Created or aligned `Archon.slnx`, 34 production projects under `./src`, and 34 corresponding xUnit test projects under `./test`. Production projects target `net10.0`, enable nullable reference types, use explicit non-top-level entry points for executable skeletons, and include documented marker types for compile-safe library identities. Test projects reference their matching production projects and include documented smoke tests proving project wiring. Validation succeeded with `dotnet restore .\Archon.slnx`, `dotnet build .\Archon.slnx --no-restore`, and `dotnet test .\Archon.slnx --no-build --filter FullyQualifiedName~ProjectReferenceTests` with 34 passed tests. Wiki review result: no `./wiki` directory exists in the workspace, so no wiki pages could be updated; the explicit no-wiki-workspace result and rationale are recorded in `docs/001-Solution-Foundation/implementation-notes-wp001.md`.
+	- **Completion Summary**: Created or aligned `Archon.slnx`, 34 production projects under `./src`, and 34 corresponding xUnit test projects under `./test`. Production projects target `net10.0`, enable nullable reference types, use explicit non-top-level entry points for executable skeletons, and include documented marker types for compile-safe library identities. Test projects reference their matching production projects and include documented smoke tests proving project wiring. Validation succeeded with `dotnet restore .\Archon.slnx`, `dotnet build .\Archon.slnx --no-restore`, and `dotnet test .\Archon.slnx --no-build --filter FullyQualifiedName~ProjectReferenceTests` with 34 passed tests. Wiki review result: no `./wiki` directory existed at the time of this initial slice, so no wiki pages could be updated then; the later corrective documentation pass records current WP001 contributor guidance in `wiki/home.md` and keeps this plan as the concise execution record.
   - **Purpose**: Establish the solution-wide executable and library structure required by the complete API-first and MCP-first work-package sequence, with every production and test project present before later behavior is implemented.
   - **Acceptance Criteria**:
 	- `Archon.slnx` exists at the repository root.
@@ -167,7 +166,7 @@ No `ArchonUi` or `ArchonUi.Tests` project will be created in WP001 because the s
 	- `src/**/**/*.cs`: Minimal compile-safe project marker or host bootstrap code.
 	- `test/**/**/*.csproj`: Test project files.
 	- `test/**/**/*.cs`: Minimal smoke tests and test fixtures.
-	- `docs/001-Solution-Foundation/implementation-notes-wp001.md`: Implementation notes, decisions, and validation record.
+	- `docs/001-Solution-Foundation/plan-wp001-solution-foundation.md`: Decisions and validation record.
   - **Work Item Dependencies**: None.
   - **Run / Verification Instructions**:
 	- `dotnet restore .\Archon.slnx`
@@ -231,7 +230,7 @@ No `ArchonUi` or `ArchonUi.Tests` project will be created in WP001 because the s
 	- `test/Archon.ServiceDefaults.Tests/**`: Service-default tests.
 	- `test/ArchonApi.Tests/**`: API host bootstrap tests.
 	- `test/ArchonMcp.Tests/**`: MCP host bootstrap tests.
-	- `docs/001-Solution-Foundation/implementation-notes-wp001.md`: Runtime verification notes.
+	- `wiki/home.md`: Runtime verification guidance.
   - **Work Item Dependencies**: Work Item 1.
   - **Run / Verification Instructions**:
 	- `dotnet test .\test\Archon.ServiceDefaults.Tests\Archon.ServiceDefaults.Tests.csproj`
@@ -280,16 +279,16 @@ No `ArchonUi` or `ArchonUi.Tests` project will be created in WP001 because the s
 	- [x] Ensure tests do not start the AppHost as a long-running process.
 	- **Task Summary**: Added `AppHostCompositionMetadataTests` to inspect AppHost project/source metadata and UI absence without starting the AppHost, Neo4j, or any long-running process.
   - [x] Task 4: Document manual Aspire verification - Completed
-	- [x] Add manual verification instructions to `docs/001-Solution-Foundation/implementation-notes-wp001.md`.
+	- [x] Add manual verification instructions to `wiki/home.md`.
 	- [x] State that automated validation must not run the AppHost as a blocking process.
 	- [x] Include expected success indicators in the Aspire dashboard.
 	- [x] Include a reminder to stop the AppHost after manual verification.
-	- **Task Summary**: Updated implementation notes with manual `dotnet run --project .\src\Archon\Archon.csproj` guidance, container runtime prerequisite, expected `neo4j`, `ArchonApi`, and `ArchonMcp` dashboard resources, no-UI expectation, and reminder to stop the AppHost.
+	- **Task Summary**: Updated `wiki/home.md` with manual `dotnet run --project .\src\Archon\Archon.csproj` guidance, container runtime prerequisite, expected `neo4j`, `ArchonApi`, and `ArchonMcp` dashboard resources, no-UI expectation, and reminder to stop the AppHost.
   - **Files**:
 	- `src/Archon/Archon.csproj`: Aspire AppHost project using SDK `13.3.3`.
 	- `src/Archon/**`: AppHost bootstrap and composition code.
 	- `test/Archon.Tests/**`: AppHost composition tests or safe metadata checks.
-	- `docs/001-Solution-Foundation/implementation-notes-wp001.md`: Manual AppHost verification instructions.
+	- `wiki/home.md`: Manual AppHost verification instructions.
   - **Work Item Dependencies**: Work Items 1 and 2.
   - **Run / Verification Instructions**:
 	- Automated: `dotnet test .\test\Archon.Tests\Archon.Tests.csproj`
@@ -336,11 +335,11 @@ No `ArchonUi` or `ArchonUi.Tests` project will be created in WP001 because the s
   - [x] Task 3: Validate against actual project files - Completed
 	- [x] Run the boundary tests.
 	- [x] Fix incorrect references or categorization until tests represent the WP001 architecture accurately.
-	- [x] Record any intentionally allowed host composition reference in implementation notes.
-	- **Task Summary**: Ran boundary and identity test filters successfully against the actual project files. No project-reference fixes were required. Recorded the intentionally allowed `Archon` AppHost references to `ArchonApi` and `ArchonMcp` as host composition references in implementation notes.
+	- [x] Record any intentionally allowed host composition reference in wiki guidance.
+	- **Task Summary**: Ran boundary and identity test filters successfully against the actual project files. No project-reference fixes were required. Recorded the intentionally allowed `Archon` AppHost references to `ArchonApi` and `ArchonMcp` as host composition references in `wiki/home.md`.
   - **Files**:
 	- `test/Archon.Tests/**`: Cross-cutting project identity and boundary tests.
-	- `docs/001-Solution-Foundation/implementation-notes-wp001.md`: Boundary rules explanation and validation record.
+	- `wiki/home.md`: Boundary rules explanation and validation guidance.
   - **Work Item Dependencies**: Work Items 1, 2, and 3.
   - **Run / Verification Instructions**:
 	- `dotnet test .\test\Archon.Tests\Archon.Tests.csproj --filter FullyQualifiedName~Boundary`
@@ -348,13 +347,13 @@ No `ArchonUi` or `ArchonUi.Tests` project will be created in WP001 because the s
   - **User Instructions**:
 	- None expected.
 
-## 5. Foundation Documentation and Manual Verification Slice
+## 5. Foundation Wiki Documentation and Manual Verification Slice
 
-- [x] Work Item 5: Create implementation notes and developer verification documentation - Completed
-  - **Completion Summary**: Expanded `docs/001-Solution-Foundation/implementation-notes-wp001.md` into long-form contributor documentation covering WP001 purpose, project families, why full skeleton projects exist before behavior, normalized project identity, Discovery UI exclusion, restore/build commands, targeted test commands, expected success signals, documentation-pass requirements, manual AppHost verification, non-blocking AppHost warning, container runtime prerequisites, dashboard success indicators, and later-capability assignment. Updated `wiki/home.md` to mirror current setup and verification guidance with restore/build commands, targeted test commands, non-blocking validation guidance, and later-capability assignment. Validation succeeded for all documented automated commands: `dotnet restore .\Archon.slnx`, `dotnet build .\Archon.slnx --no-restore`, service-default/API/MCP targeted tests, and `Archon.Tests` AppHost composition, boundary, and project identity filters. Wiki review result: updated `wiki/home.md`; no pages were retired or left stale.
+- [x] Work Item 5: Create wiki-based developer verification documentation - Completed
+  - **Completion Summary**: Updated `wiki/home.md` with long-form contributor documentation covering WP001 purpose, project families, why full skeleton projects exist before behavior, normalized project identity, Discovery UI exclusion, restore/build commands, targeted test commands, expected success signals, documentation-pass requirements, manual AppHost verification, non-blocking AppHost warning, container runtime prerequisites, dashboard success indicators, and later-capability assignment. Validation succeeded for all documented automated commands: `dotnet restore .\Archon.slnx`, `dotnet build .\Archon.slnx --no-restore`, service-default/API/MCP targeted tests, and `Archon.Tests` AppHost composition, boundary, and project identity filters. Wiki review result: updated `wiki/home.md`; no pages were retired or left stale.
   - **Purpose**: Give contributors enough narrative context and practical commands to understand, build, test, and manually verify the WP001 foundation without confusing it with future extraction or UI work.
   - **Acceptance Criteria**:
-	- `docs/001-Solution-Foundation/implementation-notes-wp001.md` exists.
+	- `wiki/home.md` contains WP001 current-state contributor guidance.
 	- Documentation explains the created solution structure and why each major project family exists.
 	- Documentation explains how to restore and build the solution.
 	- Documentation explains how to run targeted tests for host bootstrap, service defaults, AppHost composition checks, and boundary tests.
@@ -363,11 +362,11 @@ No `ArchonUi` or `ArchonUi.Tests` project will be created in WP001 because the s
 	- Documentation explicitly states that Discovery UI is not implemented in WP001.
 	- Documentation identifies later capabilities as assigned to later numbered work packages, not deferred optional work.
   - **Definition of Done**:
-	- Implementation notes are written in long-form, book-like narrative prose where architecture, runtime foundation, setup flow, or contributor workflow concepts are explained.
+	- Wiki guidance is written in long-form, book-like narrative prose where architecture, runtime foundation, setup flow, or contributor workflow concepts are explained.
 	- Technical terms such as AppHost, service defaults, readiness, liveness, service discovery, composition root, and Onion Architecture are defined on first use or linked to glossary-style explanation.
 	- Relevant examples or walkthroughs are included where they materially improve understanding.
 	- Documentation-pass requirements for source comments are cross-referenced as mandatory for code work performed in WP001.
-	- Wiki review is performed for overlap between implementation notes and repository wiki guidance; relevant wiki or repository guidance is updated, or an explicit no-change result is recorded.
+	- Wiki review is performed for repository wiki guidance; relevant wiki or repository guidance is updated, or an explicit no-change result is recorded.
 	- Can execute end-to-end by following the documented build, test, and manual verification commands.
 	- Executor must not stop mid-work-item unless the work item is complete, the user explicitly interrupts, or a true blocker prevents further autonomous progress.
 	- [x] Task 1: Document the foundation structure - Completed
@@ -392,18 +391,18 @@ No `ArchonUi` or `ArchonUi.Tests` project will be created in WP001 because the s
 	- [x] Avoid language that treats those capabilities as optional, deferred, or unspecified future work.
 	- **Task Summary**: Added explicit later-capability assignment for extraction, query, management, graph persistence, markdown export, MCP tools/resources/prompts, findings, hotlist behavior, and Discovery UI as later numbered work rather than optional future work.
   - **Files**:
-	- `docs/001-Solution-Foundation/implementation-notes-wp001.md`: Main WP001 implementation and verification notes.
+	- `wiki/home.md`: Main WP001 contributor guidance and verification instructions.
 	- `docs/001-Solution-Foundation/spec-wp001-solution-foundation.md`: Update only if implementation discovers a specification correction is required.
   - **Work Item Dependencies**: Work Items 1 through 4.
   - **Run / Verification Instructions**:
-	- Follow all commands documented in `docs/001-Solution-Foundation/implementation-notes-wp001.md`.
+	- Follow all commands documented in `wiki/home.md`.
   - **User Instructions**:
 	- Manual Aspire verification may require local container support for Neo4j.
 
 ## 6. Targeted Validation and Work-Package Completion Record
 
 - [x] Work Item 6: Validate WP001 and record completion evidence - Completed
-  - **Completion Summary**: Completed final WP001 automated validation without starting the Aspire AppHost as a blocking process. `dotnet restore D:\Dev\Archon\Archon.slnx` succeeded, `dotnet build D:\Dev\Archon\Archon.slnx` succeeded, and targeted test projects succeeded for `Archon.ServiceDefaults.Tests`, `ArchonApi.Tests`, `ArchonMcp.Tests`, and `Archon.Tests`; the final visible `Archon.Tests` summary reported 14 passed, 0 failed, and 0 skipped. Confirmed implementation notes and `wiki/home.md` contain manual Aspire verification instructions, the non-blocking AppHost automation warning, `ArchonUi` exclusion, and later numbered work-package assignment for capabilities outside WP001. Manual AppHost verification was not performed by the executor because it is intentionally a developer-run long-running orchestration check. Wiki review result: reviewed `wiki/home.md` and the implementation record; no additional wiki update was required because Work Item 5 guidance already matches the final validated foundation.
+	- **Completion Summary**: Completed final WP001 automated validation without starting the Aspire AppHost as a blocking process. `dotnet restore D:\Dev\Archon\Archon.slnx` succeeded, `dotnet build D:\Dev\Archon\Archon.slnx` succeeded, and targeted test projects succeeded for `Archon.ServiceDefaults.Tests`, `ArchonApi.Tests`, `ArchonMcp.Tests`, and `Archon.Tests`; the final visible `Archon.Tests` summary reported 14 passed, 0 failed, and 0 skipped. Confirmed `wiki/home.md` contains manual Aspire verification instructions, the non-blocking AppHost automation warning, `ArchonUi` exclusion, and later numbered work-package assignment for capabilities outside WP001. Manual AppHost verification was not performed by the executor because it is intentionally a developer-run long-running orchestration check. Wiki review result: reviewed `wiki/home.md`; no additional wiki update was required because Work Item 5 guidance already matches the final validated foundation.
   - **Purpose**: Prove the foundation is complete, buildable, and tested before later work packages depend on it.
   - **Acceptance Criteria**:
 	- Solution restore succeeds.
@@ -435,14 +434,14 @@ No `ArchonUi` or `ArchonUi.Tests` project will be created in WP001 because the s
 	- [x] Confirm the documentation states not to automate blocking AppHost execution.
 	- [x] Confirm `ArchonUi` exclusion is documented.
 	- [x] Confirm later capabilities are assigned to later work packages, not optional future work.
-	- **Task Summary**: Confirmed `docs/001-Solution-Foundation/implementation-notes-wp001.md` and `wiki/home.md` contain the manual AppHost walkthrough, non-blocking AppHost automation warning, explicit no-UI scope, and later numbered work-package assignment.
+	- **Task Summary**: Confirmed `wiki/home.md` contains the manual AppHost walkthrough, non-blocking AppHost automation warning, explicit no-UI scope, and later numbered work-package assignment.
   - [x] Task 4: Record completion evidence - Completed
-	- [x] Update `docs/001-Solution-Foundation/implementation-notes-wp001.md` with executed commands and outcomes.
+	- [x] Update this plan with executed commands and outcomes.
 	- [x] Record any manual verification that was not performed by the executor and why.
 	- [x] Include the wiki review outcome or reference the final wiki work item result.
-	- **Task Summary**: Added the final Work Item 6 completion record to implementation notes, including command outcomes, manual AppHost verification status, and final wiki review result.
+	- **Task Summary**: Added the final Work Item 6 completion record to this plan, including command outcomes, manual AppHost verification status, and final wiki review result.
   - **Files**:
-	- `docs/001-Solution-Foundation/implementation-notes-wp001.md`: Validation and completion record.
+	- `docs/001-Solution-Foundation/plan-wp001-solution-foundation.md`: Validation and completion record.
   - **Work Item Dependencies**: Work Items 1 through 5.
   - **Run / Verification Instructions**:
 	- `dotnet restore .\Archon.slnx`
@@ -457,7 +456,7 @@ No `ArchonUi` or `ArchonUi.Tests` project will be created in WP001 because the s
 ## 7. Mandatory Wiki Review and Update Gate
 
 - [x] Work Item 7: Complete final wiki review and record wiki outcome - Completed
-  - **Completion Summary**: Completed the final mandatory wiki review for WP001 according to `./.github/instructions/wiki.instructions.md`. Reviewed the final implementation record, this plan, the wiki-maintenance instruction file, and every wiki page present in the workspace. The only wiki page present is `wiki/home.md`. No additional wiki page update was required because `wiki/home.md` already provides current-state narrative guidance for WP001 solution structure, service defaults, probe endpoints, AppHost composition, Neo4j runtime seam, automated validation commands, manual AppHost verification, non-blocking AppHost automation, Onion Architecture boundaries, project identity, `ArchonUi` exclusion, and later numbered work-package assignment. Recorded the explicit no-change wiki outcome in `docs/001-Solution-Foundation/implementation-notes-wp001.md`. Validation succeeded with `dotnet build D:\Dev\Archon\Archon.slnx` after the documentation-only updates.
+	- **Completion Summary**: Completed the final mandatory wiki review for WP001 according to `./.github/instructions/wiki.instructions.md`. Reviewed this plan, the wiki-maintenance instruction file, and every wiki page present in the workspace. The only wiki page present is `wiki/home.md`. No additional wiki page update was required because `wiki/home.md` already provides current-state narrative guidance for WP001 solution structure, service defaults, probe endpoints, AppHost composition, Neo4j runtime seam, automated validation commands, manual AppHost verification, non-blocking AppHost automation, Onion Architecture boundaries, project identity, `ArchonUi` exclusion, and later numbered work-package assignment. Recorded the explicit no-change wiki outcome in this plan. Validation succeeded with `dotnet build D:\Dev\Archon\Archon.slnx` after the documentation-only updates.
   - **Purpose**: Satisfy the repository-wide wiki maintenance requirement and ensure contributor-facing guidance remains aligned with the WP001 foundation.
   - **Acceptance Criteria**:
 	- Relevant wiki pages, appendix pages, glossary entries, and repository guidance files are reviewed for WP001 impact.
@@ -467,14 +466,14 @@ No `ArchonUi` or `ArchonUi.Tests` project will be created in WP001 because the s
 	- Any wiki or guidance updates for architecture, runtime foundations, setup flows, or workflow-heavy topics use long-form, book-like narrative prose, define technical terms, and include examples or walkthrough material where useful.
   - **Definition of Done**:
 	- `./.github/instructions/wiki.instructions.md` has been followed in full.
-	- Wiki review result is recorded explicitly in `docs/001-Solution-Foundation/implementation-notes-wp001.md`.
+	- Wiki review result is recorded explicitly in this plan.
 	- Relevant wiki or repository guidance pages are updated if required.
 	- Final work-package report includes the wiki review result in one of the accepted explicit reporting forms from `wiki.instructions.md`.
 	- Executor must not stop mid-work-item unless the work item is complete, the user explicitly interrupts, or a true blocker prevents further autonomous progress.
 	- [x] Task 1: Identify wiki impact - Completed
 	- [x] Review WP001 changes for developer-facing behavior, architecture, runtime composition, setup, workflows, terminology, and contributor guidance.
 	- [x] Identify candidate wiki pages or guidance pages that may need updates.
-	- **Task Summary**: Reviewed WP001's developer-facing changes and confirmed the review scope included the implementation notes, this plan, wiki instructions, and the only wiki page present: `wiki/home.md`.
+	- **Task Summary**: Reviewed WP001's developer-facing changes and confirmed the review scope included this plan, wiki instructions, and the only wiki page present: `wiki/home.md`.
   - [x] Task 2: Apply required wiki or guidance updates - Completed
 	- [x] Update relevant wiki or repository guidance pages when WP001 changes or clarifies contributor-facing information.
 	- [x] Use narrative depth for foundational architecture and runtime topics.
@@ -482,16 +481,16 @@ No `ArchonUi` or `ArchonUi.Tests` project will be created in WP001 because the s
 	- [x] Include examples or walkthrough material where it improves understanding.
 	- **Task Summary**: No additional wiki edit was required because `wiki/home.md` already contains the required current-state narrative depth, definitions, command examples, manual verification walkthrough, and WP001 boundary explanations.
   - [x] Task 3: Record wiki review outcome - Completed
-	- [x] Record updated, created, retired, or unchanged wiki/guidance pages in `implementation-notes-wp001.md`.
+	- [x] Record updated, created, retired, or unchanged wiki/guidance pages in this plan.
 	- [x] Include a concise reason if no wiki page update was needed.
 	- [x] Ensure the final completion message carries this outcome forward.
-	- **Task Summary**: Recorded the final no-change wiki review outcome in implementation notes and included the reason existing `wiki/home.md` guidance remained sufficient.
+	- **Task Summary**: Recorded the final no-change wiki review outcome in this plan and included the reason existing `wiki/home.md` guidance remained sufficient.
   - **Files**:
-	- `docs/001-Solution-Foundation/implementation-notes-wp001.md`: Wiki review result.
+	- `docs/001-Solution-Foundation/plan-wp001-solution-foundation.md`: Wiki review result.
 	- `wiki/**` or repository guidance files: Updated only if review determines changes are required.
   - **Work Item Dependencies**: Work Items 1 through 6.
   - **Run / Verification Instructions**:
-	- Review the final recorded wiki outcome in `docs/001-Solution-Foundation/implementation-notes-wp001.md`.
+	- Review the final recorded wiki outcome in this plan.
   - **User Instructions**:
 	- None expected unless wiki location or access is unavailable in the workspace.
 

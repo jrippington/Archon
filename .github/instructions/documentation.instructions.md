@@ -8,7 +8,9 @@ Guidelines for authoring and maintaining specifications, plans, API docs, and co
 ### Work Package location
 - Create a single Work Package folder under `./docs/` for all outputs.
 - Folder naming: `xxx-<descriptor>` where `xxx` is the next incremental number (e.g. `001`, `002`, ...).
-- Store the overview spec, component/service specs, plans, and architecture notes inside the same Work Package folder.
+- Store the overview spec, component/service specs, and plans inside the same Work Package folder.
+- Do not create standalone implementation notes, implementation ledgers, architecture notes, or similar narrative records to explain completed contributor-facing behavior. That material belongs in the repository wiki according to `./.github/instructions/wiki.instructions.md`.
+- A plan may retain concise execution status, validation commands, and wiki review outcomes for historical traceability. It must not duplicate the wiki by carrying long-form current-state architecture, runtime, setup, workflow, or terminology guidance.
 
 ### Collaboration pattern (spec.research)
 - Separate spec per service/component; overview references each.

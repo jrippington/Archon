@@ -35,7 +35,6 @@ docs/
   003-Neo4j-Persistence-Foundation/
 	spec-wp003-neo4j-persistence-foundation.md
 	plan-wp003-neo4j-persistence-foundation.md
-	implementation-notes-wp003.md
 
 src/
   Archon.Application/
@@ -101,14 +100,14 @@ The exact folder names may be adjusted to match existing repository conventions 
 - Evidence is deduplicated per snapshot, not across snapshots.
 - Architecture relationships may be persisted directly as Neo4j relationships or through a relationship-node pattern. If relationship evidence or metadata cannot be represented safely through direct relationships, the implementation must choose and document the relationship-node pattern.
 - Rule catalog persistence uses rule code plus version as upsert identity and allows multiple versions of the same rule code to coexist.
-- Implementation notes must record design decisions, validation commands, Testcontainers behavior, wiki review outcome, and any intentionally out-of-scope capabilities.
+- Wiki guidance must record design decisions, validation commands, Testcontainers behavior, wiki review outcome, and any intentionally out-of-scope capabilities.
 
 ## Work Items
 
 ## 1. Neo4j Configuration, Driver Lifecycle, and Health Probe Slice
 
 - [x] Work Item 1: Implement validated Neo4j configuration, dependency injection, driver lifecycle, and a runnable health probe - Completed
-  - **Completion Summary**: Implemented documented Neo4j options, validation, driver factory, session provider, dependency-injection registration, and a lightweight readiness health check in `src/Archon.Infrastructure.Neo4j`. Added unit and Testcontainers integration tests in `test/Archon.Infrastructure.Neo4j.Tests` for safe validation messages, registration, driver disposal ownership, and real Neo4j health probing. Validation passed with `dotnet build .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj --no-restore`, the required targeted options/health test filter, and the full Neo4j infrastructure test project. Documentation was recorded in `docs/003-Neo4j-Persistence-Foundation/implementation-notes-wp003.md`. Wiki review result: updated `wiki/home.md` to explain Neo4j configuration, secret handling, driver lifecycle, readiness semantics, and Testcontainers validation.
+	- **Completion Summary**: Implemented documented Neo4j options, validation, driver factory, session provider, dependency-injection registration, and a lightweight readiness health check in `src/Archon.Infrastructure.Neo4j`. Added unit and Testcontainers integration tests in `test/Archon.Infrastructure.Neo4j.Tests` for safe validation messages, registration, driver disposal ownership, and real Neo4j health probing. Validation passed with `dotnet build .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj --no-restore`, the required targeted options/health test filter, and the full Neo4j infrastructure test project. Wiki review result: updated `wiki/home.md` to explain Neo4j configuration, secret handling, driver lifecycle, readiness semantics, and Testcontainers validation.
   - **Purpose**: Provide the smallest meaningful end-to-end Neo4j capability. A host or test can configure Neo4j, create the driver through dependency injection, execute a lightweight health query, and dispose resources safely without exposing secrets or requiring snapshot persistence.
   - **Acceptance Criteria**:
 	- Strongly typed Neo4j options exist for URI, database name where applicable, username, password, timeout, retry behavior, and optional encryption mode.
@@ -121,7 +120,7 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- Tests passing in `Archon.Infrastructure.Neo4j.Tests` for options validation, registration, disposal seams, and Testcontainers health-check success.
 	- Source code complies with `./.github/instructions/documentation-pass.instructions.md` for every touched class, method, constructor, parameter, property, and internal helper.
 	- Logging and error handling avoid Neo4j credential leakage.
-	- Documentation or implementation notes define Neo4j driver, health check, configuration binding, secret handling, and why Aspire is not started during automated validation.
+	- Wiki guidance defines Neo4j driver, health check, configuration binding, secret handling, and why Aspire is not started during automated validation.
 	- Wiki review is performed for setup/runtime-foundation impact; relevant wiki or repository guidance is updated, or an explicit no-change result is recorded.
 	- Foundational documentation retains book-like narrative depth, defines technical terms, and includes setup or troubleshooting examples when materially useful.
 	- Can execute end-to-end via: `dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj --filter "FullyQualifiedName~Neo4jOptions|FullyQualifiedName~Neo4jHealth"`.
@@ -155,9 +154,8 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- [x] Test registration using in-memory configuration. Completed: registration tests bind in-memory settings, verify health-check registration, and prove driver disposal ownership through a factory seam.
 	- [x] Test the health check against a Neo4j Testcontainers database. Completed: integration test starts a real Neo4j container and asserts `Neo4jHealthCheck` returns healthy.
 	- [x] Ensure tests do not start Aspire AppHost. Completed: tests use in-memory configuration and Testcontainers directly.
-  - [x] Task 8: Update implementation notes and wiki review result - Completed
-	- [x] Create or update `docs/003-Neo4j-Persistence-Foundation/implementation-notes-wp003.md`. Completed: created implementation notes for Work Item 1.
-	- [x] Record configuration, driver lifecycle, health-check, and Testcontainers decisions. Completed: implementation notes define the options model, driver/session lifecycle, health query, secret handling, and AppHost-free Testcontainers validation.
+	- [x] Task 8: Update wiki guidance and wiki review result - Completed
+	- [x] Record configuration, driver lifecycle, health-check, and Testcontainers decisions. Completed: `wiki/home.md` defines the options model, driver/session lifecycle, health query, secret handling, and AppHost-free Testcontainers validation.
 	- [x] Record wiki pages updated or a grounded no-change rationale. Completed: recorded that `wiki/home.md` was reviewed and updated for Neo4j runtime-foundation guidance.
   - **Files**:
 	- `src/Archon.Infrastructure.Neo4j/Configuration/*.cs`: Neo4j options and validation.
@@ -165,7 +163,7 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- `src/Archon.Infrastructure.Neo4j/DependencyInjection/*.cs`: Service registration.
 	- `src/Archon.Infrastructure.Neo4j/Health/*.cs`: Health check.
 	- `test/Archon.Infrastructure.Neo4j.Tests/**/*.cs`: Unit and Testcontainers health tests.
-	- `docs/003-Neo4j-Persistence-Foundation/implementation-notes-wp003.md`: Implementation record and wiki outcome.
+	- `wiki/home.md`: Current-state contributor guidance and wiki outcome.
   - **Work Item Dependencies**: WP001 project skeleton exists.
   - **Run / Verification Instructions**:
 	- `dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj --filter "FullyQualifiedName~Neo4jOptions|FullyQualifiedName~Neo4jHealth"`
@@ -175,7 +173,7 @@ The exact folder names may be adjusted to match existing repository conventions 
 ## 2. Graph Schema Initialization Slice
 
 - [x] Work Item 2: Implement idempotent graph constraints and indexes with real Neo4j verification - Completed
-  - **Completion Summary**: Added application-layer graph initialization contracts in `src/Archon.Application/Graph/Persistence` without Neo4j driver types, implemented stable schema names, idempotent schema statement catalog, and `Neo4jGraphInitializer` in `src/Archon.Infrastructure.Neo4j/Schema`, and registered the initializer through `AddArchonNeo4j`. The schema uses stable `archon_` constraint/index names and the relationship-node pattern through `ArchonRelationship` so architecture edges can later carry stable keys, fingerprints, metadata, and evidence links. Added application result tests, schema name/catalog tests, and a real Neo4j Testcontainers initialization test that runs twice and verifies metadata with `SHOW CONSTRAINTS` and `SHOW INDEXES`. Validation passed with the required `GraphSchema|GraphInitialization` filter. Documentation was recorded in `docs/003-Neo4j-Persistence-Foundation/implementation-notes-wp003.md`. Wiki review result: updated `wiki/home.md` with graph schema, constraint, index, idempotence, stable-name, relationship-node, and Testcontainers guidance.
+	- **Completion Summary**: Added application-layer graph initialization contracts in `src/Archon.Application/Graph/Persistence` without Neo4j driver types, implemented stable schema names, idempotent schema statement catalog, and `Neo4jGraphInitializer` in `src/Archon.Infrastructure.Neo4j/Schema`, and registered the initializer through `AddArchonNeo4j`. The schema uses stable `archon_` constraint/index names and the relationship-node pattern through `ArchonRelationship` so architecture edges can later carry stable keys, fingerprints, metadata, and evidence links. Added application result tests, schema name/catalog tests, and a real Neo4j Testcontainers initialization test that runs twice and verifies metadata with `SHOW CONSTRAINTS` and `SHOW INDEXES`. Validation passed with the required `GraphSchema|GraphInitialization` filter. Wiki review result: updated `wiki/home.md` with graph schema, constraint, index, idempotence, stable-name, relationship-node, and Testcontainers guidance.
   - **Purpose**: Make a clean Neo4j database become an Archon architecture graph store. This slice gives developers a runnable initialization path that creates stable constraints and indexes before any snapshot data is written.
   - **Acceptance Criteria**:
 	- Application-layer graph initialization abstraction and result contracts exist without Neo4j driver types.
@@ -187,7 +185,7 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- Tests passing for schema statement catalog, idempotent initialization, and real Neo4j schema introspection.
 	- Source code complies with `./.github/instructions/documentation-pass.instructions.md`.
 	- Logging and errors identify schema stages without exposing secrets.
-	- Documentation or implementation notes define graph schema, constraint, index, stable constraint/index names, and operational troubleshooting meaning.
+	- Wiki guidance defines graph schema, constraint, index, stable constraint/index names, and operational troubleshooting meaning.
 	- Wiki review is performed for architecture/runtime-foundation impact; relevant wiki or repository guidance is updated, or an explicit no-change result is recorded.
 	- Can execute end-to-end via: `dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj --filter "FullyQualifiedName~GraphSchema|FullyQualifiedName~GraphInitialization"`.
 	- Executor must not stop mid-work-item; execution continues through implementation, validation, documentation/wiki review, and plan-record updates unless the work item is complete, the user explicitly interrupts, or a true blocker prevents further autonomous progress.
@@ -197,7 +195,7 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- [x] Support cancellation tokens for asynchronous initialization. Completed: application port and Neo4j implementation accept cancellation tokens.
   - [x] Task 2: Design and document schema names - Completed
 	- [x] Define labels, relationship names, constraint names, and index names. Completed: added `Neo4jSchemaNames` with stable labels, reserved relationship names, properties, constraints, and indexes.
-	- [x] Record direct relationship versus relationship-node modeling decision for architecture edges. Completed: selected the relationship-node pattern using `ArchonRelationship` and recorded rationale in implementation notes and wiki guidance.
+	- [x] Record direct relationship versus relationship-node modeling decision for architecture edges. Completed: selected the relationship-node pattern using `ArchonRelationship` and recorded rationale in wiki guidance.
 	- [x] Ensure names are stable and suitable for operational troubleshooting. Completed: schema object names use explicit `archon_` prefixes and are tested.
   - [x] Task 3: Implement schema statement catalog - Completed
 	- [x] Add idempotent Cypher for uniqueness constraints. Completed: added `CREATE CONSTRAINT ... IF NOT EXISTS` statements for global and snapshot-scoped uniqueness.
@@ -212,15 +210,15 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- [x] Use Neo4j Testcontainers to run initialization against a clean database. Completed: integration test starts a real Neo4j container through the existing Testcontainers fixture.
 	- [x] Query Neo4j metadata to prove constraints and indexes exist. Completed: integration test queries `SHOW CONSTRAINTS` and `SHOW INDEXES` and asserts required schema names.
 	- [x] Run initialization twice to prove idempotence. Completed: integration test runs `InitializeAsync` twice and verifies both calls succeed with full statement counts.
-  - [x] Task 6: Update implementation notes and wiki review result - Completed
-	- [x] Record schema labels, relationship patterns, constraints, indexes, and validation commands. Completed: appended Work Item 2 implementation notes with schema design and validation record.
-	- [x] Include a narrative explanation of what constraints and indexes do for contributors new to Neo4j. Completed: updated implementation notes and `wiki/home.md` with explanatory prose.
+	- [x] Task 6: Update wiki guidance and wiki review result - Completed
+	- [x] Record schema labels, relationship patterns, constraints, indexes, and validation commands. Completed: `wiki/home.md` records schema design and validation guidance.
+	- [x] Include a narrative explanation of what constraints and indexes do for contributors new to Neo4j. Completed: updated `wiki/home.md` with explanatory prose.
 	- [x] Record wiki pages updated or no-change rationale. Completed: recorded that `wiki/home.md` was reviewed and updated for Work Item 2 architecture/runtime-foundation impact.
   - **Files**:
 	- `src/Archon.Application/Graph/Persistence/*.cs`: Initialization port and result contracts.
 	- `src/Archon.Infrastructure.Neo4j/Schema/*.cs`: Schema catalog and initializer.
 	- `test/Archon.Infrastructure.Neo4j.Tests/Schema/*.cs`: Unit and integration schema tests.
-	- `docs/003-Neo4j-Persistence-Foundation/implementation-notes-wp003.md`: Schema decisions and wiki outcome.
+	- `wiki/home.md`: Schema decisions and wiki outcome.
   - **Work Item Dependencies**: Work Item 1.
   - **Run / Verification Instructions**:
 	- `dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj --filter "FullyQualifiedName~GraphSchema|FullyQualifiedName~GraphInitialization"`
@@ -230,7 +228,7 @@ The exact folder names may be adjusted to match existing repository conventions 
 ## 3. Guarded Graph Recreation Slice
 
 - [x] Work Item 3: Implement explicit destructive graph recreation for development and tests - Completed
-  - **Completion Summary**: Added application-layer guarded recreation contracts in `src/Archon.Application/Graph/Persistence`, implemented `Neo4jGraphRecreator` in `src/Archon.Infrastructure.Neo4j/Recreation`, and registered `IArchitectureGraphRecreator` through `AddArchonNeo4j` without adding any API endpoint or startup hook. Recreation requires the exact destructive confirmation phrase `DELETE ARCHON GRAPH DATA AND RECREATE SCHEMA`, deletes only Archon-owned labels from the closed schema catalog, and re-runs schema initialization afterward. Added application contract tests plus real Neo4j Testcontainers tests that prove unauthorized requests leave data intact, authorized recreation clears seeded Archon records, and constraints/indexes remain present. Validation passed with targeted application and infrastructure builds plus the required `FullyQualifiedName~GraphRecreation` test filters. Documentation was recorded in `docs/003-Neo4j-Persistence-Foundation/implementation-notes-wp003.md`. Wiki review result: updated `wiki/home.md` with guarded graph recreation semantics, the exact confirmation phrase, Archon-owned label scope, local/test usage, migration warning, no-production-endpoint guidance, and the Testcontainers validation command.
+	- **Completion Summary**: Added application-layer guarded recreation contracts in `src/Archon.Application/Graph/Persistence`, implemented `Neo4jGraphRecreator` in `src/Archon.Infrastructure.Neo4j/Recreation`, and registered `IArchitectureGraphRecreator` through `AddArchonNeo4j` without adding any API endpoint or startup hook. Recreation requires the exact destructive confirmation phrase `DELETE ARCHON GRAPH DATA AND RECREATE SCHEMA`, deletes only Archon-owned labels from the closed schema catalog, and re-runs schema initialization afterward. Added application contract tests plus real Neo4j Testcontainers tests that prove unauthorized requests leave data intact, authorized recreation clears seeded Archon records, and constraints/indexes remain present. Validation passed with targeted application and infrastructure builds plus the required `FullyQualifiedName~GraphRecreation` test filters. Wiki review result: updated `wiki/home.md` with guarded graph recreation semantics, the exact confirmation phrase, Archon-owned label scope, local/test usage, migration warning, no-production-endpoint guidance, and the Testcontainers validation command.
   - **Purpose**: Provide a safe, explicitly named way to clear and recreate the Archon graph for development and automated integration tests. This creates an executable reset path while ensuring destructive behavior cannot be reached accidentally through ordinary persistence or host startup.
   - **Acceptance Criteria**:
 	- Application-layer graph recreation abstraction exists without Neo4j driver types.
@@ -243,7 +241,7 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- Tests passing for guard behavior, real graph clearing, and post-recreation schema presence.
 	- Source code complies with `./.github/instructions/documentation-pass.instructions.md`.
 	- Logging clearly marks destructive recreation without exposing secrets.
-	- Documentation or implementation notes clearly define graph recreation, why it is destructive, and why it is not a migration mechanism.
+	- Wiki guidance clearly defines graph recreation, why it is destructive, and why it is not a migration mechanism.
 	- Wiki review is performed for setup/workflow impact; relevant wiki or repository guidance is updated, or an explicit no-change result is recorded.
 	- Can execute end-to-end via: `dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj --filter FullyQualifiedName~GraphRecreation`.
 	- Executor must not stop mid-work-item; execution continues through implementation, validation, documentation/wiki review, and plan-record updates unless the work item is complete, the user explicitly interrupts, or a true blocker prevents further autonomous progress.
@@ -264,15 +262,15 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- [x] Invoke recreation explicitly. Completed: authorized tests call `GraphRecreationRequest.CreateAuthorized` and unguarded tests call a near-miss request.
 	- [x] Verify records are cleared and constraints/indexes remain present. Completed: integration tests assert zero remaining Archon-owned nodes and verify representative constraint/index names with Neo4j metadata.
 	- [x] Verify unguarded or ordinary paths cannot recreate the graph. Completed: integration tests assert unauthorized recreation returns `GraphRecreationNotAuthorized` and leaves seeded data intact.
-  - [x] Task 5: Update implementation notes and wiki review result - Completed
-	- [x] Record destructive semantics and validation commands. Completed: appended Work Item 3 implementation notes with guard, clearing, schema recreation, and validation command details.
+	- [x] Task 5: Update wiki guidance and wiki review result - Completed
+	- [x] Record destructive semantics and validation commands. Completed: `wiki/home.md` records guard, clearing, schema recreation, and validation command details.
 	- [x] Include contributor-facing explanation of safe local/test use. Completed: updated `wiki/home.md` to explain guarded local/test recreation, destructive semantics, and why recreation is not migration.
 	- [x] Record wiki pages updated or no-change rationale. Completed: recorded that `wiki/home.md` was reviewed and updated for Work Item 3 setup/workflow impact.
   - **Files**:
 	- `src/Archon.Application/Graph/Persistence/*.cs`: Recreation port and result contracts.
 	- `src/Archon.Infrastructure.Neo4j/Recreation/*.cs`: Recreation implementation.
 	- `test/Archon.Infrastructure.Neo4j.Tests/Recreation/*.cs`: Recreation tests.
-	- `docs/003-Neo4j-Persistence-Foundation/implementation-notes-wp003.md`: Recreation decisions and wiki outcome.
+	- `wiki/home.md`: Recreation decisions and wiki outcome.
   - **Work Item Dependencies**: Work Items 1 and 2.
   - **Run / Verification Instructions**:
 	- `dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj --filter FullyQualifiedName~GraphRecreation`
@@ -282,7 +280,7 @@ The exact folder names may be adjusted to match existing repository conventions 
 ## 4. Minimal Snapshot Persistence Slice
 
 - [x] Work Item 4: Persist repository, solution, snapshot, architecture node, and evidence records end to end - Completed
-  - **Completion Summary**: Added the application-layer `IArchitectureSnapshotWriter`, `SnapshotPersistenceResult`, and `SnapshotPersistenceCounts` contracts in `src/Archon.Application/Graph/Persistence`. Implemented `Neo4jSnapshotPersistenceMapper`, `Neo4jPersistenceStageLogger`, and `Neo4jArchitectureSnapshotWriter` in `src/Archon.Infrastructure.Neo4j/Persistence`, then registered the writer through `AddArchonNeo4j`. The writer validates minimal snapshot structure, initializes schema before writing, persists repositories, solutions, snapshot headers, architecture nodes, canonical evidence nodes, `INCLUDES_SOLUTION` relationships, and `SUPPORTED_BY_EVIDENCE` relationships in one Neo4j write transaction, uses stable-key merge semantics, deduplicates evidence per snapshot, and returns explicit safe errors for missing references. Added application result tests, mapper unit tests, dependency-injection coverage, and real Neo4j Testcontainers integration tests for representative minimal snapshot persistence, evidence deduplication, identical evidence across snapshots, stable-key/fingerprint lookup, and missing evidence reference failure. Validation passed with targeted application and infrastructure builds plus the required `SnapshotPersistence` and `MinimalSnapshot|EvidenceDeduplication` filters. Documentation was recorded in `docs/003-Neo4j-Persistence-Foundation/implementation-notes-wp003.md`. Wiki review result: updated `wiki/home.md` with minimal snapshot persistence semantics, persistence ordering, stable-key identity, metadata JSON boundaries, evidence deduplication, validation commands, and current out-of-scope persistence sections.
+	- **Completion Summary**: Added the application-layer `IArchitectureSnapshotWriter`, `SnapshotPersistenceResult`, and `SnapshotPersistenceCounts` contracts in `src/Archon.Application/Graph/Persistence`. Implemented `Neo4jSnapshotPersistenceMapper`, `Neo4jPersistenceStageLogger`, and `Neo4jArchitectureSnapshotWriter` in `src/Archon.Infrastructure.Neo4j/Persistence`, then registered the writer through `AddArchonNeo4j`. The writer validates minimal snapshot structure, initializes schema before writing, persists repositories, solutions, snapshot headers, architecture nodes, canonical evidence nodes, `INCLUDES_SOLUTION` relationships, and `SUPPORTED_BY_EVIDENCE` relationships in one Neo4j write transaction, uses stable-key merge semantics, deduplicates evidence per snapshot, and returns explicit safe errors for missing references. Added application result tests, mapper unit tests, dependency-injection coverage, and real Neo4j Testcontainers integration tests for representative minimal snapshot persistence, evidence deduplication, identical evidence across snapshots, stable-key/fingerprint lookup, and missing evidence reference failure. Validation passed with targeted application and infrastructure builds plus the required `SnapshotPersistence` and `MinimalSnapshot|EvidenceDeduplication` filters. Wiki review result: updated `wiki/home.md` with minimal snapshot persistence semantics, persistence ordering, stable-key identity, metadata JSON boundaries, evidence deduplication, validation commands, and current out-of-scope persistence sections.
   - **Purpose**: Provide the first complete snapshot-writing path into Neo4j. A representative snapshot containing repository, solution, snapshot header, architecture nodes, and evidence can be persisted and queried back through integration tests.
   - **Acceptance Criteria**:
 	- Application-layer snapshot writer abstraction and persistence result contracts exist without Neo4j driver types.
@@ -296,7 +294,7 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- Tests passing for mapping, persistence result counts, minimal snapshot persistence, evidence deduplication, and missing reference handling.
 	- Source code complies with `./.github/instructions/documentation-pass.instructions.md`.
 	- Persistence operations log stage-level progress and failure context through `ILogger` without logging secrets or excessive payloads.
-	- Documentation or implementation notes explain snapshot, architecture node, evidence node, deduplication, stable key, fingerprint, and persistence ordering.
+	- Wiki guidance explains snapshot, architecture node, evidence node, deduplication, stable key, fingerprint, and persistence ordering.
 	- Wiki review is performed for architecture/runtime-foundation terminology; relevant wiki or repository guidance is updated, or an explicit no-change result is recorded.
 	- Can execute end-to-end via: `dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj --filter "FullyQualifiedName~MinimalSnapshot|FullyQualifiedName~EvidenceDeduplication"`.
 	- Executor must not stop mid-work-item; execution continues through implementation, validation, documentation/wiki review, and plan-record updates unless the work item is complete, the user explicitly interrupts, or a true blocker prevents further autonomous progress.
@@ -329,15 +327,15 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- [x] Integration test evidence deduplication within one snapshot. Completed: integration test writes duplicate evidence payloads and verifies one evidence node with two node-evidence relationships.
 	- [x] Integration test identical evidence across different snapshots is not incorrectly merged. Completed: integration test writes equivalent evidence in two snapshots and verifies two evidence records remain.
 	- [x] Integration test stable-key and fingerprint lookup. Completed: integration test queries an `ArchonNode` by snapshot stable key and node stable key and verifies the persisted fingerprint.
-  - [x] Task 6: Update implementation notes and wiki review result - Completed
-	- [x] Record persistence ordering, deduplication, and validation commands. Completed: appended Work Item 4 implementation notes with ordering, deduplication, validation, and Testcontainers details.
-	- [x] Include a narrative walkthrough of writing a minimal snapshot. Completed: implementation notes and `wiki/home.md` explain the minimal write sequence and reasoning in developed prose.
+	- [x] Task 6: Update wiki guidance and wiki review result - Completed
+	- [x] Record persistence ordering, deduplication, and validation commands. Completed: `wiki/home.md` records ordering, deduplication, validation, and Testcontainers details.
+	- [x] Include a narrative walkthrough of writing a minimal snapshot. Completed: `wiki/home.md` explains the minimal write sequence and reasoning in developed prose.
 	- [x] Record wiki pages updated or no-change rationale. Completed: recorded that `wiki/home.md` was reviewed and updated for Work Item 4 architecture/runtime-foundation impact.
   - **Files**:
 	- `src/Archon.Application/Graph/Persistence/*.cs`: Snapshot writer port and result contracts.
 	- `src/Archon.Infrastructure.Neo4j/Persistence/*.cs`: Writer, mapper, and stage logging.
 	- `test/Archon.Infrastructure.Neo4j.Tests/Persistence/*.cs`: Minimal persistence tests.
-	- `docs/003-Neo4j-Persistence-Foundation/implementation-notes-wp003.md`: Persistence decisions and wiki outcome.
+	- `wiki/home.md`: Persistence decisions and wiki outcome.
   - **Work Item Dependencies**: Work Items 1 through 3; WP002 graph fact contracts.
   - **Run / Verification Instructions**:
 	- `dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj --filter "FullyQualifiedName~MinimalSnapshot|FullyQualifiedName~EvidenceDeduplication"`
@@ -347,7 +345,7 @@ The exact folder names may be adjusted to match existing repository conventions 
 ## 5. Architecture Relationship Persistence Slice
 
 - [x] Work Item 5: Persist architecture relationships with metadata, fingerprints, and evidence links - Completed
-  - **Completion Summary**: Extended snapshot persistence to write architecture edges as `ArchonRelationship` nodes using the relationship-node pattern, preserving stable key, edge kind, source and target stable keys, directness, knowledge kind, confidence, unknown-state fields, metadata JSON, primary evidence stable key, and fingerprint. Added relationship validation for missing source nodes, missing target nodes, missing edge evidence, and mismatched snapshot scope. The writer now creates `RELATIONSHIP_SOURCE`, `RELATIONSHIP_TARGET`, and relationship `SUPPORTED_BY_EVIDENCE` links with snapshot-scoped stable-key merge semantics and reports relationship counts in `SnapshotPersistenceCounts`. Added mapper tests and real Neo4j Testcontainers integration tests for mixed edge kinds, same-endpoint relationships, edge evidence links, traversal queryability, and missing reference failures. Validation passed after a clean with targeted Neo4j infrastructure build and the required relationship filters. Documentation was recorded in `docs/003-Neo4j-Persistence-Foundation/implementation-notes-wp003.md`. Wiki review result: updated `wiki/home.md` to explain active architecture relationship persistence, the relationship-node pattern, endpoint links, edge evidence links, traversal examples, validation commands, and remaining out-of-scope sections.
+	- **Completion Summary**: Extended snapshot persistence to write architecture edges as `ArchonRelationship` nodes using the relationship-node pattern, preserving stable key, edge kind, source and target stable keys, directness, knowledge kind, confidence, unknown-state fields, metadata JSON, primary evidence stable key, and fingerprint. Added relationship validation for missing source nodes, missing target nodes, missing edge evidence, and mismatched snapshot scope. The writer now creates `RELATIONSHIP_SOURCE`, `RELATIONSHIP_TARGET`, and relationship `SUPPORTED_BY_EVIDENCE` links with snapshot-scoped stable-key merge semantics and reports relationship counts in `SnapshotPersistenceCounts`. Added mapper tests and real Neo4j Testcontainers integration tests for mixed edge kinds, same-endpoint relationships, edge evidence links, traversal queryability, and missing reference failures. Validation passed after a clean with targeted Neo4j infrastructure build and the required relationship filters. Wiki review result: updated `wiki/home.md` to explain active architecture relationship persistence, the relationship-node pattern, endpoint links, edge evidence links, traversal examples, validation commands, and remaining out-of-scope sections.
   - **Purpose**: Extend the snapshot writer from nodes and evidence to graph relationships. This makes the stored model graph-shaped rather than only node-shaped and proves traversal-ready relationship persistence.
   - **Acceptance Criteria**:
 	- Architecture edges are persisted with stable key, edge kind, source stable key, target stable key, directness, knowledge kind, confidence, unknown-state fields, metadata, primary evidence, and fingerprint.
@@ -360,14 +358,14 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- Tests passing for relationship mapping, mixed edge kinds, multiple same-endpoint relationships, relationship evidence links, traversal queryability, and missing reference failures.
 	- Source code complies with `./.github/instructions/documentation-pass.instructions.md`.
 	- Logging identifies relationship persistence stages without secrets or excessive payloads.
-	- Documentation or implementation notes explain architecture relationship, relationship-node pattern if used, edge evidence, and traversal implications.
+	- Wiki guidance explains architecture relationship, relationship-node pattern if used, edge evidence, and traversal implications.
 	- Wiki review is performed for architecture terminology and graph model impact; relevant wiki or repository guidance is updated, or an explicit no-change result is recorded.
 	- Can execute end-to-end via: `dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj --filter "FullyQualifiedName~ArchitectureRelationship|FullyQualifiedName~EdgeEvidence"`.
 	- Executor must not stop mid-work-item; execution continues through implementation, validation, documentation/wiki review, and plan-record updates unless the work item is complete, the user explicitly interrupts, or a true blocker prevents further autonomous progress.
 	- [x] Task 1: Finalize relationship modeling choice - Completed
 	- [x] Confirm whether direct Neo4j relationships are sufficient for metadata, stable keys, fingerprints, and evidence linkage. Completed: direct Neo4j relationships are not sufficient for Archon edge evidence linkage because a relationship cannot link to evidence as a first-class graph fact.
 	- [x] If direct relationships cannot link cleanly to evidence, implement a relationship-node pattern. Completed: architecture edges persist as `ArchonRelationship` nodes with `RELATIONSHIP_SOURCE`, `RELATIONSHIP_TARGET`, and `SUPPORTED_BY_EVIDENCE` links.
-	- [x] Document the choice in implementation notes. Completed: Work Item 5 notes explain the relationship-node pattern and why it is required for evidence-backed edges.
+	- [x] Document the choice in wiki guidance. Completed: `wiki/home.md` explains the relationship-node pattern and why it is required for evidence-backed edges.
   - [x] Task 2: Implement edge mapping - Completed
 	- [x] Map all required edge properties to Cypher parameters. Completed: `Neo4jSnapshotPersistenceMapper.MapRelationship` maps snapshot scope, stable key, edge kind, endpoints, directness, knowledge, confidence, unknown state, primary evidence, metadata JSON, and fingerprint.
 	- [x] Whitelist edge kinds if dynamic relationship types are used. Completed: dynamic relationship types are not used; all edge kinds are stored as the controlled `edgeKind` property on `ArchonRelationship` nodes.
@@ -381,13 +379,13 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- [x] Persist multiple relationships between the same nodes. Completed: integration tests verify same source/target relationship facts remain distinct.
 	- [x] Verify edge evidence is queryable. Completed: integration tests count relationship evidence links and verify traversal-ready relationship shape.
 	- [x] Verify missing references produce explicit failures. Completed: integration tests cover missing source node, missing target node, and missing relationship evidence errors.
-  - [x] Task 5: Update implementation notes and wiki review result - Completed
-	- [x] Record relationship modeling, traversal examples, and validation commands. Completed: implementation notes and `wiki/home.md` describe relationship-node modeling, traversal, and commands.
+	- [x] Task 5: Update wiki guidance and wiki review result - Completed
+	- [x] Record relationship modeling, traversal examples, and validation commands. Completed: `wiki/home.md` describes relationship-node modeling, traversal, and commands.
 	- [x] Record wiki pages updated or no-change rationale. Completed: recorded that `wiki/home.md` was reviewed and updated for graph model and contributor-facing persistence impact.
   - **Files**:
 	- `src/Archon.Infrastructure.Neo4j/Persistence/*.cs`: Relationship mapping and write workflow.
 	- `test/Archon.Infrastructure.Neo4j.Tests/Persistence/*.cs`: Relationship persistence tests.
-	- `docs/003-Neo4j-Persistence-Foundation/implementation-notes-wp003.md`: Relationship decisions and wiki outcome.
+	- `wiki/home.md`: Relationship decisions and wiki outcome.
   - **Work Item Dependencies**: Work Item 4.
   - **Run / Verification Instructions**:
 	- `dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj --filter "FullyQualifiedName~ArchitectureRelationship|FullyQualifiedName~EdgeEvidence"`
@@ -397,7 +395,7 @@ The exact folder names may be adjusted to match existing repository conventions 
 ## 6. Rules and Findings Persistence Slice
 
 - [x] Work Item 6: Persist rule catalog versions and snapshot findings with rule, node, and evidence links - Completed
-  - **Completion Summary**: Extended `ExtractedArchitectureSnapshot` and `ArchitectureSnapshotAccumulator` to carry versioned `RuleDefinition` records by rule code plus version. Added `Neo4jSnapshotPersistenceMapper.MapRule` and `MapFinding`, extended `Neo4jArchitectureSnapshotWriter` with rule/finding validation, global `ArchonRule` upserts by `(ruleCode, ruleVersion)`, snapshot-scoped `ArchonFinding` writes by `(snapshotStableKey, stableKey)`, `CLASSIFIED_BY_RULE`, `PRIMARY_NODE`, and `SUPPORTED_BY_EVIDENCE` links, canonical evidence remapping for finding evidence, and rule/finding persistence result counts. Added schema-name coverage for the finding primary-node relationship and mapper/integration tests for rule upsert identity, multiple rule versions, finding properties, finding-to-rule links, finding-to-node links, finding-to-evidence links, missing reference errors, and counts. Validation passed after cleaning and rebuilding `test/Archon.Infrastructure.Neo4j.Tests`, then running the required `RuleCatalog|FindingPersistence` filter and the expanded mapper/rule/finding filter. Documentation was recorded in `docs/003-Neo4j-Persistence-Foundation/implementation-notes-wp003.md`. Wiki review result: updated `wiki/home.md` to explain global rule catalog nodes, rule code plus version identity, snapshot-scoped findings, severity/status/suppression fields, finding support links, validation commands, and remaining out-of-scope behavior.
+	- **Completion Summary**: Extended `ExtractedArchitectureSnapshot` and `ArchitectureSnapshotAccumulator` to carry versioned `RuleDefinition` records by rule code plus version. Added `Neo4jSnapshotPersistenceMapper.MapRule` and `MapFinding`, extended `Neo4jArchitectureSnapshotWriter` with rule/finding validation, global `ArchonRule` upserts by `(ruleCode, ruleVersion)`, snapshot-scoped `ArchonFinding` writes by `(snapshotStableKey, stableKey)`, `CLASSIFIED_BY_RULE`, `PRIMARY_NODE`, and `SUPPORTED_BY_EVIDENCE` links, canonical evidence remapping for finding evidence, and rule/finding persistence result counts. Added schema-name coverage for the finding primary-node relationship and mapper/integration tests for rule upsert identity, multiple rule versions, finding properties, finding-to-rule links, finding-to-node links, finding-to-evidence links, missing reference errors, and counts. Validation passed after cleaning and rebuilding `test/Archon.Infrastructure.Neo4j.Tests`, then running the required `RuleCatalog|FindingPersistence` filter and the expanded mapper/rule/finding filter. Wiki review result: updated `wiki/home.md` to explain global rule catalog nodes, rule code plus version identity, snapshot-scoped findings, severity/status/suppression fields, finding support links, validation commands, and remaining out-of-scope behavior.
   - **Purpose**: Add durable rule and finding storage so later hotlist, suppression, query, MCP, markdown, and historical comparison packages can rely on versioned finding data. This slice persists rule contracts supplied to it but does not implement disk-backed rule loading or rule evaluation.
   - **Acceptance Criteria**:
 	- Rule catalog nodes are global, not snapshot-scoped copies.
@@ -410,7 +408,7 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- Tests passing for rule upsert, multiple rule versions, finding persistence, finding-to-rule links, finding-to-node links, finding-to-evidence links, and persistence result counts.
 	- Source code complies with `./.github/instructions/documentation-pass.instructions.md`.
 	- Logging identifies rule/finding persistence stages without secrets or excessive payloads.
-	- Documentation or implementation notes explain rule catalog, rule code, rule version, finding, severity, status, suppression fields, and historical fidelity.
+	- Wiki guidance explains rule catalog, rule code, rule version, finding, severity, status, suppression fields, and historical fidelity.
 	- Wiki review is performed for terminology and architecture impact; relevant wiki or repository guidance is updated, or an explicit no-change result is recorded.
 	- Can execute end-to-end via: `dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj --filter "FullyQualifiedName~RuleCatalog|FullyQualifiedName~FindingPersistence"`.
 	- Executor must not stop mid-work-item; execution continues through implementation, validation, documentation/wiki review, and plan-record updates unless the work item is complete, the user explicitly interrupts, or a true blocker prevents further autonomous progress.
@@ -430,14 +428,14 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- [x] Verify multiple versions coexist. Completed: integration test writes two versions of the same rule code and verifies both persist.
 	- [x] Verify finding properties and links. Completed: integration test verifies finding properties, counts, rule links, node links, and evidence links.
 	- [x] Verify missing referenced rules, nodes, or evidence produce explicit warnings or errors according to severity. Completed: validation returns explicit errors `MissingFindingRuleReference`, `MissingFindingNodeReference`, and `MissingFindingEvidenceReference` before writing finding data.
-  - [x] Task 5: Update implementation notes and wiki review result - Completed
-	- [x] Record rule/finding persistence decisions and validation commands. Completed: Work Item 6 implementation notes record mapping, write ordering, validation, counts, and Testcontainers commands.
-	- [x] Explicitly record that disk-backed rule loading and rule evaluation remain out of scope for WP003. Completed: implementation notes and wiki state that rules are persisted only when supplied to the writer and are not loaded from disk or evaluated in WP003.
+	- [x] Task 5: Update wiki guidance and wiki review result - Completed
+	- [x] Record rule/finding persistence decisions and validation commands. Completed: `wiki/home.md` records mapping, write ordering, validation, counts, and Testcontainers commands.
+	- [x] Explicitly record that disk-backed rule loading and rule evaluation remain out of scope for WP003. Completed: the wiki states that rules are persisted only when supplied to the writer and are not loaded from disk or evaluated in WP003.
 	- [x] Record wiki pages updated or no-change rationale. Completed: recorded that `wiki/home.md` was reviewed and updated for rule/finding persistence terminology and architecture impact.
   - **Files**:
 	- `src/Archon.Infrastructure.Neo4j/Persistence/*.cs`: Rule and finding mapping/write workflow.
 	- `test/Archon.Infrastructure.Neo4j.Tests/Persistence/*.cs`: Rule and finding tests.
-	- `docs/003-Neo4j-Persistence-Foundation/implementation-notes-wp003.md`: Rule/finding decisions and wiki outcome.
+	- `wiki/home.md`: Rule/finding decisions and wiki outcome.
   - **Work Item Dependencies**: Work Items 4 and 5.
   - **Run / Verification Instructions**:
 	- `dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj --filter "FullyQualifiedName~RuleCatalog|FullyQualifiedName~FindingPersistence"`
@@ -447,7 +445,7 @@ The exact folder names may be adjusted to match existing repository conventions 
 ## 7. Metrics and Generated Summaries Persistence Slice
 
 - [x] Work Item 7: Persist metrics and generated summaries with evidence and target links - Completed
-  - **Completion Summary**: Extended `Neo4jSnapshotPersistenceMapper` and `Neo4jArchitectureSnapshotWriter` to persist snapshot-scoped `ArchonMetric` and `ArchonGeneratedSummary` nodes with stable-key merge semantics, deterministic metadata JSON, first-class metric value fields, summary content fields, fingerprints, canonical metric evidence remapping, metric target links, generated-summary snapshot links, and generated-summary target links. Added validation for metric snapshot scope, missing metric node targets, missing metric relationship targets, missing metric evidence, and missing generated-summary targets using explicit safe error codes. Extended `SnapshotPersistenceCounts` with metric and generated-summary record/link counts and added stable schema-name constants for `PRIMARY_RELATIONSHIP` and `SUMMARIZES_SNAPSHOT`. Added mapper, schema-name, and real Neo4j Testcontainers integration tests for metric persistence, metric evidence and target links, generated-summary persistence, generated-summary snapshot and target links, mixed metric/summary persistence, result counts, and missing target behavior. Validation passed after `dotnet clean` and `dotnet build` of `test/Archon.Infrastructure.Neo4j.Tests`, the required `MetricPersistence|GeneratedSummary` filter with 9 passing tests, and an expanded mapper/schema/persistence filter with 17 passing tests. Documentation was recorded in `docs/003-Neo4j-Persistence-Foundation/implementation-notes-wp003.md`. Wiki review result: updated `wiki/home.md` to explain durable metric persistence, metric scopes and values, generated-summary content persistence, target links, `PRIMARY_RELATIONSHIP`, `SUMMARIZES_SNAPSHOT`, validation commands, and remaining out-of-scope behavior.
+	- **Completion Summary**: Extended `Neo4jSnapshotPersistenceMapper` and `Neo4jArchitectureSnapshotWriter` to persist snapshot-scoped `ArchonMetric` and `ArchonGeneratedSummary` nodes with stable-key merge semantics, deterministic metadata JSON, first-class metric value fields, summary content fields, fingerprints, canonical metric evidence remapping, metric target links, generated-summary snapshot links, and generated-summary target links. Added validation for metric snapshot scope, missing metric node targets, missing metric relationship targets, missing metric evidence, and missing generated-summary targets using explicit safe error codes. Extended `SnapshotPersistenceCounts` with metric and generated-summary record/link counts and added stable schema-name constants for `PRIMARY_RELATIONSHIP` and `SUMMARIZES_SNAPSHOT`. Added mapper, schema-name, and real Neo4j Testcontainers integration tests for metric persistence, metric evidence and target links, generated-summary persistence, generated-summary snapshot and target links, mixed metric/summary persistence, result counts, and missing target behavior. Validation passed after `dotnet clean` and `dotnet build` of `test/Archon.Infrastructure.Neo4j.Tests`, the required `MetricPersistence|GeneratedSummary` filter with 9 passing tests, and an expanded mapper/schema/persistence filter with 17 passing tests. Wiki review result: updated `wiki/home.md` to explain durable metric persistence, metric scopes and values, generated-summary content persistence, target links, `PRIMARY_RELATIONSHIP`, `SUMMARIZES_SNAPSHOT`, validation commands, and remaining out-of-scope behavior.
   - **Purpose**: Complete persistence for snapshot-scoped computed data and narrative outputs. This enables later diff, API, MCP, markdown, reporting, and hotlist packages to retrieve durable metrics and summaries instead of recomputing or regenerating them every time.
   - **Acceptance Criteria**:
 	- Metrics persist metric kind, scope kind, target node or edge where applicable, numeric or text value, unit, evidence, metadata, and fingerprint.
@@ -460,7 +458,7 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- Tests passing for metric persistence, metric evidence links, metric target links, generated summary persistence, generated summary target links, and mixed snapshot persistence.
 	- Source code complies with `./.github/instructions/documentation-pass.instructions.md`.
 	- Logging identifies metric and summary stages without secrets or excessive payloads.
-	- Documentation or implementation notes explain metric, scope kind, generated summary, target stable key, and why metrics are persisted rather than only computed at query time.
+	- Wiki guidance explains metric, scope kind, generated summary, target stable key, and why metrics are persisted rather than only computed at query time.
 	- Wiki review is performed for architecture and terminology impact; relevant wiki or repository guidance is updated, or an explicit no-change result is recorded.
 	- Can execute end-to-end via: `dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj --filter "FullyQualifiedName~MetricPersistence|FullyQualifiedName~GeneratedSummary"`.
 	- Executor must not stop mid-work-item; execution continues through implementation, validation, documentation/wiki review, and plan-record updates unless the work item is complete, the user explicitly interrupts, or a true blocker prevents further autonomous progress.
@@ -478,13 +476,13 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- [x] Verify generated summary property persistence. Completed: mapper and integration tests assert summary kind, format, title, content mapping, and fingerprint persistence.
 	- [x] Verify generated summary target links. Completed: integration tests assert generated-summary `SUMMARIZES_SNAPSHOT` and `PRIMARY_NODE` target links.
 	- [x] Verify result counts and missing target behavior. Completed: integration tests assert metric/summary count properties and explicit `MissingMetricNodeReference`, `MissingMetricRelationshipReference`, `MissingMetricEvidenceReference`, and `MissingGeneratedSummaryTargetReference` failures.
-  - [x] Task 4: Update implementation notes and wiki review result - Completed
-	- [x] Record metric/summary persistence decisions and validation commands. Completed: Work Item 7 implementation notes record mapping, validation, write ordering, support relationship choices, counts, and Testcontainers commands.
+	- [x] Task 4: Update wiki guidance and wiki review result - Completed
+	- [x] Record metric/summary persistence decisions and validation commands. Completed: `wiki/home.md` records mapping, validation, write ordering, support relationship choices, counts, and Testcontainers commands.
 	- [x] Record wiki pages updated or no-change rationale. Completed: recorded that `wiki/home.md` was reviewed and updated for metric/generated-summary persistence terminology and architecture impact.
   - **Files**:
 	- `src/Archon.Infrastructure.Neo4j/Persistence/*.cs`: Metric and generated summary mapping/write workflow.
 	- `test/Archon.Infrastructure.Neo4j.Tests/Persistence/*.cs`: Metric and summary tests.
-	- `docs/003-Neo4j-Persistence-Foundation/implementation-notes-wp003.md`: Metric/summary decisions and wiki outcome.
+	- `wiki/home.md`: Metric/summary decisions and wiki outcome.
   - **Work Item Dependencies**: Work Items 4 through 6.
   - **Run / Verification Instructions**:
 	- `dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj --filter "FullyQualifiedName~MetricPersistence|FullyQualifiedName~GeneratedSummary"`
@@ -494,7 +492,7 @@ The exact folder names may be adjusted to match existing repository conventions 
 ## 8. Full Mixed Snapshot Validation and Host Composition Slice
 
 - [x] Work Item 8: Validate full mixed snapshot persistence and host-level infrastructure composition - Completed
-  - **Completion Summary**: Added a documented full mixed snapshot builder in `test/Archon.Infrastructure.Neo4j.Tests/Persistence/FullMixedSnapshotTestDataBuilder.cs` that creates a representative WP003 snapshot with repository, solution, snapshot header, architecture nodes, architecture relationships, evidence, a versioned rule, a finding, metrics, and generated summaries using stable keys and fingerprints. Added real Neo4j Testcontainers integration tests in `Neo4jArchitectureSnapshotWriterTests` for full mixed snapshot counts, stable-key/fingerprint lookup, and queryability of snapshot-to-solution, node-to-evidence, relationship-to-evidence, finding-to-rule, finding-to-node, finding-to-evidence, metric-to-evidence, metric target, and generated-summary target paths. Added `Neo4jInfrastructureCompositionTests` to verify `AddArchonNeo4j` composes application ports and infrastructure services without starting Aspire, and strengthened `OnionBoundaryTests` to prove `Neo4j.Driver` remains outside `Archon.Domain` and `Archon.Application`. Validation passed with targeted Neo4j infrastructure build, targeted architecture test-project build, Work Item 8 Neo4j test filter, and boundary/Neo4jDriver filter. Documentation was recorded in `docs/003-Neo4j-Persistence-Foundation/implementation-notes-wp003.md`. Wiki review result: updated `wiki/home.md` with full mixed snapshot validation, support relationship queryability, AppHost-free composition validation, Neo4j driver boundary guidance, and validation commands.
+	- **Completion Summary**: Added a documented full mixed snapshot builder in `test/Archon.Infrastructure.Neo4j.Tests/Persistence/FullMixedSnapshotTestDataBuilder.cs` that creates a representative WP003 snapshot with repository, solution, snapshot header, architecture nodes, architecture relationships, evidence, a versioned rule, a finding, metrics, and generated summaries using stable keys and fingerprints. Added real Neo4j Testcontainers integration tests in `Neo4jArchitectureSnapshotWriterTests` for full mixed snapshot counts, stable-key/fingerprint lookup, and queryability of snapshot-to-solution, node-to-evidence, relationship-to-evidence, finding-to-rule, finding-to-node, finding-to-evidence, metric-to-evidence, metric target, and generated-summary target paths. Added `Neo4jInfrastructureCompositionTests` to verify `AddArchonNeo4j` composes application ports and infrastructure services without starting Aspire, and strengthened `OnionBoundaryTests` to prove `Neo4j.Driver` remains outside `Archon.Domain` and `Archon.Application`. Validation passed with targeted Neo4j infrastructure build, targeted architecture test-project build, Work Item 8 Neo4j test filter, and boundary/Neo4jDriver filter. Wiki review result: updated `wiki/home.md` with full mixed snapshot validation, support relationship queryability, AppHost-free composition validation, Neo4j driver boundary guidance, and validation commands.
   - **Purpose**: Demonstrate that the complete WP003 persistence foundation works as one integrated capability. A full mixed snapshot can be persisted into real Neo4j, queried for key relationships, and the infrastructure can be composed by host projects without violating Onion Architecture.
   - **Acceptance Criteria**:
 	- A representative mixed snapshot persists repositories, solutions, snapshot, nodes, relationships, evidence, rules, findings, metrics, and generated summaries in one coordinated workflow.
@@ -508,7 +506,7 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- Architecture-boundary tests passing.
 	- Solution build passing.
 	- Source code complies with `./.github/instructions/documentation-pass.instructions.md` across all code touched by WP003.
-	- Documentation or implementation notes include a full persistence walkthrough with terms explained and examples where useful.
+	- Wiki guidance includes a full persistence walkthrough with terms explained and examples where useful.
 	- Wiki review is performed for architecture, runtime foundation, setup, and terminology impact; relevant wiki or repository guidance is updated, or an explicit no-change result is recorded.
 	- Can execute end-to-end via: `dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj --filter "FullyQualifiedName~FullMixedSnapshot|FullyQualifiedName~SupportingRelationship"` and `dotnet build .\Archon.slnx`.
 	- Executor must not stop mid-work-item; execution continues through implementation, validation, documentation/wiki review, and plan-record updates unless the work item is complete, the user explicitly interrupts, or a true blocker prevents further autonomous progress.
@@ -529,17 +527,17 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- [x] Run application persistence contract tests if changed. Completed: application contracts were not changed, so no application persistence contract test rerun was required for Work Item 8.
 	- [x] Run host composition tests if changed. Completed: non-container Neo4j infrastructure composition test passed as part of the Work Item 8 Neo4j filter.
 	- [x] Run solution build. Completed for Work Item 8 final validation below.
-  - [x] Task 5: Update implementation notes and wiki review result - Completed
-	- [x] Record full mixed snapshot validation commands and outcomes. Completed: Work Item 8 implementation notes include exact commands and pass outcomes.
-	- [x] Record host composition and Onion Architecture boundary outcomes. Completed: implementation notes describe DI composition and Neo4j driver boundary validation.
-	- [x] Record wiki pages updated or no-change rationale. Completed: implementation notes record that `wiki/home.md` was reviewed and updated for Work Item 8.
+	- [x] Task 5: Update wiki guidance and wiki review result - Completed
+	- [x] Record full mixed snapshot validation commands and outcomes. Completed: `wiki/home.md` includes exact commands and pass outcomes.
+	- [x] Record host composition and Onion Architecture boundary outcomes. Completed: `wiki/home.md` describes DI composition and Neo4j driver boundary validation.
+	- [x] Record wiki pages updated or no-change rationale. Completed: this plan records that `wiki/home.md` was reviewed and updated for Work Item 8.
   - **Files**:
 	- `test/Archon.Infrastructure.Neo4j.Tests/Testcontainers/*.cs`: Shared container fixtures.
 	- `test/Archon.Infrastructure.Neo4j.Tests/Persistence/*.cs`: Full mixed snapshot tests.
 	- `test/Archon.Infrastructure.Neo4j.Tests/**/*.cs`: Test data builders.
 	- `test/ArchonApi.Tests/**/*.cs`: Host composition tests if needed.
 	- `test/**/*.cs`: Architecture-boundary tests if the existing location differs.
-	- `docs/003-Neo4j-Persistence-Foundation/implementation-notes-wp003.md`: Full validation and wiki outcome.
+	- `wiki/home.md`: Current-state contributor guidance, validation workflow, and wiki outcome.
   - **Work Item Dependencies**: Work Items 1 through 7.
   - **Run / Verification Instructions**:
 	- `dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj --filter "FullyQualifiedName~FullMixedSnapshot|FullyQualifiedName~SupportingRelationship"`
@@ -549,13 +547,13 @@ The exact folder names may be adjusted to match existing repository conventions 
   - **User Instructions**:
 	- Docker must be running for real Neo4j Testcontainers validation.
 
-## 9. Documentation, Implementation Record, and Final Wiki Review Gate
+## 9. Documentation and Final Wiki Review Gate
 
-- [x] Work Item 9: Complete WP003 implementation documentation and final mandatory wiki review - Completed
-  - **Completion Summary**: Finalized the WP003 implementation record in `docs/003-Neo4j-Persistence-Foundation/implementation-notes-wp003.md` with consolidated current-state coverage of completed capabilities, stable labels, relationship names, constraint names, index intent, persistence ordering, evidence deduplication, guarded graph recreation behavior, Testcontainers behavior, source-code documentation-pass confirmation, validation outcomes, and out-of-scope capabilities. Reviewed the repository wiki scope and confirmed `wiki/home.md` is the only page under `./wiki`. Updated `wiki/home.md` with final WP003 closure guidance explaining the implementation ledger, persistence-only boundary, traversal-first troubleshooting model, stable support paths, Testcontainers requirements, and final validation commands in book-like contributor-facing prose. Final validation passed with `dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj` (52 tests), `dotnet test .\test\Archon.Tests\Archon.Tests.csproj --filter "FullyQualifiedName~Boundary|FullyQualifiedName~Neo4jDriver"` (8 tests), and `dotnet build .\Archon.slnx`. Wiki review result: updated `wiki/home.md`; no wiki pages were created, retired, split, renamed, or left needing changes.
-  - **Purpose**: Close the work package by ensuring repository documentation, implementation notes, and wiki guidance accurately describe the current Neo4j persistence foundation. This is a mandatory completion gate for the full work package.
+- [x] Work Item 9: Complete WP003 documentation and final mandatory wiki review - Completed
+  - **Completion Summary**: Reviewed the repository wiki scope and confirmed `wiki/home.md` is the active wiki page under `./wiki`. Updated `wiki/home.md` with current-state WP003 guidance covering completed persistence capabilities, stable labels, relationship names, constraint names, index intent, persistence ordering, evidence deduplication, guarded graph recreation behavior, Testcontainers behavior, source-code documentation-pass confirmation, validation outcomes, out-of-scope capabilities, the persistence-only boundary, traversal-first troubleshooting model, stable support paths, Testcontainers requirements, and final validation commands in book-like contributor-facing prose. Final validation passed with `dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj` (52 tests), `dotnet test .\test\Archon.Tests\Archon.Tests.csproj --filter "FullyQualifiedName~Boundary|FullyQualifiedName~Neo4jDriver"` (8 tests), and `dotnet build .\Archon.slnx`. Wiki review result: updated `wiki/home.md`; no wiki pages were created, retired, split, renamed, or left needing changes. The later corrective review retired the redundant implementation-notes artifact because contributor-facing implementation detail belongs in the wiki.
+  - **Purpose**: Close the work package by ensuring repository documentation and wiki guidance accurately describe the current Neo4j persistence foundation. This is a mandatory completion gate for the full work package.
   - **Acceptance Criteria**:
-	- `implementation-notes-wp003.md` records design decisions, validation commands, Testcontainers behavior, schema names, relationship patterns, persistence ordering, graph recreation behavior, and out-of-scope capabilities.
+	- `wiki/home.md` records current-state design decisions, validation commands, Testcontainers behavior, schema names, relationship patterns, persistence ordering, graph recreation behavior, and out-of-scope capabilities.
 	- Repository documentation explains Neo4j labels, relationship patterns, constraints, indexes, evidence deduplication, rule catalog persistence, graph recreation, and local configuration expectations.
 	- Wiki review is completed according to `./.github/instructions/wiki.instructions.md`.
 	- Any required wiki updates are made with book-like narrative depth for architecture, runtime foundations, setup, workflow, and terminology topics.
@@ -567,16 +565,16 @@ The exact folder names may be adjusted to match existing repository conventions 
 	- Relevant examples or walkthrough material are included when they materially improve understanding.
 	- Final validation commands from prior work items are recorded with outcomes.
 	- Source-code documentation-pass compliance is confirmed for all WP003 code-writing work.
-	- Can execute end-to-end via: review `docs/003-Neo4j-Persistence-Foundation/implementation-notes-wp003.md`, run the final targeted test commands, and run `dotnet build .\Archon.slnx`.
+	- Can execute end-to-end via: review `wiki/home.md`, run the final targeted test commands, and run `dotnet build .\Archon.slnx`.
 	- Executor must not stop mid-work-item; execution continues through documentation/wiki review, validation, and plan-record updates unless the work item is complete, the user explicitly interrupts, or a true blocker prevents further autonomous progress.
-	- [x] Task 1: Finalize implementation notes - Completed
+	- [x] Task 1: Finalize wiki guidance - Completed
 	- [x] Summarize each completed work item. Completed: Work Items 1 through 8 already had per-slice records, and Work Item 9 added a consolidated closure record for the full persistence foundation.
-	- [x] Record design decisions and trade-offs. Completed: implementation notes now summarize stable-key identity, fingerprint use, relationship-node trade-off, schema naming, write ordering, evidence deduplication, graph recreation guard behavior, and layer boundaries.
-	- [x] Record exact validation commands and outcomes. Completed: implementation notes record the full Neo4j infrastructure test command, boundary test command, solution build command, and pass outcomes.
-	- [x] Record out-of-scope capabilities preserved from the specification. Completed: implementation notes explicitly preserve API extraction orchestration, Roslyn extraction, query APIs, MCP behavior, markdown export, UI behavior, disk-backed rule loading, rule evaluation, data migration, production destructive endpoints, metric computation, generated-summary creation, hotlist behavior, and graph visualization as out of scope.
+	- [x] Record design decisions and trade-offs. Completed: `wiki/home.md` summarizes stable-key identity, fingerprint use, relationship-node trade-off, schema naming, write ordering, evidence deduplication, graph recreation guard behavior, and layer boundaries.
+	- [x] Record exact validation commands and outcomes. Completed: `wiki/home.md` records the full Neo4j infrastructure test command, boundary test command, solution build command, and pass outcomes.
+	- [x] Record out-of-scope capabilities preserved from the specification. Completed: `wiki/home.md` explicitly preserves API extraction orchestration, Roslyn extraction, query APIs, MCP behavior, markdown export, UI behavior, disk-backed rule loading, rule evaluation, data migration, production destructive endpoints, metric computation, generated-summary creation, hotlist behavior, and graph visualization as out of scope.
   - [x] Task 2: Review repository documentation and wiki pages - Completed
 	- [x] Identify affected developer-facing architecture, setup, runtime, terminology, and workflow pages. Completed: affected topics were Neo4j runtime foundation, architecture graph terminology, setup/validation commands, Testcontainers, graph recreation, persistence troubleshooting, and Onion boundary guidance.
-	- [x] Review relevant wiki pages, appendix pages, glossary entries, and reader paths. Completed: `wiki/home.md` was the only wiki page found under `./wiki`; the WP003 plan/spec and implementation notes were reviewed as repository documentation context.
+	- [x] Review relevant wiki pages, appendix pages, glossary entries, and reader paths. Completed: `wiki/home.md` was the only wiki page found under `./wiki`; the WP003 plan/spec were reviewed as repository documentation context.
 	- [x] Decide whether each page needs update based on current-state rules. Completed: `wiki/home.md` required a final closure update because WP003 is now a completed persistence foundation and contributors need current validation and troubleshooting guidance.
   - [x] Task 3: Update wiki or repository guidance where required - Completed
 	- [x] Write architecture and runtime-foundation content in longer book-like narrative prose. Completed: `wiki/home.md` was updated with explanatory prose about the implementation ledger, persistence boundary, traversal-first troubleshooting, and validation flow.
@@ -586,13 +584,13 @@ The exact folder names may be adjusted to match existing repository conventions 
   - [x] Task 4: Record final wiki review outcome - Completed
 	- [x] State exact wiki pages updated, created, retired, or left unchanged. Completed: recorded that `wiki/home.md` was updated and no wiki pages were created, retired, split, or renamed.
 	- [x] If no wiki page update was needed, explain what was reviewed and why existing wiki guidance remained sufficient. Completed: not applicable because a wiki update was required and performed.
-	- [x] Ensure the final execution record includes the wiki result. Completed: final wiki review result is recorded in implementation notes and this plan completion summary.
+	- [x] Ensure the final execution record includes the wiki result. Completed: final wiki review result is recorded in this plan completion summary.
   - [x] Task 5: Run final validation - Completed
 	- [x] Run targeted WP003 tests. Completed: `dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj` passed with 52 tests, including real Neo4j Testcontainers coverage.
 	- [x] Run affected application and host tests if applicable. Completed: application persistence contracts and host composition source were not changed by Work Item 9; the affected architecture boundary validation `dotnet test .\test\Archon.Tests\Archon.Tests.csproj --filter "FullyQualifiedName~Boundary|FullyQualifiedName~Neo4jDriver"` passed with 8 tests.
 	- [x] Run solution build. Completed: `dotnet build .\Archon.slnx` passed.
   - **Files**:
-	- `docs/003-Neo4j-Persistence-Foundation/implementation-notes-wp003.md`: Final implementation record.
+	- `wiki/home.md`: Final current-state contributor guidance and wiki review result.
 	- `wiki/**/*.md`: Wiki pages updated if the review requires changes.
 	- Repository guidance files updated only if needed by the review.
   - **Work Item Dependencies**: Work Items 1 through 8.

@@ -92,6 +92,16 @@ Where a topic is dense, pair conceptual overview pages with practical walkthroug
 - Ensure walkthroughs still explain what the reader is seeing. A walkthrough is not just a command dump.
 - When a workflow contains decision points, explain why a contributor would choose one path over another.
 
+## Information Architecture Standards
+The wiki must be organized as a contributor-facing technical book, not as one large page or a dumping ground for work-package summaries.
+
+- `wiki/home.md` is a landing page and table of contents. It must orient readers and link to topic pages, not carry full architecture, runtime, setup, domain, persistence, validation, or workflow explanations.
+- Foundational concepts must live on dedicated topic pages. Examples include solution architecture, runtime foundation, graph domain model, persistence foundation, validation workflows, glossary, and work-package documentation workflow pages.
+- If a work package introduces or materially expands a concept that does not fit an existing page, create a new topic page rather than appending unrelated material to `home.md`.
+- Do not let a single page accumulate unrelated WP001/WP002/WP003 material merely because it already exists. Split pages when mixed concerns make the reader path unclear.
+- Topic pages must link to related overview, walkthrough, and glossary pages so readers can move between concept-first and task-first paths.
+- Every wiki review must include a page-structure assessment: whether the selected page is the correct home, whether a new page is needed, whether `home.md` is staying concise, and whether cross-links/glossary entries remain sufficient.
+
 ## Mermaid Standards
 Mermaid diagrams are optional, but when they are used they must earn their place.
 
@@ -106,12 +116,23 @@ Follow this workflow for every work package.
 
 1. Identify which developer-facing concepts, workflows, architectural boundaries, or repository behaviours the work package changes or clarifies.
 2. Review the relevant wiki pages, appendix pages, glossary entries, and reader paths that might now be stale or incomplete.
-3. Decide whether an update is required.
-4. If an update is required, make the update before considering the work package complete.
-5. If no update is required, record that decision explicitly with a short explanation grounded in the actual review you performed.
-6. Ensure the final work-package record states what was updated, created, retired, or intentionally left unchanged.
+3. Perform an information-architecture check: identify the correct topic page, decide whether a new page is needed, verify `wiki/home.md` is not being used as a catch-all page, and confirm cross-links are sufficient.
+4. Decide whether an update is required.
+5. If an update is required, make the update before considering the work package complete.
+6. If no update is required, record that decision explicitly with a short explanation grounded in the actual review you performed.
+7. Ensure the final work-package record states what was updated, created, retired, split, renamed, or intentionally left unchanged.
 
 This workflow is a completion gate. Do not skip it because the code change feels small, because the repository already has documentation, or because a prompt or instruction change appears "internal." Internal repository workflow changes can still alter how contributors must work and therefore can still require documentation attention.
+
+## Prohibited Substitute Artifacts
+Standalone implementation notes, implementation ledgers, architecture notes, completion records, or similarly named markdown files must not be used as substitutes for wiki maintenance.
+
+- Do not create `implementation-notes*.md`, `implementation-record*.md`, `implementation-ledger*.md`, or equivalent files to hold contributor-facing explanation of completed behavior.
+- If a work item produces design rationale, validation workflow, setup guidance, architecture explanation, runtime behavior, troubleshooting guidance, terminology, or contributor workflow detail, place that content in the appropriate `./wiki` page as current-state guidance.
+- Do not place that content in `wiki/home.md` unless it is only a short orientation sentence and link to the appropriate topic page.
+- Work-package plans may record concise historical status, files touched, validation commands, and the explicit wiki review result. They must link to the wiki for contributor-facing explanations instead of duplicating that explanation.
+- If an existing implementation-notes-style artifact is found, review it against the wiki, move any still-current contributor guidance into `./wiki`, update or remove stale references, and retire the redundant artifact before the work package is considered complete.
+- If a user explicitly asks for an internal implementation note, clarify whether they mean a specification or plan artifact. Do not create a contributor-facing implementation note unless the user explicitly overrides this instruction after being told that the wiki is the required repository guidance location.
 
 ## Reporting Requirements
 The outcome of the mandatory wiki review must be recorded explicitly.
@@ -120,6 +141,8 @@ At minimum, the execution record or final summary must state one of the followin
 
 - which wiki pages were updated, created, split, renamed, retired, or left unchanged as part of the work package, or
 - that no wiki page update was necessary, together with a brief explanation of what was reviewed and why the existing wiki remained sufficient
+
+For every work package, the final record must also include a concise wiki impact matrix or equivalent prose covering affected concepts, pages reviewed, pages updated, pages created, pages intentionally unchanged, and the page-structure decision.
 
 Acceptable reporting examples:
 

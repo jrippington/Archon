@@ -34,7 +34,9 @@ This section is an unalterable execution requirement, not a guideline, preferenc
 
 ## Documentation Workflow (Summary)
 - For each new Work Package/piece of work: create a new numbered folder under `./docs/` named `xxx-<descriptor>` (e.g. `001-Initial-Shell`).
-- Store ALL related documents (specs, plans, architecture notes, etc.) together inside that Work Package folder.
+- Store work-package planning artifacts, such as specs and implementation plans, together inside that Work Package folder.
+- Do not create standalone implementation notes, implementation ledgers, architecture notes, or similar narrative records for contributor-facing implementation detail. Current-state contributor guidance, design rationale, validation workflows, setup guidance, architecture explanation, and terminology belong in `./wiki` under `.github/instructions/wiki.instructions.md`.
+- Work-package plan updates may record concise completion history and validation outcomes, but they must not become a parallel source of contributor guidance. If the content teaches contributors how the repository works, move that content into the wiki and link to the relevant wiki page from the plan.
 - Do not overwrite prior work packages; create the next incremental folder (e.g. `002-...`).
 - When asked to create specification documents for a work package, create only one document containing everything needed; do not split across multiple documents. If multiple were created, merge into one and delete the extras.
 - Use appropriate prompt family & phase from `.github/prompts/`.
