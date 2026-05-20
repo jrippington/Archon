@@ -69,6 +69,7 @@ Rules:
 
 ## Archon Infrastructure Guidelines
 - For Archon stable project identity, normalized project file paths must be made relative to the repository root directory so identities are deterministic across different developer machine locations.
+- Use Aspire SDK 13.3.3 for Work Package 001 implementation in the Archon workspace, unless later repository guidance supersedes this.
 
 ## MCP Tool Selection
 - Azure DevOps intent: use Azure DevOps tools.

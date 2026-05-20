@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Archon.ServiceDefaults\Archon.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\Archon.Application\Archon.Application.csproj" />
+    <ProjectReference Include="..\Archon.Api.Extraction\Archon.Api.Extraction.csproj" />
+    <ProjectReference Include="..\Archon.Api.Query\Archon.Api.Query.csproj" />
+    <ProjectReference Include="..\Archon.Api.Management\Archon.Api.Management.csproj" />
+    <ProjectReference Include="..\Archon.Infrastructure.Neo4j\Archon.Infrastructure.Neo4j.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+</Project>

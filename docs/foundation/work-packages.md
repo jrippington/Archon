@@ -52,11 +52,11 @@ Every work package must satisfy these rules:
 
 ---
 
-# Work Package 001 - Solution Foundation, Onion Boundaries, and Host Bootstrap
+# WP001 - Solution Foundation, Onion Boundaries, and Host Bootstrap
 
 ## Objective
 
-Create the repository implementation foundation required for every later package: solution structure, project boundaries, Aspire hosting, service defaults, API host, MCP host shell, core domain/application projects, infrastructure seams, and test projects. This package establishes the executable and architectural skeleton but does not implement extraction behavior beyond health and bootstrap verification.
+Create the repository implementation foundation required for every later package: the complete solution structure, every planned production project under `./src`, every corresponding test project under `./test`, project boundaries, Aspire hosting, service defaults, API host, MCP host shell, core domain/application projects, infrastructure seams, and test-project skeletons. This package establishes the executable and architectural skeleton but does not implement extraction behavior beyond health and bootstrap verification.
 
 ## Mandatory source brief references
 
@@ -71,8 +71,8 @@ Create the repository implementation foundation required for every later package
 
 ## Required implementation
 
-- Create or align production projects under `./src` for AppHost, service defaults, domain, application, API modules, Roslyn abstractions, extractor slices, infrastructure adapters, API host, and MCP host.
-- Create corresponding test projects under `./test` for every production project.
+- Create or align all planned production projects under `./src` during this work package, not incrementally in later packages. This includes AppHost, service defaults, domain, application, API modules, Roslyn abstractions, extractor slices, infrastructure adapters, API host, MCP host, and every additional production project required by the complete work-package sequence.
+- Create corresponding test projects under `./test` for every production project during this work package, including test projects for capabilities whose implementation arrives in later work packages.
 - Configure the Aspire AppHost to compose Neo4j, the API host, and the MCP host.
 - Configure service defaults for health checks, telemetry, resilience, and shared host configuration.
 - Establish Onion Architecture references so hosts depend outward on application/module services and no inward layer depends on hosts or infrastructure.
@@ -82,15 +82,15 @@ Create the repository implementation foundation required for every later package
 
 ## Completion criteria
 
-- The solution builds with all foundation projects present.
-- Aspire starts Neo4j, API host, and MCP host without Discovery UI.
+- The solution builds with the complete planned production and test project skeleton present.
+- Automated verification must not run the Aspire AppHost process because it blocks the executing agent. Instead, provide the user with explicit manual verification instructions to start Aspire and confirm Neo4j, API host, and MCP host run without Discovery UI.
 - Project references enforce the architecture direction described by [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md).
 - Tests verify host bootstrap, service defaults, and dependency boundaries.
 - No extraction, query, MCP tool, or UI feature is marked as deferred; those capabilities are assigned to later packages in this document.
 
 ---
 
-# Work Package 002 - Architecture Graph Domain Model and Shared Contracts
+# WP002 - Architecture Graph Domain Model and Shared Contracts
 
 ## Objective
 
@@ -122,7 +122,7 @@ Implement the complete domain and application contract model for snapshots, repo
 
 ---
 
-# Work Package 003 - Neo4j Persistence Foundation
+# WP003 - Neo4j Persistence Foundation
 
 ## Objective
 
@@ -158,7 +158,7 @@ Implement Neo4j as the complete system of record for Archon's architecture graph
 
 ---
 
-# Work Package 004 - API Extraction Contract and Snapshot Orchestration
+# WP004 - API Extraction Contract and Snapshot Orchestration
 
 ## Objective
 
@@ -190,7 +190,7 @@ Implement the API-triggered extraction workflow and snapshot orchestration contr
 
 ---
 
-# Work Package 005 - Repository, Solution, Project, and Package Extraction
+# WP005 - Repository, Solution, Project, and Package Extraction
 
 ## Objective
 
@@ -225,7 +225,7 @@ Implement repository, solution, project, package, project-reference, package-ref
 
 ---
 
-# Work Package 006 - Roslyn Semantic Extraction for C# and VB.NET
+# WP006 - Roslyn Semantic Extraction for C# and VB.NET
 
 ## Objective
 
@@ -259,7 +259,7 @@ Implement compiler-grade semantic extraction for C# and VB.NET declarations and 
 
 ---
 
-# Work Package 007 - Configuration and Dependency Injection Extraction
+# WP007 - Configuration and Dependency Injection Extraction
 
 ## Objective
 
@@ -291,7 +291,7 @@ Implement extraction of modern and legacy configuration usage and dependency-inj
 
 ---
 
-# Work Package 008 - ASP.NET, Worker, Console, and Runtime Extraction
+# WP008 - ASP.NET, Worker, Console, and Runtime Extraction
 
 ## Objective
 
@@ -322,7 +322,7 @@ Implement runtime-facing extraction for ASP.NET Core, classic ASP.NET, Web Forms
 
 ---
 
-# Work Package 009 - Data Access Extraction
+# WP009 - Data Access Extraction
 
 ## Objective
 
@@ -355,7 +355,7 @@ Implement full data-access extraction for LINQ to SQL, DBML, generated designer 
 
 ---
 
-# Work Package 010 - External Integration Extraction
+# WP010 - External Integration Extraction
 
 ## Objective
 
@@ -384,7 +384,7 @@ Implement extraction of external service and integration usage, including HTTP c
 
 ---
 
-# Work Package 011 - .NET Client and UI-Technology Extraction for API/MCP Facts
+# WP011 - .NET Client and UI-Technology Extraction for API/MCP Facts
 
 ## Objective
 
@@ -417,7 +417,7 @@ Implement extraction of .NET UI technologies as architecture facts for API and M
 
 ---
 
-# Work Package 012 - Rule Catalog, Rule Engine, Hotlist, and Findings
+# WP012 - Rule Catalog, Rule Engine, Hotlist, and Findings
 
 ## Objective
 
@@ -453,7 +453,7 @@ Implement the full JSON rule catalog, disk-backed rule loading, schema validatio
 
 ---
 
-# Work Package 013 - Metrics, Hotspots, Architecture Rules, and Snapshot Diff
+# WP013 - Metrics, Hotspots, Architecture Rules, and Snapshot Diff
 
 ## Objective
 
@@ -486,7 +486,7 @@ Implement persisted architecture metrics, coupling/hotspot calculations, moderni
 
 ---
 
-# Work Package 014 - Query API Product Surface
+# WP014 - Query API Product Surface
 
 ## Objective
 
@@ -520,7 +520,7 @@ Implement the complete API query and management product surface required for non
 
 ---
 
-# Work Package 015 - MCP Server, Tools, Resources, Prompts, and Security
+# WP015 - MCP Server, Tools, Resources, Prompts, and Security
 
 ## Objective
 
@@ -554,7 +554,7 @@ Implement the complete read-only MCP server product capability for Copilot and o
 
 ---
 
-# Work Package 016 - Markdown Export and Generated Architecture Knowledge Base
+# WP016 - Markdown Export and Generated Architecture Knowledge Base
 
 ## Objective
 
@@ -586,7 +586,7 @@ Implement generated markdown export as an output of the deterministic architectu
 
 ---
 
-# Work Package 017 - End-to-End Product Hardening, Performance, Security, and Operational Readiness
+# WP017 - End-to-End Product Hardening, Performance, Security, and Operational Readiness
 
 ## Objective
 
@@ -622,7 +622,7 @@ Harden the full API and MCP product capability for realistic repository use: per
 
 ---
 
-# Work Package 018 - Final Completeness Verification Against the Source Brief
+# WP018 - Final Completeness Verification Against the Source Brief
 
 ## Objective
 
@@ -652,4 +652,4 @@ Perform a strict final verification that the API-first and MCP-first Archon impl
 
 ## Final strict completion statement
 
-When Work Package 018 is complete, the Archon API and MCP product capability described by [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md) is fully implemented. There must be no remaining API, MCP, extraction, persistence, evidence, query, rule, finding, metric, diff, markdown, security, operational, or documentation capability left for later. Human-facing Archon Discovery UI delivery is not represented in this document because it is explicitly excluded until after the full API and MCP product capability is available.
+When WP018 is complete, the Archon API and MCP product capability described by [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md) is fully implemented. There must be no remaining API, MCP, extraction, persistence, evidence, query, rule, finding, metric, diff, markdown, security, operational, or documentation capability left for later. Human-facing Archon Discovery UI delivery is not represented in this document because it is explicitly excluded until after the full API and MCP product capability is available.
