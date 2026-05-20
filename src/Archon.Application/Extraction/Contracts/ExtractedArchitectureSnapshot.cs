@@ -19,6 +19,7 @@ namespace Archon.Application.Extraction.Contracts
         /// <param name="nodes">The architecture nodes contributed to the snapshot.</param>
         /// <param name="edges">The architecture edges contributed to the snapshot.</param>
         /// <param name="evidence">The evidence records contributed to the snapshot.</param>
+        /// <param name="rules">The versioned rule catalog entries contributed with the snapshot.</param>
         /// <param name="findings">The findings contributed to the snapshot.</param>
         /// <param name="metrics">The metrics contributed to the snapshot.</param>
         /// <param name="generatedSummaries">The generated summaries contributed to the snapshot.</param>
@@ -31,6 +32,7 @@ namespace Archon.Application.Extraction.Contracts
             IEnumerable<ArchitectureNode>? nodes,
             IEnumerable<ArchitectureEdge>? edges,
             IEnumerable<EvidenceRecord>? evidence,
+            IEnumerable<RuleDefinition>? rules,
             IEnumerable<FindingRecord>? findings,
             IEnumerable<MetricRecord>? metrics,
             IEnumerable<GeneratedSummary>? generatedSummaries,
@@ -44,6 +46,7 @@ namespace Archon.Application.Extraction.Contracts
             Nodes = CopySection(nodes);
             Edges = CopySection(edges);
             Evidence = CopySection(evidence);
+            Rules = CopySection(rules);
             Findings = CopySection(findings);
             Metrics = CopySection(metrics);
             GeneratedSummaries = CopySection(generatedSummaries);
@@ -80,6 +83,11 @@ namespace Archon.Application.Extraction.Contracts
         /// Gets the evidence records contributed to the snapshot.
         /// </summary>
         public IReadOnlyList<EvidenceRecord> Evidence { get; }
+
+        /// <summary>
+        /// Gets the versioned rule catalog entries contributed with the snapshot.
+        /// </summary>
+        public IReadOnlyList<RuleDefinition> Rules { get; }
 
         /// <summary>
         /// Gets the findings contributed to the snapshot.

@@ -38,6 +38,11 @@ namespace Archon.Application.Extraction.Accumulation
         private readonly Dictionary<string, EvidenceRecord> _evidence = new(StringComparer.Ordinal);
 
         /// <summary>
+        /// Stores rule definitions by rule code and version using ordinal string comparison for deterministic duplicate replacement.
+        /// </summary>
+        private readonly Dictionary<string, RuleDefinition> _rules = new(StringComparer.Ordinal);
+
+        /// <summary>
         /// Stores finding records by stable key using ordinal string comparison for deterministic duplicate replacement.
         /// </summary>
         private readonly Dictionary<string, FindingRecord> _findings = new(StringComparer.Ordinal);
@@ -146,6 +151,19 @@ namespace Archon.Application.Extraction.Accumulation
         }
 
         /// <summary>
+        /// Adds or replaces a rule definition by rule code and version.
+        /// </summary>
+        /// <param name="rule">The rule definition to accumulate.</param>
+        /// <returns>The current accumulator for fluent contribution flows.</returns>
+        public ArchitectureSnapshotAccumulator AddRule(RuleDefinition rule)
+        {
+            // Rule definitions are global catalog entries, so code plus version is the deterministic replacement identity.
+            ArgumentNullException.ThrowIfNull(rule);
+            _rules[BuildRuleVersionKey(rule.RuleCode, rule.Version)] = rule;
+            return this;
+        }
+
+        /// <summary>
         /// Adds or replaces a finding record by stable key.
         /// </summary>
         /// <param name="finding">The finding record to accumulate.</param>
@@ -248,6 +266,11 @@ namespace Archon.Application.Extraction.Accumulation
                 AddEvidence(evidence);
             }
 
+            foreach (RuleDefinition rule in snapshot.Rules)
+            {
+                AddRule(rule);
+            }
+
             foreach (FindingRecord finding in snapshot.Findings)
             {
                 AddFinding(finding);
@@ -290,6 +313,7 @@ namespace Archon.Application.Extraction.Accumulation
                 OrderByStableKey(_nodes),
                 OrderByStableKey(_edges),
                 OrderByStableKey(_evidence),
+                OrderByRuleIdentity(_rules),
                 OrderByStableKey(_findings),
                 OrderByStableKey(_metrics),
                 OrderByStableKey(_generatedSummaries),
@@ -311,6 +335,18 @@ namespace Archon.Application.Extraction.Accumulation
         }
 
         /// <summary>
+        /// Builds a deterministic in-memory identity for a versioned rule definition.
+        /// </summary>
+        /// <param name="ruleCode">The stable rule code.</param>
+        /// <param name="ruleVersion">The stable rule version.</param>
+        /// <returns>A composite identity used only by the accumulator.</returns>
+        private static string BuildRuleVersionKey(string ruleCode, string ruleVersion)
+        {
+            // The separator is private to the accumulator; persistence still stores rule code and version as separate fields.
+            return string.Concat(ruleCode, "\u001F", ruleVersion);
+        }
+
+        /// <summary>
         /// Orders stable-keyed dictionary values by their stable-key string.
         /// </summary>
         /// <typeparam name="TItem">The graph fact item type.</typeparam>
@@ -319,6 +355,17 @@ namespace Archon.Application.Extraction.Accumulation
         private static IReadOnlyList<TItem> OrderByStableKey<TItem>(Dictionary<string, TItem> items)
         {
             // Ordinal ordering avoids culture-specific output changes between developer machines and CI agents.
+            return items.OrderBy(pair => pair.Key, StringComparer.Ordinal).Select(pair => pair.Value).ToArray();
+        }
+
+        /// <summary>
+        /// Orders accumulated rule definitions by their rule code and version identity.
+        /// </summary>
+        /// <param name="items">The accumulated rule dictionary to order.</param>
+        /// <returns>A deterministic read-only rule definition list.</returns>
+        private static IReadOnlyList<RuleDefinition> OrderByRuleIdentity(Dictionary<string, RuleDefinition> items)
+        {
+            // Rule definitions do not carry StableKey values, so the accumulator orders them by its composite code/version dictionary key.
             return items.OrderBy(pair => pair.Key, StringComparer.Ordinal).Select(pair => pair.Value).ToArray();
         }
 

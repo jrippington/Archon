@@ -127,6 +127,7 @@ namespace Archon.Application.Tests.Extraction.Accumulation
                 [facts.Node],
                 [facts.Edge],
                 [facts.Evidence],
+                [],
                 [facts.Finding],
                 [facts.Metric],
                 [facts.Summary],

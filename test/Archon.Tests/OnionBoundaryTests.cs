@@ -1,4 +1,5 @@
 using Xunit;
+using System.Xml.Linq;
 
 namespace Archon.Tests
 {
@@ -79,6 +80,23 @@ namespace Archon.Tests
         }
 
         /// <summary>
+        /// Confirms Neo4j driver package references stay in the Neo4j infrastructure adapter and do not leak into inner layers.
+        /// </summary>
+        [Fact]
+        public void Neo4jDriverPackageReferencesRemainOutsideDomainAndApplication()
+        {
+            // WP003 preserves Onion Architecture by allowing the official Neo4j driver only in the outer infrastructure adapter.
+            ProjectCatalog catalog = ProjectCatalog.Create();
+            ProjectDescriptor domain = catalog.GetProjectByName("Archon.Domain");
+            ProjectDescriptor application = catalog.GetProjectByName("Archon.Application");
+            ProjectDescriptor neo4jInfrastructure = catalog.GetProjectByName("Archon.Infrastructure.Neo4j");
+
+            Assert.DoesNotContain("Neo4j.Driver", ReadPackageReferences(domain), StringComparer.OrdinalIgnoreCase);
+            Assert.DoesNotContain("Neo4j.Driver", ReadPackageReferences(application), StringComparer.OrdinalIgnoreCase);
+            Assert.Contains("Neo4j.Driver", ReadPackageReferences(neo4jInfrastructure), StringComparer.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
         /// Confirms the Aspire AppHost's API and MCP references are intentionally allowed composition references.
         /// </summary>
         [Fact]
@@ -145,6 +163,22 @@ namespace Archon.Tests
                     forbidden.Contains(target.Layer),
                     $"Project '{project.Identity}' ({project.Layer}) must not reference '{target.Identity}' ({target.Layer}).");
             }
+        }
+
+        /// <summary>
+        /// Reads package reference names from a project file for boundary enforcement.
+        /// </summary>
+        /// <param name="project">The project descriptor whose package references should be inspected.</param>
+        /// <returns>The package names declared by the project file.</returns>
+        private static IReadOnlyList<string> ReadPackageReferences(ProjectDescriptor project)
+        {
+            // Package references are static project metadata, so direct XML inspection is enough and does not require a restore.
+            XDocument projectDocument = XDocument.Load(project.FullPath);
+            return projectDocument.Descendants("PackageReference")
+                .Select(reference => reference.Attribute("Include")?.Value)
+                .Where(packageName => !string.IsNullOrWhiteSpace(packageName))
+                .Select(packageName => packageName!)
+                .ToArray();
         }
     }
 }
