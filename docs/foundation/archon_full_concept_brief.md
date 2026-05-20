@@ -1,4 +1,4 @@
-# Archon
+﻿# Archon
 ## A Roslyn-Powered Architecture Operating System for Legacy and Modern .NET Estates
 
 **Document purpose:**  
@@ -21,13 +21,21 @@ It is designed for organisations with large, long-lived .NET codebases that cont
 - VB.NET
 - ASP.NET Core
 - classic ASP.NET
+- Blazor
+- Razor Pages and Razor views
+- Windows Forms
+- WPF
+- WinUI
+- .NET MAUI
+- Avalonia
 - Web APIs
 - Web Forms
 - console workers
 - Windows-service-style workers
 - LINQ to SQL
 - ADO.NET
-- Entity Framework / EF Core
+- Entity Framework Classic / EF6
+- Entity Framework Core
 - shared databases
 - old project formats
 - old configuration models
@@ -37,14 +45,14 @@ It is designed for organisations with large, long-lived .NET codebases that cont
 
 The core idea is simple:
 
-> **Archon extracts architectural facts deterministically from code, stores them in SQL Server, exposes them through a discovery UI, and makes them available to Copilot and other AI assistants through an MCP server.**
+> **Archon extracts architectural facts deterministically from code through an API-driven analysis workflow, stores them in Neo4j as a native architecture graph, exposes them through a discovery UI, and makes them available to Copilot and other AI assistants through an MCP server.**
 
 Archon does not ask AI to guess the architecture.
 
 Instead:
 
 > **Roslyn extracts facts.  
-> SQL Server stores architectural memory.  
+> Neo4j stores architectural memory as a native graph.  
 > The UI makes it explorable.  
 > MCP makes it available to AI.  
 > Copilot explains, reasons, and assists using evidence-backed context.**
@@ -252,6 +260,9 @@ This allows deep understanding of:
 - project references
 - ASP.NET Core conventions
 - classic ASP.NET conventions
+- Blazor and Razor component conventions
+- Windows Forms designer and code-behind conventions
+- XAML-based UI conventions for WPF, WinUI, .NET MAUI, and Avalonia
 - `IServiceCollection`
 - dependency injection
 - `IConfiguration`
@@ -259,7 +270,8 @@ This allows deep understanding of:
 - hosted services
 - controllers
 - minimal APIs
-- Entity Framework
+- Entity Framework Classic / EF6
+- Entity Framework Core
 - LINQ to SQL
 - old configuration patterns
 
@@ -344,11 +356,11 @@ Instead:
 ```text
 Roslyn Workspace / Compilation / SemanticModel
         ↓
-Archon Extractors
+API-triggered extraction pipeline
         ↓
 Architecture Nodes + Edges + Evidence + Metrics
         ↓
-SQL Server
+Neo4j
 ```
 
 Architecture is graph-shaped, not tree-shaped.
@@ -362,11 +374,13 @@ Therefore the core persisted model should be an **Architecture Semantic Graph**.
 ```text
 .NET repositories / solutions
         ↓
-Archon Extractor
+POST /extractions request
         ↓
-SQL Server Architecture Store
+Archon API extraction module
         ↓
-Archon API
+Neo4j Architecture Graph
+        ↓
+Archon API query and management modules
         ↓
 Discovery UI
         ↓
@@ -377,13 +391,27 @@ Copilot / IDE agents / AI assistants
 
 ## 8.1 Component Responsibilities
 
-### Archon Extractor
+### Archon API Host
 
-Loads and analyses repositories and solutions.
+Hosts the HTTP surface for extraction, query, management, UI backend, and MCP-facing access.
 
 Responsible for:
 
-- reading solution files
+- accepting extraction requests that POST a repository root directory and one or more solution paths
+- validating request shape, paths, and execution policy before analysis begins
+- delegating extraction work to the extraction module
+- delegating query work to the query module
+- delegating administrative operations to the management module
+- coordinating authentication, authorization, validation, telemetry, and host composition
+
+### Archon API Extraction Module
+
+Loads and analyses repositories and solutions when invoked through the API.
+
+Responsible for:
+
+- reading the submitted repository root directory
+- reading the submitted solution path list
 - loading projects with Roslyn
 - analysing C# and VB.NET
 - detecting project references
@@ -392,18 +420,18 @@ Responsible for:
 - extracting architecture facts
 - detecting legacy technologies
 - producing findings
-- writing a snapshot to SQL Server
+- writing a snapshot to Neo4j
 
-### Archon SQL Store
+### Neo4j Architecture Graph
 
-Stores:
+Stores the architecture semantic graph natively as labelled nodes and typed relationships:
 
 - snapshots
 - repositories
 - solutions
 - project, package, runtime, and data-access nodes
-- nodes
-- edges
+- graph nodes
+- graph relationships
 - evidence
 - findings
 - metrics
@@ -411,7 +439,7 @@ Stores:
 - hotlist findings
 - generated summaries
 
-### Archon API
+### Archon API Query Module
 
 Provides query access over the architecture model.
 
@@ -425,6 +453,20 @@ Responsible for:
 - hotlist reports
 - MCP backend access
 - markdown export access
+
+### Archon API Management Module
+
+Provides operational and administrative API capabilities.
+
+Responsible for:
+
+- repository registration and metadata management
+- solution registration and metadata management
+- snapshot lifecycle and retention controls
+- rule catalog visibility and enablement controls
+- extraction run history
+- health and readiness views for graph-backed services
+- controlled maintenance operations
 
 ### Archon Discovery UI
 
@@ -479,6 +521,9 @@ src/
 
   Archon.Domain/Archon.Domain.csproj
   Archon.Application/Archon.Application.csproj
+  Archon.Api.Extraction/Archon.Api.Extraction.csproj
+  Archon.Api.Query/Archon.Api.Query.csproj
+  Archon.Api.Management/Archon.Api.Management.csproj
 
   Archon.Roslyn/Archon.Roslyn.csproj
   Archon.Roslyn.CSharp/Archon.Roslyn.CSharp.csproj
@@ -487,23 +532,30 @@ src/
 
   Archon.Extractors.Projects/Archon.Extractors.Projects.csproj
   Archon.Extractors.AspNet/Archon.Extractors.AspNet.csproj
+  Archon.Extractors.Ui/Archon.Extractors.Ui.csproj
+  Archon.Extractors.Blazor/Archon.Extractors.Blazor.csproj
+  Archon.Extractors.Razor/Archon.Extractors.Razor.csproj
+  Archon.Extractors.WinForms/Archon.Extractors.WinForms.csproj
+  Archon.Extractors.Wpf/Archon.Extractors.Wpf.csproj
+  Archon.Extractors.WinUI/Archon.Extractors.WinUI.csproj
+  Archon.Extractors.Maui/Archon.Extractors.Maui.csproj
+  Archon.Extractors.Avalonia/Archon.Extractors.Avalonia.csproj
   Archon.Extractors.DependencyInjection/Archon.Extractors.DependencyInjection.csproj
   Archon.Extractors.Configuration/Archon.Extractors.Configuration.csproj
   Archon.Extractors.DataAccess/Archon.Extractors.DataAccess.csproj
   Archon.Extractors.LinqToSql/Archon.Extractors.LinqToSql.csproj
-  Archon.Extractors.Ef/Archon.Extractors.Ef.csproj
+  Archon.Extractors.EntityFramework/Archon.Extractors.EntityFramework.csproj
   Archon.Extractors.AdoNet/Archon.Extractors.AdoNet.csproj
   Archon.Extractors.LegacyWeb/Archon.Extractors.LegacyWeb.csproj
   Archon.Extractors.Hotlist/Archon.Extractors.Hotlist.csproj
 
   Archon.Infrastructure.Roslyn/Archon.Infrastructure.Roslyn.csproj
-  Archon.Infrastructure.SqlServer/Archon.Infrastructure.SqlServer.csproj
+  Archon.Infrastructure.Neo4j/Archon.Infrastructure.Neo4j.csproj
   Archon.Infrastructure.Markdown/Archon.Infrastructure.Markdown.csproj
 
   ArchonApi/ArchonApi.csproj
   ArchonUi/ArchonUi.csproj
   ArchonMcp/ArchonMcp.csproj
-  ArchonExtractor/ArchonExtractor.csproj
 
 test/
   Archon.Tests/Archon.Tests.csproj
@@ -511,6 +563,9 @@ test/
 
   Archon.Domain.Tests/Archon.Domain.Tests.csproj
   Archon.Application.Tests/Archon.Application.Tests.csproj
+  Archon.Api.Extraction.Tests/Archon.Api.Extraction.Tests.csproj
+  Archon.Api.Query.Tests/Archon.Api.Query.Tests.csproj
+  Archon.Api.Management.Tests/Archon.Api.Management.Tests.csproj
 
   Archon.Roslyn.Tests/Archon.Roslyn.Tests.csproj
   Archon.Roslyn.CSharp.Tests/Archon.Roslyn.CSharp.Tests.csproj
@@ -519,40 +574,52 @@ test/
 
   Archon.Extractors.Projects.Tests/Archon.Extractors.Projects.Tests.csproj
   Archon.Extractors.AspNet.Tests/Archon.Extractors.AspNet.Tests.csproj
+  Archon.Extractors.Ui.Tests/Archon.Extractors.Ui.Tests.csproj
+  Archon.Extractors.Blazor.Tests/Archon.Extractors.Blazor.Tests.csproj
+  Archon.Extractors.Razor.Tests/Archon.Extractors.Razor.Tests.csproj
+  Archon.Extractors.WinForms.Tests/Archon.Extractors.WinForms.Tests.csproj
+  Archon.Extractors.Wpf.Tests/Archon.Extractors.Wpf.Tests.csproj
+  Archon.Extractors.WinUI.Tests/Archon.Extractors.WinUI.Tests.csproj
+  Archon.Extractors.Maui.Tests/Archon.Extractors.Maui.Tests.csproj
+  Archon.Extractors.Avalonia.Tests/Archon.Extractors.Avalonia.Tests.csproj
   Archon.Extractors.DependencyInjection.Tests/Archon.Extractors.DependencyInjection.Tests.csproj
   Archon.Extractors.Configuration.Tests/Archon.Extractors.Configuration.Tests.csproj
   Archon.Extractors.DataAccess.Tests/Archon.Extractors.DataAccess.Tests.csproj
   Archon.Extractors.LinqToSql.Tests/Archon.Extractors.LinqToSql.Tests.csproj
-  Archon.Extractors.Ef.Tests/Archon.Extractors.Ef.Tests.csproj
+  Archon.Extractors.EntityFramework.Tests/Archon.Extractors.EntityFramework.Tests.csproj
   Archon.Extractors.AdoNet.Tests/Archon.Extractors.AdoNet.Tests.csproj
   Archon.Extractors.LegacyWeb.Tests/Archon.Extractors.LegacyWeb.Tests.csproj
   Archon.Extractors.Hotlist.Tests/Archon.Extractors.Hotlist.Tests.csproj
 
   Archon.Infrastructure.Roslyn.Tests/Archon.Infrastructure.Roslyn.Tests.csproj
-  Archon.Infrastructure.SqlServer.Tests/Archon.Infrastructure.SqlServer.Tests.csproj
+  Archon.Infrastructure.Neo4j.Tests/Archon.Infrastructure.Neo4j.Tests.csproj
   Archon.Infrastructure.Markdown.Tests/Archon.Infrastructure.Markdown.Tests.csproj
 
   ArchonApi.Tests/ArchonApi.Tests.csproj
   ArchonUi.Tests/ArchonUi.Tests.csproj
   ArchonMcp.Tests/ArchonMcp.Tests.csproj
-  ArchonExtractor.Tests/ArchonExtractor.Tests.csproj
 ```
 
 ## 9.1 Expected Responsibilities by Project
 
 ### Host and composition projects
 
-- `Archon` is the Aspire AppHost and orchestration root. It should compose the distributed application, provision SQL Server and other runtime dependencies, and wire host-to-host configuration. It should not contain domain logic, extraction logic, or persistence implementations.
+- `Archon` is the Aspire AppHost and orchestration root. It should compose the distributed application, provision Neo4j and other runtime dependencies, and wire host-to-host configuration. It should not contain domain logic, extraction logic, or persistence implementations.
 - `Archon.ServiceDefaults` should contain shared host-level defaults such as service discovery wiring, resilience defaults, health checks, telemetry, common authentication plumbing, and other cross-host runtime configuration helpers.
-- `ArchonApi` should expose HTTP endpoints for querying snapshots, projects, dependencies, evidence, findings, metrics, and other architecture model views. It should remain a thin delivery host over application services.
+- `ArchonApi` should expose HTTP endpoints for extraction submission, snapshot queries, project queries, dependency queries, evidence lookup, findings, metrics, management operations, and other architecture model views. It should remain a thin delivery host over API module services.
 - `ArchonUi` should contain the human-facing discovery UI, including dashboard, catalogue pages, explorer views, evidence views, scoped graphs, hotlist views, and snapshot diff experiences.
 - `ArchonMcp` should host the MCP server and translate MCP tool/resource/prompt requests into application-layer queries over the persisted architecture model.
-- `ArchonExtractor` should host the extraction runtime, coordinate repository and solution analysis, invoke extractor slices, assemble snapshots, and persist extraction results.
 
 ### Core projects
 
 - `Archon.Domain` should contain the stable core concepts of the architecture model, core enums/value objects, domain rules that are independent of delivery and storage, and other inward-facing business semantics.
-- `Archon.Application` should contain extraction orchestration contracts, snapshot assembly workflows, query use cases, application services, DTOs/models for API/UI/MCP consumption, and ports for Roslyn, persistence, markdown, and other outer concerns.
+- `Archon.Application` should contain shared application contracts, snapshot assembly workflows, cross-module use cases, DTOs/models for API/UI/MCP consumption, and ports for Roslyn, graph persistence, markdown, and other outer concerns.
+
+### API module projects
+
+- `Archon.Api.Extraction` should contain the API entry point into extraction, extraction request contracts, validation, orchestration workflow, common extraction code, repository/solution loading coordination, extraction project invocation, snapshot assembly, and graph persistence use cases exposed by the API host. It should coordinate the `Archon.Extractors.*` projects rather than absorbing their implementation code.
+- `Archon.Api.Query` should contain graph query use cases, traversal request/response contracts, projection models, evidence lookup workflows, snapshot comparison workflows, and query services consumed by the API host, UI, and MCP host.
+- `Archon.Api.Management` should contain management use cases for repositories, solutions, snapshots, rule catalog administration, extraction run history, health views, retention policy operations, and other operational API capabilities.
 
 ### Roslyn projects
 
@@ -563,13 +630,23 @@ test/
 
 ### Extractor slice projects
 
+Extraction implementation should remain in separate `Archon.Extractors.*` projects because the extraction catalogue is expected to grow over time. `Archon.Api.Extraction` provides the API entry point, shared orchestration, common extraction code, and coordination layer over these projects.
+
 - `Archon.Extractors.Projects` should extract repository, solution, project, package, and project-reference facts.
 - `Archon.Extractors.AspNet` should extract ASP.NET Core runtime facts such as endpoints, controllers, route metadata, middleware clues, and API surface information.
+- `Archon.Extractors.Ui` should contain shared UI extraction contracts, UI graph normalization helpers, XAML/Razor/component evidence models, route/navigation abstractions, and common UI metadata conventions used by the specific .NET UI extractors.
+- `Archon.Extractors.Blazor` should extract Blazor applications, `.razor` components, `@page` routes, layouts, render modes, component parameters, injected services, event handlers, authorization metadata, and component usage relationships.
+- `Archon.Extractors.Razor` should extract Razor Pages, MVC Razor views, `_ViewImports`, `_ViewStart`, layouts, partials, tag helpers, page models, route conventions, handlers, form posts, and links to controllers or page handlers.
+- `Archon.Extractors.WinForms` should extract Windows Forms applications, forms, user controls, designer files, controls, event handler wiring, resources, data bindings, startup forms, and code-behind dependencies.
+- `Archon.Extractors.Wpf` should extract WPF applications, windows, pages, user controls, XAML resources, resource dictionaries, bindings, commands, routed events, view models, styles, templates, and navigation relationships.
+- `Archon.Extractors.WinUI` should extract WinUI applications, windows, pages, user controls, XAML resources, bindings, commands, view models, app startup, navigation, and packaged desktop application metadata.
+- `Archon.Extractors.Maui` should extract .NET MAUI applications, pages, Shell routes, XAML views, handlers, resources, bindings, commands, view models, platform-specific heads, and cross-platform navigation relationships.
+- `Archon.Extractors.Avalonia` should extract Avalonia applications, AXAML views, windows, user controls, resources, styles, bindings, commands, view models, routes/navigation where present, and cross-platform desktop application metadata.
 - `Archon.Extractors.DependencyInjection` should extract DI registrations, registration lifetimes, service-to-implementation mappings, and constructor/service dependency relationships.
 - `Archon.Extractors.Configuration` should extract configuration keys, binding relationships, configuration source evidence, connection string usage, and external endpoint configuration clues.
 - `Archon.Extractors.DataAccess` should contain shared cross-technology data-access extraction contracts, helper models, and normalisation logic used by the more specific data-access extractors.
 - `Archon.Extractors.LinqToSql` should extract LINQ to SQL contexts, entities, table mappings, stored procedure mappings, and usage sites.
-- `Archon.Extractors.Ef` should extract Entity Framework and EF Core contexts, entity mappings, migrations, relationships, and usage sites.
+- `Archon.Extractors.EntityFramework` should extract Entity Framework Classic / EF6 and Entity Framework Core contexts, entity mappings, migrations, relationships, and usage sites when those technologies are present in target repositories.
 - `Archon.Extractors.AdoNet` should extract ADO.NET connections, commands, command text evidence, stored procedure usage, and read/write hints.
 - `Archon.Extractors.LegacyWeb` should extract classic ASP.NET, Web Forms, MVC 5, Web API 2, `System.Web`, `Global.asax`, handlers, modules, and related legacy web evidence.
 - `Archon.Extractors.Hotlist` should evaluate modernization, lifecycle, obsolete API, security, dependency-risk, and architecture-smell rules over extracted facts and emit findings.
@@ -577,7 +654,7 @@ test/
 ### Infrastructure projects
 
 - `Archon.Infrastructure.Roslyn` should provide the outer Roslyn adapter implementation, including MSBuild workspace loading, compilation creation, document access, metadata resolution, and any Roslyn host integration needed by the application layer.
-- `Archon.Infrastructure.SqlServer` should provide EF Core persistence, query implementations, schema management, snapshot storage, rule catalog storage, findings storage, metrics storage, and related SQL Server-specific infrastructure.
+- `Archon.Infrastructure.Neo4j` should provide graph persistence, Cypher query implementations, graph constraint/index management, snapshot storage, rule catalog storage, findings storage, metrics storage, and related Neo4j-specific infrastructure.
 - `Archon.Infrastructure.Markdown` should provide markdown export generation, export formatting, document composition, and persistence/output adapters for generated architecture documentation.
 
 ### Test projects
@@ -586,29 +663,39 @@ test/
 - `Archon.ServiceDefaults.Tests` should verify shared host defaults and runtime configuration helpers.
 - `Archon.Domain.Tests` should verify domain invariants, value objects, classification rules, and other pure domain behavior.
 - `Archon.Application.Tests` should verify orchestration, use cases, mapping, snapshot assembly behavior, and application service contracts.
+- `Archon.Api.Extraction.Tests` should verify extraction request contracts, validation, API-module orchestration, pipeline wiring, and end-to-end extraction execution behavior through the API module seam.
+- `Archon.Api.Query.Tests` should verify graph query use cases, projection contracts, evidence lookup, traversal behavior, and snapshot comparison behavior.
+- `Archon.Api.Management.Tests` should verify management use cases, repository and solution administration, rule catalog operations, extraction run history, and retention behavior.
 - `Archon.Roslyn.Tests` should verify Roslyn-shared helpers, abstractions, and language-agnostic semantic projection behavior.
 - `Archon.Roslyn.CSharp.Tests` should verify C#-specific extraction behavior.
 - `Archon.Roslyn.VisualBasic.Tests` should verify VB.NET-specific extraction behavior.
 - `Archon.Roslyn.Legacy.Tests` should verify legacy Roslyn interpretation and heuristics.
 - `Archon.Extractors.Projects.Tests` should verify project/package/reference extraction behavior.
 - `Archon.Extractors.AspNet.Tests` should verify ASP.NET extraction behavior.
+- `Archon.Extractors.Ui.Tests` should verify shared UI extraction contracts and normalized UI graph behavior.
+- `Archon.Extractors.Blazor.Tests` should verify Blazor component, route, layout, service usage, and component relationship extraction behavior.
+- `Archon.Extractors.Razor.Tests` should verify Razor Pages, MVC view, layout, partial, tag helper, and page model extraction behavior.
+- `Archon.Extractors.WinForms.Tests` should verify Windows Forms form, user control, designer, event handler, resource, and data binding extraction behavior.
+- `Archon.Extractors.Wpf.Tests` should verify WPF XAML, window, page, user control, resource, binding, command, and view-model extraction behavior.
+- `Archon.Extractors.WinUI.Tests` should verify WinUI XAML, window, page, resource, binding, command, and navigation extraction behavior.
+- `Archon.Extractors.Maui.Tests` should verify .NET MAUI page, Shell route, resource, binding, command, view-model, and platform-head extraction behavior.
+- `Archon.Extractors.Avalonia.Tests` should verify Avalonia AXAML, window, user control, resource, style, binding, command, and view-model extraction behavior.
 - `Archon.Extractors.DependencyInjection.Tests` should verify DI extraction behavior.
 - `Archon.Extractors.Configuration.Tests` should verify configuration extraction behavior.
 - `Archon.Extractors.DataAccess.Tests` should verify shared data-access extraction contracts and normalization logic.
 - `Archon.Extractors.LinqToSql.Tests` should verify LINQ to SQL extraction behavior.
-- `Archon.Extractors.Ef.Tests` should verify EF and EF Core extraction behavior.
+- `Archon.Extractors.EntityFramework.Tests` should verify Entity Framework Classic / EF6 and Entity Framework Core extraction behavior.
 - `Archon.Extractors.AdoNet.Tests` should verify ADO.NET extraction behavior.
 - `Archon.Extractors.LegacyWeb.Tests` should verify classic ASP.NET and legacy web extraction behavior.
 - `Archon.Extractors.Hotlist.Tests` should verify rule evaluation and finding generation behavior.
 - `Archon.Infrastructure.Roslyn.Tests` should verify workspace-loading and Roslyn adapter integration behavior.
-- `Archon.Infrastructure.SqlServer.Tests` should verify persistence, query, and schema behaviors against SQL Server-focused infrastructure seams.
+- `Archon.Infrastructure.Neo4j.Tests` should verify graph persistence, Cypher query, constraint/index, and schema-like graph contract behaviors against Neo4j-focused infrastructure seams.
 - `Archon.Infrastructure.Markdown.Tests` should verify markdown export generation and formatting behavior.
 - `ArchonApi.Tests` should verify API endpoint behavior, contracts, and host composition.
 - `ArchonUi.Tests` should verify UI composition and user-facing discovery flows appropriate to the chosen UI test strategy.
 - `ArchonMcp.Tests` should verify MCP tool contracts, resource exposure, prompt behavior, and host composition.
-- `ArchonExtractor.Tests` should verify extractor-host composition, pipeline wiring, and end-to-end extraction execution behavior.
 
-This target state is intentionally more granular than the likely initial implementation. Early work packages may temporarily consolidate some of these responsibilities, but the recommended end state should preserve this separation so Roslyn adapters, extractor slices, infrastructure concerns, hosts, and their corresponding tests can evolve independently.
+This target state is intentionally more granular than the likely initial implementation. Early work packages may temporarily consolidate some of these responsibilities, but the recommended end state should preserve this separation so API modules, Roslyn adapters, extraction slices, infrastructure concerns, hosts, and their corresponding tests can evolve independently.
 
 ---
 
@@ -625,38 +712,36 @@ dotnet run --project ./src/Archon/Archon.csproj
 Aspire should start:
 
 ```text
-SQL Server
+Neo4j
 Archon API
 Archon UI
 Archon MCP Server
-optional extractor worker
-optional database admin tool
+optional graph administration tool
 ```
 
-Developers should not need to manually provision SQL Server or wire connection strings.
+Developers should not need to manually provision Neo4j or wire graph connection details.
 
 The AppHost should configure all services and pass connection details through service discovery/configuration.
 
 ---
 
-# 11. Database Choice
+# 11. Graph Database Choice
 
-Use **SQL Server**.
+Use **Neo4j**.
 
 Reasoning:
 
 - the organisation is a .NET house
-- SQL Server has excellent Aspire support
-- SQL Server is familiar to the team
-- relational modelling is appropriate
-- architecture facts need history and querying
-- node/edge graph-style data can be represented relationally
-- SQL Server can support JSON metadata where needed
-- SQL Server can support full-text search if required
+- Archon's core model is inherently graph-shaped
+- architecture facts need deep traversal, neighborhood queries, impact analysis, and path discovery
+- project, symbol, runtime, data-access, configuration, and integration relationships should be represented as first-class graph relationships
+- Neo4j provides native labelled nodes, typed relationships, graph indexes, graph constraints, and Cypher traversal semantics
+- native graph persistence keeps the architecture model aligned with the way users need to explore and reason about it
+- graph queries should be a product strength rather than an impedance mismatch hidden behind another storage model
 
-Archon should not begin with a graph database.
+Archon should begin with a native graph database.
 
-A relational node/edge model in SQL Server is sufficient and simpler to operate.
+Neo4j is the system of record for the Architecture Semantic Graph.
 
 ---
 
@@ -666,29 +751,29 @@ Archon uses one architecture-wide full-graph model.
 
 This is the only persistence model described by this document.
 
-The model is snapshot-scoped, evidence-first, and designed so all extractor slices contribute facts into one durable architecture graph rather than into separate special-purpose models.
+The model is snapshot-scoped, evidence-first, and designed so all API extraction slices contribute facts into one durable architecture graph rather than into separate special-purpose models.
 
 ## 12.1 Core Persistence Concepts
 
-The persisted architecture model consists of:
+The persisted architecture model consists of Neo4j graph elements and supporting graph-owned metadata for:
 
 - `Repositories`
 - `Solutions`
 - `Snapshots`
-- `Nodes`
-- `Edges`
+- labelled architecture nodes
+- typed architecture relationships
 - `Evidence`
 - `Rules`
 - `Findings`
 - `Metrics`
 - `GeneratedSummaries`
-- supporting link tables where many-to-many relationships are required
+- supporting relationship patterns where many-to-many relationships are required
 
-Repositories and solutions are first-class concepts with their own companion tables and are also materialized as graph nodes so they participate directly in traversal, evidence linking, and diff.
+Repositories and solutions are first-class graph nodes so they participate directly in traversal, evidence linking, and diff.
 
 ## 12.2 Snapshot-Centred Architecture Graph
 
-Every extractor run produces a snapshot.
+Every API-triggered extraction run produces a snapshot.
 
 Each snapshot owns:
 
@@ -708,11 +793,11 @@ This enables:
 - trend reporting
 - evidence-backed comparison of architecture over time
 
-Snapshots are linked to repositories directly and to one or more solutions through explicit link rows rather than through a single solution column.
+Snapshots are linked to repositories directly and to one or more solutions through explicit graph relationships rather than through a single owning-solution property.
 
 ## 12.3 Full Node Model
 
-The node table is the primary durable graph representation of extracted architecture concepts.
+Labelled Neo4j nodes are the primary durable graph representation of extracted architecture concepts.
 
 ```text
 Node
@@ -753,6 +838,18 @@ Field
 Endpoint
 Controller
 HostedService
+UiApplication
+UiComponent
+UiPage
+UiView
+UiLayout
+UiRoute
+UiControl
+UiResource
+UiStyle
+ViewModel
+Command
+Binding
 ConfigurationKey
 DbContext
 LinqToSqlDataContext
@@ -775,7 +872,7 @@ The implementation may support additional node kinds, but it must not support fe
 
 ## 12.4 Full Edge Model
 
-Edges are the primary durable graph representation of extracted architectural relationships.
+Typed Neo4j relationships are the primary durable graph representation of extracted architectural relationships.
 
 ```text
 Edge
@@ -820,6 +917,19 @@ EXECUTES_RAW_SQL
 CALLS_EXTERNAL_SERVICE
 USES_PACKAGE
 DECLARES_ENDPOINT
+DECLARES_COMPONENT
+DECLARES_UI_ROUTE
+USES_COMPONENT
+USES_LAYOUT
+USES_CONTROL
+USES_UI_RESOURCE
+USES_STYLE
+BINDS_TO
+USES_COMMAND
+USES_VIEW_MODEL
+NAVIGATES_TO
+HANDLES_UI_EVENT
+CALLS_API
 REGISTERED_AS_SERVICE
 DEPENDS_ON
 ```
@@ -1275,7 +1385,321 @@ Detect:
 
 ---
 
-# 19. Worker and Console Extraction
+# 19. .NET UI Extraction
+
+Archon should treat .NET UI technologies as first-class architecture facts. UI extraction is important because user-facing screens, components, routes, navigation, bindings, commands, and API usage often define the practical change-impact path from user interaction to backend service and data access.
+
+Archon should focus on .NET UI technologies only for this capability area. JavaScript and TypeScript frontend frameworks such as React, Angular, Vue, and Svelte are explicitly out of scope for the initial UI extraction model.
+
+The UI extraction model should normalize framework-specific findings into common graph concepts such as UI applications, components, pages, views, layouts, routes, controls, resources, styles, view models, commands, bindings, navigation edges, API calls, and evidence.
+
+## 19.1 Blazor
+
+Detect:
+
+```text
+.razor files
+@page directives
+@layout directives
+@inject directives
+[Parameter]
+[CascadingParameter]
+EventCallback
+RenderFragment
+AuthorizeView
+[Authorize]
+Interactive render modes
+Blazor Server hosting
+Blazor WebAssembly hosting
+Blazor Web App hosting
+Hybrid Blazor hosting
+component references
+route parameters
+forms and validation components
+```
+
+Extract:
+
+```text
+Blazor application
+component
+route
+layout
+component parameters
+cascading parameters
+injected services
+event handlers
+child component usage
+authorization metadata
+API/client usage
+configuration usage
+evidence spans
+```
+
+## 19.2 Razor Pages and Razor Views
+
+Detect:
+
+```text
+.cshtml files
+Razor Pages
+MVC Razor views
+_ViewImports.cshtml
+_ViewStart.cshtml
+layouts
+partials
+view components
+tag helpers
+page models
+handler methods
+form posts
+anchor tag helpers
+route conventions
+```
+
+Extract:
+
+```text
+Razor page
+MVC view
+page model
+layout
+partial view
+view component
+tag helper usage
+handler method
+form action
+controller/action linkage where detectable
+route metadata
+authorization metadata
+```
+
+## 19.3 Windows Forms
+
+Detect:
+
+```text
+System.Windows.Forms references
+Windows Forms project settings
+Application.Run
+forms
+user controls
+designer files
+.resx resources
+control fields
+InitializeComponent
+event handler subscriptions
+data bindings
+startup form
+```
+
+Extract:
+
+```text
+Windows Forms application
+startup form
+form
+user control
+control hierarchy
+event handler wiring
+resources
+data bindings
+code-behind dependencies
+service and data-access usage
+```
+
+## 19.4 WPF
+
+Detect:
+
+```text
+PresentationFramework references
+ApplicationDefinition
+.xaml files
+windows
+pages
+user controls
+resource dictionaries
+styles
+control templates
+data templates
+bindings
+commands
+routed events
+navigation services
+view model conventions
+```
+
+Extract:
+
+```text
+WPF application
+window
+page
+user control
+resource dictionary
+style
+template
+binding
+command
+routed event
+view model relationship
+navigation target
+service and data-access usage
+```
+
+## 19.5 WinUI
+
+Detect:
+
+```text
+Microsoft.UI.Xaml references
+WinUI project properties
+.xaml files
+windows
+pages
+user controls
+resources
+styles
+bindings
+commands
+navigation frame usage
+app startup
+packaged desktop metadata
+```
+
+Extract:
+
+```text
+WinUI application
+window
+page
+user control
+resource
+style
+binding
+command
+view model relationship
+navigation target
+packaging metadata
+service and data-access usage
+```
+
+## 19.6 .NET MAUI
+
+Detect:
+
+```text
+UseMaui
+MauiProgram
+.xaml files
+ContentPage
+ContentView
+Shell
+Shell routes
+handlers
+resources
+styles
+bindings
+commands
+platform-specific heads
+```
+
+Extract:
+
+```text
+.NET MAUI application
+page
+view
+Shell route
+handler
+resource
+style
+binding
+command
+view model relationship
+platform-specific head
+navigation target
+service and data-access usage
+```
+
+## 19.7 Avalonia
+
+Detect:
+
+```text
+Avalonia package references
+AXAML files
+App.axaml
+windows
+user controls
+resources
+styles
+bindings
+commands
+view locator patterns
+ReactiveUI usage where present
+application startup
+```
+
+Extract:
+
+```text
+Avalonia application
+window
+user control
+resource
+style
+binding
+command
+view model relationship
+view locator relationship
+navigation target where present
+service and data-access usage
+```
+
+Key graph nodes:
+
+```text
+UiApplication
+UiComponent
+UiPage
+UiView
+UiLayout
+UiRoute
+UiControl
+UiResource
+UiStyle
+ViewModel
+Command
+Binding
+Method
+Project
+```
+
+Key graph edges:
+
+```text
+DECLARES_COMPONENT
+DECLARES_UI_ROUTE
+USES_COMPONENT
+USES_LAYOUT
+USES_CONTROL
+USES_UI_RESOURCE
+USES_STYLE
+BINDS_TO
+USES_COMMAND
+USES_VIEW_MODEL
+NAVIGATES_TO
+HANDLES_UI_EVENT
+CALLS_API
+USES_CONFIG
+DEPENDS_ON
+```
+
+---
+
+# 20. Worker and Console Extraction
 
 Archon should detect:
 
@@ -1306,7 +1730,7 @@ Database usage
 
 ---
 
-# 20. Dependency Injection Extraction
+# 21. Dependency Injection Extraction
 
 Archon should detect dependency injection registrations.
 
@@ -1348,9 +1772,9 @@ Registration lifetime, registration source, and other container-specific details
 
 ---
 
-# 21. Configuration Extraction
+# 22. Configuration Extraction
 
-## 21.1 Modern Configuration
+## 22.1 Modern Configuration
 
 Detect:
 
@@ -1365,7 +1789,7 @@ Detect:
 - `Bind`
 - `Configure<TOptions>`
 
-## 21.2 Legacy Configuration
+## 22.2 Legacy Configuration
 
 Detect:
 
@@ -1390,13 +1814,13 @@ Likely external endpoint keys
 
 ---
 
-# 22. Data Access Extraction
+# 23. Data Access Extraction
 
 Data access is central to Archon.
 
 Archon should support multiple data access technologies.
 
-## 22.1 LINQ to SQL
+## 23.1 LINQ to SQL
 
 LINQ to SQL must be first-class because it exists in the target estate.
 
@@ -1484,29 +1908,33 @@ CALLS_STORED_PROCEDURE
 EXECUTES_RAW_SQL
 ```
 
-## 22.2 Entity Framework / EF Core
+## 23.2 Entity Framework Classic / EF6 and Entity Framework Core
+
+Entity Framework Classic / EF6 and Entity Framework Core are first-class extraction targets when they are present in analysed repositories. These references describe technologies Archon must analyse in customer code; they do not describe Archon's persistence implementation.
 
 Detect:
 
 ```text
 DbContext
+ObjectContext
 DbSet<T>
 OnModelCreating
 EntityTypeConfiguration
 Migrations
-UseSqlServer
-UseSqlite
-UseNpgsql
+provider configuration calls such as UseSqlServer, UseSqlite, and UseNpgsql
 SaveChanges
 SaveChangesAsync
 FromSql
+FromSqlRaw
+FromSqlInterpolated
 ExecuteSql
 ```
 
 Extract:
 
 ```text
-DbContext
+Entity Framework Classic / EF6 contexts
+Entity Framework Core contexts
 Entities
 Tables where detectable
 Relationships
@@ -1516,7 +1944,7 @@ Methods using context
 Read/write hints
 ```
 
-## 22.3 ADO.NET
+## 23.3 ADO.NET
 
 Detect:
 
@@ -1547,7 +1975,7 @@ Dynamic SQL indicators
 Affected tables where detectable
 ```
 
-## 22.4 Typed DataSets
+## 23.4 Typed DataSets
 
 Detect:
 
@@ -1572,7 +2000,7 @@ Usage sites
 
 ---
 
-# 23. External Integration Extraction
+# 24. External Integration Extraction
 
 Archon should detect integrations such as:
 
@@ -1610,7 +2038,7 @@ Evidence
 
 ---
 
-# 24. Modernisation Hotlist
+# 25. Modernisation Hotlist
 
 Archon should include a **Modernisation Hotlist**.
 
@@ -1625,7 +2053,7 @@ Do not call it only “deprecated technologies”, because many items are not fo
 - organisation-discouraged
 - high modernization risk
 
-## 24.1 Hotlist Categories
+## 25.1 Hotlist Categories
 
 ```text
 Lifecycle
@@ -1642,7 +2070,7 @@ OrganisationSpecific
 
 The UI may render friendlier labels for these values, but the canonical category names should match the rule catalogue exactly.
 
-## 24.2 Status Values
+## 25.2 Status Values
 
 ```text
 OutOfSupport
@@ -1655,7 +2083,7 @@ Discouraged
 Unknown
 ```
 
-## 24.3 Severity Values
+## 25.3 Severity Values
 
 ```text
 Critical
@@ -1667,11 +2095,11 @@ Info
 
 ---
 
-# 25. Starter Modernisation Hotlist
+# 26. Starter Modernisation Hotlist
 
 The following list should seed Archon’s rule catalogue.
 
-## 25.1 Target Framework Hotlist
+## 26.1 Target Framework Hotlist
 
 Detect:
 
@@ -1729,7 +2157,7 @@ Example rule:
 }
 ```
 
-## 25.2 Legacy Application Technologies
+## 26.2 Legacy Application Technologies
 
 Detect:
 
@@ -1788,7 +2216,7 @@ Example rule:
 }
 ```
 
-## 25.3 Legacy Data Access Technologies
+## 26.3 Legacy Data Access Technologies
 
 Detect:
 
@@ -1806,7 +2234,8 @@ DataTable
 TableAdapter
 ADO.NET SqlCommand
 ADO.NET SqlDataReader
-Entity Framework 6
+Entity Framework Classic / EF6
+Entity Framework Core
 ObjectContext
 raw SQL construction
 stored procedure-heavy access
@@ -1858,7 +2287,7 @@ Example LINQ to SQL rule:
 }
 ```
 
-## 25.4 Obsolete APIs with SYSLIB Diagnostics
+## 26.4 Obsolete APIs with SYSLIB Diagnostics
 
 Seed from Microsoft’s SYSLIB and EXTOBS diagnostic documentation.
 
@@ -1918,7 +2347,7 @@ Example rule:
 }
 ```
 
-## 25.5 Security-Sensitive Technologies
+## 26.5 Security-Sensitive Technologies
 
 Detect:
 
@@ -1972,7 +2401,7 @@ Example rule:
 }
 ```
 
-## 25.6 Configuration and Hosting Constraints
+## 26.6 Configuration and Hosting Constraints
 
 Detect:
 
@@ -2022,7 +2451,7 @@ Example rule:
 }
 ```
 
-## 25.7 Legacy Dependency and Package Patterns
+## 26.7 Legacy Dependency and Package Patterns
 
 Detect packages/namespaces such as:
 
@@ -2047,7 +2476,7 @@ Topshelf
 
 These are not all deprecated. They are modernization signals.
 
-## 25.8 Architecture Smells
+## 26.8 Architecture Smells
 
 Detect:
 
@@ -2109,7 +2538,7 @@ Example rule:
 
 ---
 
-# 26. Rule Engine Requirements
+# 27. Rule Engine Requirements
 
 Archon should include a rule engine that runs after extraction.
 
@@ -2137,7 +2566,7 @@ Findings should link to:
 
 Rules should not automatically prescribe a solution unless the rule is explicitly advisory.
 
-## 26.1 Rule Definition Format
+## 27.1 Rule Definition Format
 
 All Archon rules must be authored as **JSON documents**.
 
@@ -2148,12 +2577,12 @@ The JSON structure must be:
 - explicit
 - schema-validated
 - machine-readable
-- stable across extractor, API, UI, and MCP consumers
+- stable across API modules, UI, and MCP consumers
 - expressive enough for nested boolean logic and heterogeneous condition types
 
 Every rule file under `./rules` must conform to the same JSON rule contract.
 
-## 26.2 Detection Logic and Boolean Composition
+## 27.2 Detection Logic and Boolean Composition
 
 The `detect` block must support boolean composition directly.
 
@@ -2186,7 +2615,7 @@ This allows rules such as:
 - no allowed exemption condition may be present
 - nested combinations of `all` and `any` can be expressed without inventing special-case syntax
 
-## 26.3 Supported Detection Condition Kinds
+## 27.3 Supported Detection Condition Kinds
 
 The rule DSL must support explicit condition objects rather than encoding operators inside property names.
 
@@ -2226,7 +2655,7 @@ At minimum, operators must support:
 - `EndsWith`
 - `MatchesPattern`
 
-## 26.4 Scope and Applicability
+## 27.4 Scope and Applicability
 
 Rules must be able to declare the kinds of graph nodes they apply to.
 
@@ -2239,7 +2668,7 @@ The `detect` block must therefore support `nodeKinds`, for example:
 
 This ensures that rule evaluation remains deterministic and that the rule engine can limit evaluation to the correct node scope.
 
-## 26.5 Example of Required Final-State Rule Logic
+## 27.5 Example of Required Final-State Rule Logic
 
 The following style of JSON rule logic is required now and must be treated as part of the rule specification, not as a future enhancement:
 
@@ -2304,7 +2733,7 @@ Nested boolean groups must also be supported now. Example:
 }
 ```
 
-## 26.6 Rule Catalog Governance
+## 27.6 Rule Catalog Governance
 
 Because the rules are JSON-based structured contracts, Archon should validate rule files before loading them.
 
@@ -2319,7 +2748,7 @@ Validation should include at minimum:
 
 ---
 
-# 27. Discovery UI
+# 28. Discovery UI
 
 The UI should be simple but highly useful.
 
@@ -2340,7 +2769,7 @@ Which legacy technologies are involved?
 What should Copilot know before changing this?
 ```
 
-## 27.1 Dashboard
+## 28.1 Dashboard
 
 Show:
 
@@ -2362,7 +2791,7 @@ Top coupling hotspots
 Latest architecture changes
 ```
 
-## 27.2 Project Explorer
+## 28.2 Project Explorer
 
 Searchable grid:
 
@@ -2403,7 +2832,7 @@ Graph
 Unknowns
 ```
 
-## 27.3 Dependency Explorer
+## 28.3 Dependency Explorer
 
 Capabilities:
 
@@ -2418,7 +2847,7 @@ Depth filters
 Edge type filters
 ```
 
-## 27.4 Limited Graph Views
+## 28.4 Limited Graph Views
 
 Graphs should be scoped.
 
@@ -2452,7 +2881,7 @@ Suggested technologies:
 - Mermaid for markdown/export diagrams
 - Graphviz/DOT optionally for static rendering
 
-## 27.5 Endpoint Explorer
+## 28.5 Endpoint Explorer
 
 Show:
 
@@ -2471,7 +2900,7 @@ Configuration keys
 Evidence
 ```
 
-## 27.6 Worker Explorer
+## 28.6 Worker Explorer
 
 Show:
 
@@ -2488,13 +2917,14 @@ Configuration keys
 Evidence
 ```
 
-## 27.7 Data Access Explorer
+## 28.7 Data Access Explorer
 
 Sections:
 
 ```text
 LINQ to SQL
-EF / EF Core
+Entity Framework Classic / EF6
+Entity Framework Core
 ADO.NET
 Typed DataSets
 Raw SQL
@@ -2523,7 +2953,7 @@ Where is raw SQL used?
 Which entities are shared across many projects?
 ```
 
-## 27.8 Modernisation Hotlist UI
+## 28.8 Modernisation Hotlist UI
 
 Show:
 
@@ -2553,7 +2983,7 @@ By technology
 By snapshot
 ```
 
-## 27.9 Snapshot Diff
+## 28.9 Snapshot Diff
 
 Show architecture changes between snapshots:
 
@@ -2575,7 +3005,7 @@ Resolved hotlist findings
 Coupling metric changes
 ```
 
-## 27.10 Evidence Viewer
+## 28.10 Evidence Viewer
 
 Every UI claim should be clickable to evidence.
 
@@ -2591,7 +3021,7 @@ Snapshot
 Confidence
 ```
 
-## 27.11 AI Prompt Panel
+## 28.11 AI Prompt Panel
 
 The UI may include an “Ask Archon” prompt.
 
@@ -2619,11 +3049,11 @@ Suggested follow-up questions
 
 ---
 
-# 28. MCP Server
+# 29. MCP Server
 
 Archon should include an MCP server so Copilot and other AI assistants can query the architecture model.
 
-## 28.1 MCP Design Principle
+## 29.1 MCP Design Principle
 
 > **Copilot knows how to write code.  
 > Archon knows how this system is put together.  
@@ -2639,7 +3069,7 @@ It should not expose:
 - database mutation
 - code modification
 
-## 28.2 MCP Tools v1
+## 29.2 MCP Tools v1
 
 Start with:
 
@@ -2658,7 +3088,7 @@ archon.get_hotlist_findings
 archon.get_snapshot_diff
 ```
 
-## 28.3 MCP Tool: archon.describe_project
+## 29.3 MCP Tool: archon.describe_project
 
 Input:
 
@@ -2686,7 +3116,7 @@ Evidence
 Unknowns
 ```
 
-## 28.4 MCP Tool: archon.assess_change_impact
+## 29.4 MCP Tool: archon.assess_change_impact
 
 Input:
 
@@ -2711,7 +3141,7 @@ Evidence
 Unknowns
 ```
 
-## 28.5 MCP Tool: archon.get_data_access_usage
+## 29.5 MCP Tool: archon.get_data_access_usage
 
 Input:
 
@@ -2734,7 +3164,7 @@ Evidence
 Unknowns
 ```
 
-## 28.6 MCP Resources
+## 29.6 MCP Resources
 
 Expose resources:
 
@@ -2748,7 +3178,7 @@ archon://hotspots/current
 archon://snapshot/{snapshotId}/diff/{previousSnapshotId}
 ```
 
-## 28.7 MCP Prompts
+## 29.7 MCP Prompts
 
 Expose prompts:
 
@@ -2782,7 +3212,7 @@ Then produce:
 - suggested sequence
 ```
 
-## 28.8 MCP Security Requirements
+## 29.8 MCP Security Requirements
 
 MCP must be treated as a powerful internal API.
 
@@ -2804,9 +3234,9 @@ Prompt-injection-aware output handling
 
 ---
 
-# 29. Copilot Workflows
+# 30. Copilot Workflows
 
-## 29.1 Refactoring Workflow
+## 30.1 Refactoring Workflow
 
 Developer asks Copilot:
 
@@ -2844,7 +3274,7 @@ Risks
 Unknowns
 ```
 
-## 29.2 New Development Workflow
+## 30.2 New Development Workflow
 
 Developer asks:
 
@@ -2863,7 +3293,7 @@ archon.get_dependencies(...)
 
 Copilot then generates code that follows existing conventions.
 
-## 29.3 Modernization Workflow
+## 30.3 Modernization Workflow
 
 Developer asks:
 
@@ -2892,7 +3322,7 @@ Evidence
 
 ---
 
-# 30. Markdown Export
+# 31. Markdown Export
 
 Archon should export generated markdown.
 
@@ -2918,28 +3348,28 @@ Markdown is an output, not the source of truth.
 Source of truth:
 
 ```text
-Code → Roslyn → SQL Server → Archon model
+Code → API-triggered Roslyn extraction → Neo4j Architecture Semantic Graph
 ```
 
 ---
 
-# 31. Quality, Confidence, and Classification
+# 32. Quality, Confidence, and Classification
 
 Archon should classify knowledge.
 
-## 31.1 Fact
+## 32.1 Fact
 
 Directly evidenced by code, project files, configuration, metadata, or compiler symbols.
 
-## 31.2 Inference
+## 32.2 Inference
 
 Reasonable conclusion based on patterns, naming, or partial evidence.
 
-## 31.3 Unknown
+## 32.3 Unknown
 
 Evidence is insufficient.
 
-## 31.4 Human Confirmed
+## 32.4 Human Confirmed
 
 Later phase. Manually reviewed/confirmed by architects or engineers.
 
@@ -2947,11 +3377,11 @@ Phase 1 should be fully automated. Human review is next step.
 
 ---
 
-# 32. Metrics
+# 33. Metrics
 
 Archon should calculate useful architecture metrics.
 
-## 32.1 Project Metrics
+## 33.1 Project Metrics
 
 ```text
 Incoming project references
@@ -2964,7 +3394,7 @@ Hotlist finding count
 Target framework age/risk
 ```
 
-## 32.2 Graph Metrics
+## 33.2 Graph Metrics
 
 ```text
 Fan-in
@@ -2976,7 +3406,7 @@ Cycle detection
 Neighbourhood size
 ```
 
-## 32.3 Modernization Metrics
+## 33.3 Modernization Metrics
 
 ```text
 Legacy technology count
@@ -2989,7 +3419,7 @@ Shared table usage count
 
 ---
 
-# 33. Architecture Rules and Layering
+# 34. Architecture Rules and Layering
 
 Archon should eventually support organisation-defined rules.
 
@@ -3011,7 +3441,7 @@ Do not hard-code organisation-specific architecture too early.
 
 ---
 
-# 34. Implementation Phases
+# 35. Implementation Phases
 
 ## Phase 0: Concept and Spec
 
@@ -3024,13 +3454,14 @@ Initial architecture decisions
 Prototype scope
 ```
 
-## Phase 1: Extractor MVP
+## Phase 1: API Extraction MVP
 
 Build:
 
 ```text
 Aspire AppHost
-SQL Server store
+Neo4j graph store
+Extraction submission API
 Solution loader
 Project inventory
 Project references
@@ -3108,7 +3539,29 @@ Goal:
 Map runtime-facing applications and integrations.
 ```
 
-## Phase 5: Hotlist and Findings
+## Phase 5: .NET UI Discovery
+
+Add:
+
+```text
+Blazor component extraction
+Razor Pages and Razor view extraction
+Windows Forms form/control extraction
+WPF XAML extraction
+WinUI XAML extraction
+.NET MAUI page/Shell extraction
+Avalonia AXAML extraction
+UI route, navigation, binding, command, resource, and view-model extraction
+UI-to-service and UI-to-API relationship extraction
+```
+
+Goal:
+
+```text
+Expose user-facing screens, components, navigation, bindings, commands, and UI-driven backend dependencies.
+```
+
+## Phase 6: Hotlist and Findings
 
 Add:
 
@@ -3128,7 +3581,7 @@ Goal:
 Prioritise modernization risk.
 ```
 
-## Phase 6: Graph UI and Snapshot Diff
+## Phase 7: Graph UI and Snapshot Diff
 
 Add:
 
@@ -3147,7 +3600,7 @@ Goal:
 Make change and coupling visible.
 ```
 
-## Phase 7: MCP Server
+## Phase 8: MCP Server
 
 Add:
 
@@ -3166,7 +3619,7 @@ Goal:
 Let Copilot query Archon before suggesting changes.
 ```
 
-## Phase 8: Markdown Export and Architecture KB
+## Phase 9: Markdown Export and Architecture KB
 
 Add:
 
@@ -3187,15 +3640,18 @@ Generate human-readable Architecture KB from deterministic model.
 
 ---
 
-# 35. Initial Backlog Candidates
+# 36. Initial Backlog Candidates
 
 ## Epic: Core Platform
 
 ```text
-Create Archon AppHost with SQL Server
+Create Archon AppHost with Neo4j
 Create Archon API
+Create Archon.Api.Extraction module
+Create Archon.Api.Query module
+Create Archon.Api.Management module
 Create Archon UI shell
-Create SQL schema/migrations
+Create Neo4j graph constraints and indexes
 Create snapshot model
 Create repository/solution model
 ```
@@ -3238,6 +3694,19 @@ Detect ExecuteQuery/ExecuteCommand
 Map project/method to data usage
 ```
 
+## Epic: .NET UI Extraction
+
+```text
+Extract Blazor applications, components, routes, layouts, parameters, injected services, and component usage
+Extract Razor Pages, MVC Razor views, layouts, partials, tag helpers, page models, handlers, and form posts
+Extract Windows Forms forms, user controls, designer files, controls, resources, event handlers, and data bindings
+Extract WPF windows, pages, user controls, XAML resources, styles, templates, bindings, commands, and view models
+Extract WinUI windows, pages, controls, resources, bindings, commands, view models, startup, and navigation
+Extract .NET MAUI pages, Shell routes, handlers, resources, bindings, commands, view models, and platform heads
+Extract Avalonia AXAML views, windows, user controls, resources, styles, bindings, commands, and view models
+Map UI routes/navigation/components to services, API calls, configuration keys, and data-access usage where detectable
+```
+
 ## Epic: UI
 
 ```text
@@ -3265,7 +3734,7 @@ Expose resources and prompts
 
 ---
 
-# 36. Copilot Instructions for Building Specs
+# 37. Copilot Instructions for Building Specs
 
 When using this document with Copilot, instruct it as follows:
 
@@ -3280,14 +3749,14 @@ Start by producing:
 1. logical architecture
 2. solution/project structure
 3. database schema proposal
-4. extractor MVP specification
+4. API extraction MVP specification
 5. UI MVP specification
 6. MCP v1 specification
 7. backlog epics/stories
 
 Preserve the core principle:
 Roslyn extracts deterministic facts.
-SQL Server stores architecture memory.
+Neo4j stores architecture memory as a native graph.
 The UI makes it explorable.
 MCP makes it available to Copilot.
 AI explains and reasons over facts.
@@ -3296,7 +3765,7 @@ Humans decide.
 
 ---
 
-# 37. Non-Goals for Early Versions
+# 38. Non-Goals for Early Versions
 
 Do not attempt early:
 
@@ -3317,7 +3786,7 @@ Early Archon should be narrow, reliable, useful, and evidence-backed.
 
 ---
 
-# 38. Risks and Mitigations
+# 39. Risks and Mitigations
 
 ## Risk: Scope Explosion
 
@@ -3368,7 +3837,7 @@ Mitigation:
 ```text
 Read-only server
 No shell execution
-No arbitrary SQL
+No arbitrary graph query execution
 Tool allow-list
 Audit logging
 Authentication/authorization
@@ -3376,7 +3845,7 @@ Authentication/authorization
 
 ---
 
-# 39. Key Message
+# 40. Key Message
 
 Archon should be built around this core message:
 
@@ -3390,13 +3859,13 @@ And:
 
 ---
 
-# 40. Final Summary
+# 41. Final Summary
 
 Archon is:
 
 - .NET-first
 - Roslyn-powered
-- SQL Server-backed
+- Neo4j-backed
 - Aspire-hosted
 - legacy-aware
 - evidence-driven
@@ -3423,9 +3892,9 @@ The desired end state:
 ```text
 Code changes
    ↓
-Archon extractor runs
+Archon extraction API runs
    ↓
-SQL architecture model updates
+Neo4j architecture graph updates
    ↓
 UI shows what changed
    ↓
@@ -3741,7 +4210,9 @@ Do not generate application code yet.
 
 First produce a technical implementation specification for Phase 1:
 - Aspire AppHost
-- SQL Server storage
+- Neo4j graph storage
+- extraction submission API accepting repository root and solution paths
+- API module split for extraction, query, and management capabilities
 - repository/solution/project snapshot model
 - Roslyn solution loading
 - project inventory extraction
@@ -3799,15 +4270,15 @@ The persistence model must therefore be broad enough that new extractors extend 
 This appendix covers:
 
 - the target architecture-wide model for nodes, edges, evidence, rules, findings, and metrics
-- the relational persistence design for SQL Server using EF Core
-- extraction contracts required to populate that model
+- the Neo4j-native graph persistence design for labelled nodes, typed relationships, evidence, rules, findings, metrics, and generated summaries
+- API-driven extraction contracts required to populate that model
 - query and diff implications of the new model
 - implementation sequencing and acceptance criteria
 
 This appendix does not cover:
 
-- migration from existing database schemas
-- backward compatibility with existing databases
+- migration from existing graph stores or older persistence designs
+- backward compatibility with older persistence designs
 - UI redesign beyond the data requirements imposed by the model
 - MCP implementation details beyond the data requirements imposed by the model
 
@@ -3815,13 +4286,13 @@ This appendix does not cover:
 
 The implementation defined by this specification must satisfy the following constraints:
 
-1. The database may be dropped and recreated from scratch. No migration path from the existing database is required.
+1. The Neo4j graph may be dropped and recreated from scratch. No migration path from an older persistence design is required.
 2. The model must be capable of supporting all missing or partial extraction capabilities required by the Archon vision.
 3. The design must remain evidence-first. Every persisted architectural statement must be traceable to evidence.
 4. Unknowns must be represented explicitly where evidence is insufficient.
-5. The persistence model must support incremental delivery of new extractor slices without requiring repeated schema redesign.
-6. SQL Server remains the system of record for persisted extraction output.
-7. `Archon.Infrastructure.SqlServer` must continue to use EF Core for database access.
+5. The persistence model must support incremental delivery of new extraction slices without requiring repeated graph model redesign.
+6. Neo4j remains the system of record for persisted extraction output.
+7. Extraction must be initiated through the API by POSTing a repository root directory and a list of solution paths.
 
 ## E.2 Desired Outcome
 
@@ -3860,24 +4331,24 @@ The model must support both code-centric and non-code extraction domains without
 
 ### E.2.2 Architectural Principle
 
-The persistence model is based on:
+The graph persistence model is based on:
 
 - stable repository and solution models
-- a stable architecture node model
-- a stable architecture edge model
+- stable labelled architecture nodes
+- stable typed architecture relationships
 - a stable architecture evidence model
 - dedicated findings, rules, and metrics models
 - generated summary persistence
-- extractor-specific metadata encoded in structured JSON where appropriate
+- extraction-specific metadata encoded in structured JSON where appropriate
 
-The core principle is that extractors should add new node kinds, edge kinds, evidence kinds, findings, and metrics without requiring a new top-level table for each newly discovered concept.
+The core principle is that extraction slices should add new node labels, relationship types, evidence kinds, findings, and metrics without requiring a new top-level persistence structure for each newly discovered concept.
 
 ### E.2.3 Success Criteria
 
 This model is successful when:
 
-1. The new schema can represent every required extraction domain.
-2. New extractor slices can be implemented by adding extraction logic and metadata mappings rather than redesigning persistence primitives.
+1. The Neo4j graph model can represent every required extraction domain.
+2. New extraction slices can be implemented by adding extraction logic and metadata mappings rather than redesigning persistence primitives.
 3. Evidence parity is improved so that file path, line range, symbol identity, containing symbol, snippet preview, snippet fingerprint, and metadata can be recorded consistently.
 4. Rules, findings, and metrics can be persisted and linked to extracted nodes, edges, and evidence.
 5. Snapshot diff can operate across node, edge, finding, and metric domains rather than only a project-centric subset.
@@ -3888,17 +4359,17 @@ This model is successful when:
 
 The model uses the following foundational persistence concepts:
 
-- `Repositories`
-- `Solutions`
-- `Snapshots`
-- `Nodes`
-- `Edges`
-- `Evidence`
-- `Rules`
-- `Findings`
-- `Metrics`
-- `GeneratedSummaries`
-- supporting link tables and lookup enums where required
+- repository nodes
+- solution nodes
+- snapshot nodes
+- architecture concept nodes
+- typed architecture relationships
+- evidence nodes
+- rule nodes
+- finding nodes
+- metric nodes
+- generated summary nodes
+- supporting relationship patterns and controlled value sets where required
 
 These are the foundational persistence concepts of Archon.
 
@@ -3924,18 +4395,18 @@ Query API / UI / MCP / Diff / Hotlist / Reports
 
 Archon uses:
 
-- a generic node table for all extracted architecture concepts
-- a generic edge table for all extracted relationships
-- a generic evidence table for all evidence instances
-- dedicated rule, finding, and metric tables
-- JSON metadata columns for extractor-specific details that do not justify new normalized columns
+- a labelled Neo4j node model for extracted architecture concepts
+- typed Neo4j relationships for extracted architecture relationships
+- evidence nodes and evidence relationships for all evidence instances
+- dedicated labels and relationship patterns for rules, findings, metrics, and generated summaries
+- JSON-compatible metadata properties for extraction-specific details that do not justify first-class graph properties
 
 This is necessary because the required capability set spans too many heterogeneous concepts to encode safely in narrow semantic-only structures.
 
-The persistence style is a **hybrid model**:
+The persistence style is a **native graph model**:
 
-- generic node, edge, and evidence tables as the core architecture graph source of truth
-- specialized companion tables for behaviorally distinct or query-intensive domains such as rules, findings, and metrics
+- labelled nodes and typed relationships as the core architecture graph source of truth
+- specialized labels and relationship patterns for behaviorally distinct or query-intensive domains such as rules, findings, and metrics
 
 This preserves extensibility without forcing evaluative or computed concepts to masquerade as ordinary graph nodes.
 
@@ -3952,6 +4423,7 @@ The model must support representation of all required domains, including but not
 - additional semantic node kinds
 - additional dependency and structural relationships
 - ASP.NET runtime extraction
+- .NET UI extraction for Blazor, Razor, Windows Forms, WPF, WinUI, .NET MAUI, and Avalonia
 - worker and console extraction
 - dependency injection extraction
 - configuration extraction
@@ -3980,6 +4452,18 @@ The model must support the following node kinds as first-class persisted concept
 - Endpoint
 - Controller
 - HostedService
+- UiApplication
+- UiComponent
+- UiPage
+- UiView
+- UiLayout
+- UiRoute
+- UiControl
+- UiResource
+- UiStyle
+- ViewModel
+- Command
+- Binding
 - ConfigurationKey
 - DbContext
 - LinqToSqlDataContext
@@ -4024,6 +4508,19 @@ The model must support the following edge kinds as first-class persisted relatio
 - CALLS_EXTERNAL_SERVICE
 - USES_PACKAGE
 - DECLARES_ENDPOINT
+- DECLARES_COMPONENT
+- DECLARES_UI_ROUTE
+- USES_COMPONENT
+- USES_LAYOUT
+- USES_CONTROL
+- USES_UI_RESOURCE
+- USES_STYLE
+- BINDS_TO
+- USES_COMMAND
+- USES_VIEW_MODEL
+- NAVIGATES_TO
+- HANDLES_UI_EVENT
+- CALLS_API
 - REGISTERED_AS_SERVICE
 - DEPENDS_ON
 
@@ -4071,7 +4568,7 @@ The implementation must include first-cut rules for all currently identified leg
 
 - unsupported or retired target frameworks
 - legacy application technologies such as ASP.NET Web Forms, ASP.NET Web Pages, classic ASP.NET MVC 3/4/5, ASP.NET Web API 2, `System.Web`, `Global.asax`, `HttpModules`, `HttpHandlers`, WCF server applications, WCF clients, ASMX web services, Windows Workflow Foundation, .NET Remoting, Enterprise Services / COM+, ClickOnce deployment, classic Windows Services, Topshelf services, and OWIN/Katana startup
-- legacy data-access technologies such as LINQ to SQL, `.dbml` files, `System.Data.Linq.DataContext`, `Table<T>`, `SubmitChanges()`, `ExecuteQuery<T>()`, `ExecuteCommand()`, typed DataSets, `DataSet`, `DataTable`, `TableAdapter`, and ADO.NET `SqlCommand`
+- legacy data-access technologies such as LINQ to SQL, `.dbml` files, `System.Data.Linq.DataContext`, `Table<T>`, `SubmitChanges()`, `ExecuteQuery<T>()`, `ExecuteCommand()`, Entity Framework Classic / EF6, Entity Framework Core, typed DataSets, `DataSet`, `DataTable`, `TableAdapter`, and ADO.NET `SqlCommand`
 - obsolete API usage scenarios included in this concept brief
 - security-sensitive usage scenarios included in this concept brief
 
@@ -4116,16 +4613,16 @@ This is necessary so later work can expose diffs for endpoints, routes, data con
 
 ### E.5.1 Persistence Strategy
 
-The SQL Server schema is the architecture-wide schema defined by this document.
+The Neo4j graph model is the architecture-wide persistence model defined by this document.
 
 The implementation should:
 
-1. use an EF Core model centered on architecture-wide primitives
+1. use a Neo4j infrastructure adapter centered on architecture-wide graph primitives
 2. preserve deterministic stable-key generation rules
 3. ensure all persisted records remain snapshot-scoped
 4. keep evidence, unknowns, rules, findings, and metrics as first-class persisted concepts
 
-### E.5.2 Core Tables
+### E.5.2 Core Graph Elements
 
 #### E.5.2.1 Repositories
 
@@ -4133,7 +4630,7 @@ Purpose:
 
 - stores first-class repository identities independent of any one snapshot
 
-Required columns:
+Required properties:
 
 - `Id`
 - `StableKey`
@@ -4149,7 +4646,7 @@ Purpose:
 
 - stores first-class solution identities independent of any one snapshot
 
-Required columns:
+Required properties:
 
 - `Id`
 - `RepositoryId`
@@ -4165,7 +4662,7 @@ Purpose:
 - records one extraction run
 - provides snapshot identity for all nodes, edges, evidence, findings, and metrics
 
-Required columns:
+Required properties:
 
 - `Id`
 - `StableKey`
@@ -4174,7 +4671,7 @@ Required columns:
 - `CommitSha`
 - `StartedUtc`
 - `CompletedUtc`
-- `ExtractorVersion`
+- `ExtractionVersion`
 - `Status`
 - `WarningsJson`
 - `ErrorsJson`
@@ -4186,7 +4683,7 @@ Purpose:
 
 - stores all extracted architecture concepts uniformly
 
-Required columns:
+Required properties:
 
 - `Id`
 - `SnapshotId`
@@ -4210,13 +4707,12 @@ Required columns:
 
 Key design notes:
 
-- repositories and solutions are authoritative in their own companion tables
-- repositories and solutions must also be physically materialized as graph nodes in `Nodes`
-- those repository and solution nodes are projections derived from the companion tables rather than a second competing source of truth
-- `KnowledgeKind` is a first-class column so deterministic facts, inferences, explicit unknowns, and later human-confirmed facts can be filtered and reported consistently
-- `Ownership`, `ExternalCategory`, `Confidence`, and explicit unknown-state fields are first-class columns rather than JSON metadata because they are expected to be primary query, filtering, reporting, and rule-evaluation dimensions across multiple extractor slices
+- repositories and solutions are authoritative graph nodes
+- repository and solution nodes must be physically materialized in Neo4j so they participate in traversal and diff
+- `KnowledgeKind` is a first-class property so deterministic facts, inferences, explicit unknowns, and later human-confirmed facts can be filtered and reported consistently
+- `Ownership`, `ExternalCategory`, `Confidence`, and explicit unknown-state fields are first-class properties rather than JSON metadata because they are expected to be primary query, filtering, reporting, and rule-evaluation dimensions across multiple extraction slices
 - `NodeKind` must be a normalized string or enum-backed string to avoid future numeric drift issues
-- `MetadataJson` must carry extractor-specific detail such as route templates, HTTP verbs, namespace imports, options type names, queue names, table schemas, and similar slice-specific payloads
+- `MetadataJson` must carry extraction-specific detail such as route templates, HTTP verbs, namespace imports, options type names, queue names, table schemas, and similar slice-specific payloads
 - `ProjectStableKey` must remain nullable because repository, solution, and some cross-project concepts are not owned by a single project
 
 #### E.5.2.5 Edges
@@ -4225,14 +4721,14 @@ Purpose:
 
 - stores all extracted architecture relationships uniformly
 
-Required columns:
+Required properties:
 
 - `Id`
 - `SnapshotId`
 - `StableKey`
 - `EdgeKind`
-- `SourceNodeStableKey`
-- `TargetNodeStableKey`
+- source node stable key
+- target node stable key
 - `IsDirect`
 - `KnowledgeKind`
 - `Confidence`
@@ -4244,8 +4740,8 @@ Required columns:
 
 Key design notes:
 
-- `KnowledgeKind` is a first-class column so inferred relationships and explicit unknown edges can be queried separately from directly evidenced facts
-- `Confidence` and explicit unknown-state fields remain first-class columns on edges because they are core traversal, filtering, reporting, and diff semantics rather than incidental extractor metadata
+- `KnowledgeKind` is a first-class property so inferred relationships and explicit unknown relationships can be queried separately from directly evidenced facts
+- `Confidence` and explicit unknown-state fields remain first-class properties on relationships because they are core traversal, filtering, reporting, and diff semantics rather than incidental extraction metadata
 - edge metadata must support relationship-specific payloads such as occurrence count, access mode, registration lifetime, HTTP method, route source, read or write classification, or inference reason
 - edges must not assume source-code semantics only
 
@@ -4264,7 +4760,7 @@ Consequences of this decision:
 - evidence stable keys and fingerprints must therefore be computed at snapshot scope
 - deduplication is only required within a snapshot, not across snapshots
 
-Required columns:
+Required properties:
 
 - `Id`
 - `SnapshotId`
@@ -4307,7 +4803,7 @@ Purpose:
 
 - stores the versioned rule catalog used for hotlist and findings generation
 
-Rules will be modeled as **global catalog rows**, not snapshot-scoped copies.
+Rules will be modeled as **global catalog nodes**, not snapshot-scoped copies.
 
 The authoritative authored form of the rule catalog will be **disk-backed rule-definition files under `./rules`**, not ad hoc in-database authoring.
 
@@ -4315,8 +4811,8 @@ Consequences of this decision:
 
 - rules are authored once under `./rules` and reused across snapshots
 - the `./rules` folder must be copied to the relevant build and publish outputs so runtime components can load rules from disk
-- the extractor, API, and any other component that evaluates rules or exposes rule metadata must load rules from disk from the copied output content rather than relying on repository-relative source paths at runtime
-- the `Rules` table persists the loaded catalog and version information used by the running system, but it is not the primary authoring source of truth
+- the API extraction module, API management module, and any other component that evaluates rules or exposes rule metadata must load rules from disk from the copied output content rather than relying on repository-relative source paths at runtime
+- rule nodes persist the loaded catalog and version information used by the running system, but they are not the primary authoring source of truth
 - findings must record the exact rule code and rule version used at evaluation time
 - historical fidelity is preserved by versioning the catalog and stamping findings with the evaluated version
 - repeated duplication of unchanged rule definitions across snapshots is avoided
@@ -4329,17 +4825,17 @@ Rule lifecycle requirements:
 - a rule definition that changes behaviour materially must publish a new version rather than mutating the meaning of an existing persisted version in place
 - findings must continue to reference the exact rule code and rule version used during evaluation so historical results remain explainable even after newer rule versions are introduced
 - removal of a rule from `./rules` must not require destructive deletion of historical catalog or finding data; the runtime may instead mark the persisted rule as disabled, inactive, superseded, or otherwise non-current according to the final implementation model
-- enabled or disabled status in the persisted catalog must support temporarily disabling a rule without erasing its history
+- enabled or disabled status in the persisted graph catalog must support temporarily disabling a rule without erasing its history
 
 Runtime loading requirements:
 
 - a repository-root `./rules` folder must exist
 - first-cut rule files for all currently known legacy detection scenarios must be stored in that folder
-- the projects that need rules at runtime, including at minimum the extractor and API, must copy the `./rules` content to their bin and publish outputs
+- the projects that need rules at runtime, including at minimum the API host and API modules, must copy the `./rules` content to their bin and publish outputs
 - rule loading must resolve from disk using the copied output content so local development, test execution, and published deployments use the same loading model
 - rule-file parsing and runtime loading must use one shared rule-loading component so rule resolution semantics do not drift between hosts
 
-Required columns:
+Required properties:
 
 - `Id`
 - `RuleCode`
@@ -4358,7 +4854,7 @@ Required columns:
 
 Key design notes:
 
-- `Rules` is a persisted runtime catalog, query surface, and historical reference, but not the primary authoring store
+- rule nodes form a persisted runtime catalog, query surface, and historical reference, but not the primary authoring store
 - the canonical authored form of each rule lives on disk under `./rules`
 - the system must be able to determine whether a disk-authored rule already exists in the persisted catalog for the same rule code and version
 - the system must support loading a newly introduced rule version alongside older persisted versions of the same rule code so findings can preserve evaluation history
@@ -4370,7 +4866,7 @@ Purpose:
 
 - stores rule evaluation output and other persisted findings
 
-Required columns:
+Required properties:
 
 - `Id`
 - `SnapshotId`
@@ -4407,7 +4903,7 @@ Consequences of this decision:
 - UI, API, MCP, and reporting consumers can rely on stable persisted metric values for the same snapshot
 - expensive graph or modernization calculations can be performed once during extraction rather than repeatedly at query time
 
-Required columns:
+Required properties:
 
 - `Id`
 - `SnapshotId`
@@ -4430,7 +4926,7 @@ Purpose:
 
 - stores generated architecture summaries and exported narrative artifacts derived from the persisted model
 
-Required columns:
+Required properties:
 
 - `Id`
 - `SnapshotId`
@@ -4443,24 +4939,24 @@ Required columns:
 - `MetadataJson`
 - `Fingerprint`
 
-### E.5.3 Link Tables
+### E.5.3 Supporting Relationships
 
-The model must include explicit link tables where many-to-many relationships are expected.
+The model must include explicit relationship patterns where many-to-many relationships are expected.
 
-Required link tables:
+Required supporting relationship patterns:
 
-- `SnapshotSolutionLinks`
-- `NodeEvidenceLinks`
-- `EdgeEvidenceLinks`
-- `MetricEvidenceLinks`
-- `FindingEvidenceLinks`
-- `FindingNodeLinks`
+- `Snapshot` to `Solution`
+- architecture node to evidence
+- architecture relationship to evidence
+- metric to evidence
+- finding to evidence
+- finding to architecture node
 
-These links are required because one snapshot may cover multiple solutions and because one node, edge, metric, or finding may have multiple supporting evidence records.
+These relationships are required because one snapshot may cover multiple solutions and because one node, relationship, metric, or finding may have multiple supporting evidence records.
 
 ### E.5.4 Stable Key Strategy
 
-Stable keys must remain deterministic and independent of database IDs.
+Stable keys must remain deterministic and independent of Neo4j internal IDs.
 
 Required prefixes include:
 
@@ -4493,18 +4989,18 @@ Required prefixes include:
 - `metric://`
 - `summary://`
 
-Stable-key generation must be documented and implemented in one shared component so all extractors use the same rules.
+Stable-key generation must be documented and implemented in one shared component so all extraction slices use the same rules.
 
 ### E.5.5 Metadata Strategy
 
 The model must balance normalization with extensibility.
 
-The following must be normalized columns:
+The following must be normalized graph properties:
 
 - snapshot identity
 - stable keys
 - node kind
-- edge kind
+- relationship kind
 - evidence kind
 - knowledge kind
 - rule code
@@ -4526,11 +5022,25 @@ The following may be stored in JSON metadata:
 - DI registration lifetime and registration path
 - table schema details beyond the stable key
 - provider-specific database mapping payloads
-- extractor-specific classification annotations
+- extraction-specific classification annotations
 
-### E.5.6 Extraction Contract
+### E.5.6 API Extraction Contract
 
-The application layer exposes a single durable architecture extraction contract with the following shape:
+Extraction is initiated through the API by submitting a repository root directory and an explicit list of solution paths.
+
+Request contract:
+
+- `StartExtractionRequest`
+  - `RepositoryRootDirectory`
+  - `SolutionPaths`
+  - `BranchName` optional
+  - `CommitSha` optional
+  - `RequestedBy` optional
+  - `Metadata`
+
+The API extraction module validates that the request identifies one repository root and at least one solution path before any Roslyn workspace loading begins.
+
+The API extraction module exposes a single durable architecture extraction result contract with the following shape:
 
 - repositories
 - solutions
@@ -4559,7 +5069,7 @@ Contract:
   - `Warnings`
   - `Errors`
 
-The contract allows multiple extractor slices to contribute facts into a single snapshot assembly pipeline.
+The contract allows multiple API extraction slices to contribute facts into a single snapshot assembly pipeline.
 
 Generated summaries may be empty during initial extraction and populated by a later post-persistence summarization/export step, but they remain part of the authoritative snapshot contract because they are persisted as snapshot-owned outputs.
 
@@ -4567,35 +5077,37 @@ Rule definitions themselves do not need to be embedded directly into `ExtractedA
 
 ### E.5.7 Extraction Pipeline
 
-The extraction pipeline consists of the following composable stages:
+The API-driven extraction pipeline consists of the following composable stages:
 
-1. repository and solution discovery stage
-2. project inventory stage
-3. code semantic extraction stage
-4. runtime or application extraction stage
-5. configuration extraction stage
-6. data-access extraction stage
-7. integration extraction stage
-8. rule-definition load stage from disk-backed `./rules` content
-9. rules evaluation stage
-10. metrics calculation stage
-11. snapshot assembly stage
-12. persistence stage
-13. markdown generation stage
-14. MCP resource refresh stage
+1. extraction request validation stage
+2. repository and submitted solution resolution stage
+3. project inventory stage
+4. code semantic extraction stage
+5. runtime or application extraction stage
+6. .NET UI extraction stage
+7. configuration extraction stage
+8. data-access extraction stage
+9. integration extraction stage
+10. rule-definition load stage from disk-backed `./rules` content
+11. rules evaluation stage
+12. metrics calculation stage
+13. snapshot assembly stage
+14. Neo4j persistence stage
+15. markdown generation stage
+16. MCP resource refresh stage
 
 Each stage must emit nodes, edges, evidence, findings, and metrics into a shared accumulation model.
 
-Markdown generation and MCP resource refresh run after persistence and may consume the persisted snapshot rather than contributing new extraction facts. When generated markdown summaries are persisted, they are written as `GeneratedSummaries` rows linked to the snapshot that produced them.
+Markdown generation and MCP resource refresh run after persistence and may consume the persisted snapshot rather than contributing new extraction facts. When generated markdown summaries are persisted, they are written as generated summary nodes linked to the snapshot that produced them.
 
-The rule-definition load stage must use the same shared rule-loading component across the extractor, API, and any other runtime that needs access to the authored rule set.
+The rule-definition load stage must use the same shared rule-loading component across API modules and any other runtime that needs access to the authored rule set.
 
 The synchronization model must be explicit:
 
 - authored rules are changed on disk under `./rules`
 - build and publish copy those rules to runtime output locations
 - runtime components load and validate those rules from disk
-- runtime components upsert the loaded rules into `Rules`
+- runtime components upsert the loaded rules into Neo4j rule nodes
 - findings reference the persisted rule code and version that were active for that evaluation
 
 ### E.5.8 Query Model
@@ -4610,6 +5122,7 @@ At minimum, the new model must support efficient query patterns for:
 - dependency traversal
 - endpoint lookup
 - worker lookup
+- UI application, component, view, route, binding, command, and navigation lookup
 - data-access lookup
 - configuration usage lookup
 - finding and hotlist lookup
@@ -4640,10 +5153,9 @@ This allows endpoint route changes, metric changes, finding severity changes, an
 
 Supported by:
 
-- `Repositories`
-- `Solutions`
-- `Nodes` with `Repository` and `Solution` node kinds
-- `Edges` with `CONTAINS` and `REFERENCES`
+- repository and solution graph nodes
+- architecture concept nodes with `Repository` and `Solution` node kinds
+- typed relationships with `CONTAINS` and `REFERENCES`
 - `Evidence` for discovery evidence and path evidence
 
 ### E.6.2 Configuration Extraction
@@ -4664,7 +5176,16 @@ Supported by:
 - `DECLARES_ENDPOINT`, `EXPOSES`, `HANDLES`, and `DEPENDS_ON` edges
 - metadata for route templates, authorization, transport, and scheduling details
 
-### E.6.4 Dependency Injection Extraction
+### E.6.4 .NET UI Extraction
+
+Supported by:
+
+- `UiApplication`, `UiComponent`, `UiPage`, `UiView`, `UiLayout`, `UiRoute`, `UiControl`, `UiResource`, `UiStyle`, `ViewModel`, `Command`, and `Binding` node kinds
+- `DECLARES_COMPONENT`, `DECLARES_UI_ROUTE`, `USES_COMPONENT`, `USES_LAYOUT`, `USES_CONTROL`, `USES_UI_RESOURCE`, `USES_STYLE`, `BINDS_TO`, `USES_COMMAND`, `USES_VIEW_MODEL`, `NAVIGATES_TO`, `HANDLES_UI_EVENT`, `CALLS_API`, `USES_CONFIG`, and `DEPENDS_ON` edges
+- evidence kinds for Razor, XAML, AXAML, designer files, source code, project files, resources, and generated UI artifacts
+- metadata for UI framework, route templates, layout relationships, binding paths, command names, control names, resource keys, startup forms, Shell routes, render modes, platform heads, and view-model conventions
+
+### E.6.5 Dependency Injection Extraction
 
 Supported by:
 
@@ -4672,7 +5193,7 @@ Supported by:
 - metadata for service lifetime and registration source
 - evidence for registration call sites and wrapper extension methods
 
-### E.6.5 Data-Access Extraction
+### E.6.6 Data-Access Extraction
 
 Supported by:
 
@@ -4680,7 +5201,7 @@ Supported by:
 - `USES_DB_CONTEXT`, `USES_LINQ_TO_SQL_CONTEXT`, `MAPS_ENTITY`, `MAPS_TABLE`, `MAPS_COLUMN`, `READS_TABLE`, `WRITES_TABLE`, `CALLS_STORED_PROCEDURE`, and `EXECUTES_RAW_SQL` edges
 - evidence kinds for DBML, designer code, source code, SQL scripts, and inference
 
-### E.6.6 External Integration Extraction
+### E.6.7 External Integration Extraction
 
 Supported by:
 
@@ -4688,17 +5209,17 @@ Supported by:
 - `CALLS_EXTERNAL_SERVICE` and `HANDLES` edges
 - metadata for transport, client type, base URL key, and authentication hints
 
-### E.6.7 Hotlist, Rules, and Findings
+### E.6.8 Hotlist, Rules, and Findings
 
 Supported by:
 
 - `Rules`
 - `Findings`
-- link tables connecting findings to nodes and evidence
+- graph relationships connecting findings to architecture nodes and evidence
 - metric support for hotspot counts and modernization indicators
 - disk-backed rule-definition files under `./rules` as the authored source of rule content
 
-### E.6.8 Metrics
+### E.6.9 Metrics
 
 Supported by:
 
@@ -4706,7 +5227,7 @@ Supported by:
 - scope-aware metric rows for snapshot, node, and edge scope
 - fingerprint-based diffing
 
-### E.6.9 Generated Summary Persistence
+### E.6.10 Generated Summary Persistence
 
 Supported by:
 
@@ -4720,15 +5241,15 @@ Supported by:
 
 Deliver:
 
-- EF Core model
-- SQL Server schema for repositories, solutions, snapshots, nodes, edges, evidence, rules, findings, metrics, generated summaries, and link tables
+- Neo4j graph model
+- graph constraints and indexes for repositories, solutions, snapshots, architecture nodes, relationships, evidence, rules, findings, metrics, and generated summaries
 - stable-key helpers
 - fingerprint helpers
-- snapshot writer for the new model
+- snapshot writer for the graph model
 
 Acceptance criteria:
 
-- the database can be created from scratch
+- the Neo4j graph can be created from scratch
 - one snapshot can persist mixed node and edge kinds
 - one node or edge can link to multiple evidence records
 - findings and metrics can be persisted in the same snapshot
@@ -4772,7 +5293,7 @@ Deliver:
 
 Acceptance criteria:
 
-- LINQ to SQL, EF, ADO.NET, and integration facts can all be stored in the same generalized model
+- LINQ to SQL, Entity Framework Classic / EF6, Entity Framework Core, ADO.NET, and integration facts can all be stored in the same generalized model
 
 ### E.7.5 Phase E - Findings and Metrics Enablement
 
@@ -4781,7 +5302,7 @@ Deliver:
 - first-cut rule-definition files under `./rules` for all currently identified legacy detection scenarios
 - shared disk-based rule-loading component
 - copy-to-output and copy-to-publish wiring for the relevant runtime projects so rule files are available from disk at runtime
-- rule catalog persistence
+- graph-backed rule catalog persistence
 - finding persistence
 - metric persistence
 - node, edge, finding, and metric diff support
@@ -4798,26 +5319,26 @@ Acceptance criteria:
 
 Mitigation:
 
-- normalize only identity, scope, and query-critical columns
+- promote only identity, scope, and query-critical values to first-class graph properties
 - place slice-specific details in JSON metadata
-- provide clear metadata contracts per extractor slice
+- provide clear metadata contracts per extraction slice
 
 ### E.8.2 Risk: Generic model becomes vague and hard to query
 
 Mitigation:
 
 - keep node kind, edge kind, severity, status, confidence, and ownership strongly typed
-- define approved metadata keys per extractor slice
+- define approved metadata keys per extraction slice
 - enforce stable-key prefixes and fingerprint rules centrally
 
 ### E.8.3 Risk: Query performance degrades as model broadens
 
 Mitigation:
 
-- index snapshot plus stable-key combinations
-- index node kind and edge kind by snapshot
+- create graph indexes and constraints for snapshot plus stable-key combinations
+- index node kind and relationship kind by snapshot where query patterns require it
 - index project ownership where relevant
-- index source and target stable keys for traversal
+- index source and target stable keys for traversal hand-offs
 - index rule code and severity for hotlist lookup
 - index metric kind and scope for reporting
 
@@ -4833,23 +5354,23 @@ Mitigation:
 
 This specification is complete when all of the following are true:
 
-1. A new SQL Server schema exists that can be created from scratch and used as the sole persistence model for extraction output.
-2. The schema includes architecture-wide node, edge, evidence, rule, finding, and metric support.
-3. The schema can represent every feature area in the Archon vision without requiring another foundational schema redesign.
-4. The extraction application layer exposes a generalized snapshot contract rather than a project-only aggregate contract.
+1. A Neo4j graph model exists that can be created from scratch and used as the sole persistence model for extraction output.
+2. The graph model includes architecture-wide node, relationship, evidence, rule, finding, and metric support.
+3. The graph model can represent every feature area in the Archon vision without requiring another foundational graph redesign.
+4. The API extraction module exposes a POST-driven extraction contract accepting a repository root directory and solution path list, then produces a generalized snapshot contract rather than a project-only aggregate contract.
 5. Evidence can be attached consistently to nodes, edges, and findings.
 6. Fact, inference, unknown, and later human-confirmed classifications can be represented consistently across persisted facts.
-7. Unknowns and confidence can be represented consistently across extractor slices.
+7. Unknowns and confidence can be represented consistently across extraction slices.
 8. Snapshot diff can operate over nodes, edges, findings, and metrics.
-9. The design explicitly assumes database recreation and does not include migration requirements.
-10. First-cut legacy detection rules exist under `./rules`, are copied to the relevant runtime outputs, and can be loaded from disk by the extractor and API.
+9. The design explicitly assumes graph recreation and does not include migration requirements.
+10. First-cut legacy detection rules exist under `./rules`, are copied to the relevant runtime outputs, and can be loaded from disk by the API modules.
 
 ## E.10 Out of Scope
 
 The following are intentionally out of scope for this specification:
 
-- migration of existing databases
-- backward compatibility with existing query tables
+- migration of existing graph stores or older persistence designs
+- backward compatibility with existing query projections
 - delivery of every remaining extractor in the same work package
 - UI redesign beyond what is necessary to consume the new model later
 - MCP implementation details beyond persistence support
@@ -4858,11 +5379,11 @@ The following are intentionally out of scope for this specification:
 
 ### E.11.1 Repository and Solution Materialization
 
-Repository and solution concepts are persisted physically in `Nodes` as well as in their companion identity tables.
+Repository and solution concepts are persisted physically as first-class graph nodes.
 
 This ensures:
 
-- repository and solution concepts participate in graph traversal and diff as ordinary node rows
+- repository and solution concepts participate in graph traversal and diff as ordinary graph nodes
 - the architecture graph is materially complete in storage rather than partly projected at query time
-- companion tables remain authoritative for repository and solution identity and metadata
-- repository and solution nodes are kept consistent with the companion rows during snapshot assembly
+- graph nodes remain authoritative for repository and solution identity and metadata
+- repository and solution nodes are kept consistent during snapshot assembly
