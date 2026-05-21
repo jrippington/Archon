@@ -49,7 +49,7 @@ namespace Archon.Infrastructure.Neo4j.DependencyInjection
             services.TryAddSingleton<IArchitectureGraphRecreator, Neo4jGraphRecreator>();
             services.TryAddSingleton<Neo4jSnapshotPersistenceMapper>();
             services.TryAddSingleton<Neo4jPersistenceStageLogger>();
-            services.TryAddSingleton<IArchitectureSnapshotWriter, Neo4jArchitectureSnapshotWriter>();
+            services.AddSingleton<IArchitectureSnapshotWriter, Neo4jArchitectureSnapshotWriter>();
             services.TryAddSingleton<Neo4jHealthCheck>();
             services.TryAddEnumerable(ServiceDescriptor.Singleton<IHealthCheck, Neo4jHealthCheck>());
 

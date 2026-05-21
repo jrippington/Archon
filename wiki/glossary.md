@@ -18,6 +18,10 @@ The architecture graph is the durable representation of architecture facts, evid
 
 An architecture relationship is the domain fact that one architecture node relates to another. Examples include a project referencing a package, a service calling an endpoint, or a component depending on configuration.
 
+## Asynchronous extraction
+
+Asynchronous extraction means the API start request validates and accepts work, records a run, queues the work through a scheduler seam, and returns before later extraction, snapshot assembly, or persistence finishes.
+
 ## Bolt-compatible URI
 
 A Bolt-compatible URI is the address used by the Neo4j driver protocol, such as `bolt://localhost:7687`. It is separate from Neo4j's HTTP browser endpoint.
@@ -41,6 +45,14 @@ A controlled value is a domain-owned string identity that behaves like a smart e
 ## Evidence-first
 
 Evidence-first means graph facts are designed to carry or link to the explanation that caused Archon to believe them. Evidence can be a project file, source symbol, configuration artifact, compiler diagnostic, inference, or manual annotation.
+
+## Extraction pipeline
+
+The extraction pipeline is the application-layer sequence of deterministic stages that contribute facts, warnings, or errors to the shared accumulator for one accepted run.
+
+## Extraction stage
+
+An extraction stage is one named unit of pipeline work with a stable stage identifier. A stage receives validated input, accepted run context, and the accumulator, then reports whether the pipeline can continue.
 
 ## Evidence deduplication
 
@@ -102,9 +114,29 @@ A normalized property is a graph field stored directly because later code needs 
 
 Onion Architecture is a dependency model where stable core concepts sit at the center and replaceable delivery or infrastructure details sit at the outside. Dependencies should point inward.
 
+## Orchestrator
+
+An orchestrator is the application-layer component that coordinates one accepted asynchronous extraction run through pipeline execution, snapshot assembly, persistence handoff, and run lifecycle updates.
+
+## Persistence handoff
+
+Persistence handoff is the application-layer boundary where an assembled `ExtractedArchitectureSnapshot` is given to an `IArchitectureSnapshotWriter` implementation and the returned result controls completion or failure status.
+
 ## Readiness
 
 Readiness answers whether a process is ready to accept work. Archon exposes readiness through `/health`.
+
+## Recent run history
+
+Recent run history is the operational list of accepted extraction runs returned by `GET /extractions`. It is ordered deterministically newest first and summarizes run state without becoming the durable architecture graph.
+
+## Placeholder stage
+
+The placeholder stage is the current non-final extraction stage that proves the pipeline boundary by contributing a warning without inventing real repository, Roslyn, runtime, UI, data-access, markdown, MCP, rule, or architecture facts.
+
+## Run lifecycle
+
+A run lifecycle is the operational status model for an accepted extraction request. It records states such as queued, running, completed, failed, or cancelled together with progress, warnings, errors, timestamps, and snapshot identity when available.
 
 ## Relationship-node pattern
 

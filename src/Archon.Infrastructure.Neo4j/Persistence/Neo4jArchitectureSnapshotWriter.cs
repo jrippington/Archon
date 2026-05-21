@@ -227,8 +227,11 @@ namespace Archon.Infrastructure.Neo4j.Persistence
                         1,
                         snapshot.Nodes.Count,
                         canonicalEvidence.Records.Count,
-                        snapshot.Solutions.Count,
-                        nodeEvidenceRelationships);
+                        architectureRelationships: 0,
+                        snapshotSolutionRelationships: snapshot.Solutions.Count,
+                        nodeEvidenceRelationships,
+                        relationshipEndpointRelationships: 0,
+                        relationshipEvidenceRelationships: 0);
                 }).ConfigureAwait(false);
         }
 

@@ -1,4 +1,5 @@
-﻿using Archon.ServiceDefaults;
+﻿using Archon.Api.Extraction;
+using Archon.ServiceDefaults;
 
 namespace ArchonApi
 {
@@ -49,11 +50,13 @@ namespace ArchonApi
             WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
             configureBuilder?.Invoke(builder);
             builder.AddServiceDefaults();
+            builder.Services.AddArchonExtractionApi();
 
             WebApplication app = builder.Build();
 
-            // Only health and liveness endpoints are mapped in Work Item 2; feature endpoints remain absent by design.
+            // Health probes remain mapped alongside feature modules so operational endpoints stay available for every host slice.
             app.MapDefaultEndpoints();
+            app.MapArchonExtractionApi();
 
             return app;
         }

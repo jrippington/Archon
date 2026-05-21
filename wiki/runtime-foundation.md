@@ -1,6 +1,6 @@
 # Runtime Foundation
 
-Archon's runtime foundation is deliberately small. The API host and MCP host can start as ASP.NET Core processes, expose operational probes, and run under an Aspire AppHost for local development. The foundation proves the runtime seams without implementing extraction orchestration, query APIs, MCP tools, markdown export, or user-interface behavior.
+Archon's runtime foundation is deliberately small. The API host and MCP host can start as ASP.NET Core processes, expose operational probes, and run under an Aspire AppHost for local development. The API host now also composes the asynchronous [API extraction workflow](api-extraction-workflow.md), which maps start, status, and recent-history endpoints while keeping extraction validation, run lifecycle behavior, progress updates, orchestration, snapshot assembly, and persistence handoff in application services. The foundation proves the runtime seams without implementing real repository/Roslyn extraction, query APIs, MCP tools, markdown export, or user-interface behavior.
 
 For architecture boundaries, read [solution architecture](solution-architecture.md). For persistence details, continue to [Neo4j persistence foundation](neo4j-persistence-foundation.md). For validation commands, read [validation and test workflows](validation-and-test-workflows.md). Terms used here are defined in the [glossary](glossary.md).
 
@@ -32,7 +32,7 @@ dotnet run --project .\src\ArchonMcp\ArchonMcp.csproj
 
 After a host starts, browse or request `/health` and `/alive` on the assigned local ASP.NET Core URL. A successful response confirms the host runtime foundation is working. Stop manually run host processes after verification. Automated validation should use the test projects instead of launching long-running hosts.
 
-In the current runtime slice, absence is intentional. `ArchonApi` does not map extraction, query, management, Swagger, Scalar, or UI endpoints. `ArchonMcp` does not map MCP tools, MCP resources, MCP prompts, or architecture-query endpoints.
+In the current runtime slice, absence is still intentional for features that have not been implemented. `ArchonApi` maps health probes and the extraction start, status, and recent-history endpoints, and those endpoints can dispatch the placeholder asynchronous orchestration path. It does not map query, management, Swagger, Scalar, or UI endpoints. `ArchonMcp` does not map MCP tools, MCP resources, MCP prompts, or architecture-query endpoints.
 
 ## Aspire AppHost
 

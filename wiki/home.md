@@ -1,6 +1,6 @@
 # Archon Wiki
 
-Archon is a .NET architecture-intelligence platform. The current foundation provides independently runnable API and MCP hosts, Aspire-based local composition, a domain model for deterministic architecture graph facts, and a Neo4j persistence foundation for storing assembled snapshots. Extraction orchestration, query APIs, MCP tools, markdown export, and user-interface behavior remain assigned to later work packages.
+Archon is a .NET architecture-intelligence platform. The current foundation provides independently runnable API and MCP hosts, Aspire-based local composition, a domain model for deterministic architecture graph facts, a Neo4j persistence foundation for storing assembled snapshots, and the first asynchronous API extraction workflow. That workflow validates explicit repository and solution inputs, records operational run state, dispatches placeholder extraction through an application orchestrator, assembles a generalized snapshot, hands it to the configured persistence writer, and exposes status plus recent history through API endpoints. Query APIs, MCP tools, markdown export, real repository/Roslyn extraction, and user-interface behavior remain assigned to later work packages.
 
 This wiki is the contributor-facing source of truth for current behavior, terminology, validation workflows, and repository operating model. Work-package specs and plans under `docs/` explain how work is planned and recorded; the wiki explains how contributors should understand and work with the repository now.
 
@@ -14,6 +14,7 @@ Start here if you need the mental model before working on code:
 2. [Runtime foundation](runtime-foundation.md) explains service defaults, health probes, the Aspire AppHost, and local Neo4j composition.
 3. [Graph domain model](graph-domain-model.md) explains controlled values, stable keys, graph facts, evidence, confidence, unknown state, and snapshot accumulation.
 4. [Neo4j persistence foundation](neo4j-persistence-foundation.md) explains schema initialization, guarded recreation, snapshot persistence, relationship nodes, and persisted analysis outputs.
+5. [API extraction workflow](api-extraction-workflow.md) explains `POST /extractions`, status polling, validation boundaries, run lifecycle state, and the initial scheduler/run-history seams.
 
 ### Build and validation path
 
@@ -29,7 +30,7 @@ Use the [glossary](glossary.md) for repository-specific terms such as AppHost, c
 
 ## Current capability summary
 
-The API host and MCP host currently expose operational probes only. The Aspire AppHost composes Neo4j, `ArchonApi`, and `ArchonMcp` for local development and intentionally does not compose a Discovery UI resource. The graph domain model defines stable vocabulary and contracts for architecture facts, while the Neo4j infrastructure adapter persists supplied graph contracts after schema initialization. No host endpoint currently invokes snapshot persistence, and no query or MCP graph access behavior is complete yet.
+The API host and MCP host expose operational probes. The API host also maps the extraction workflow endpoints: `POST /extractions` accepts validated repository and solution inputs, creates queued operational run state, schedules asynchronous orchestration, and `GET /extractions/{runId}` plus `GET /extractions` expose current status and recent run history. The Aspire AppHost composes Neo4j, `ArchonApi`, and `ArchonMcp` for local development and intentionally does not compose a Discovery UI resource. The graph domain model defines stable vocabulary and contracts for architecture facts, while the Neo4j infrastructure adapter persists supplied graph contracts after schema initialization. The current extraction workflow persists only the generalized placeholder snapshot contract; no query API, MCP graph access behavior, real repository/Roslyn extraction, markdown export, or user-interface behavior is complete yet.
 
 ## Wiki maintenance standard
 

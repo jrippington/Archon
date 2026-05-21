@@ -8,7 +8,7 @@ using Xunit;
 namespace ArchonApi.Tests
 {
     /// <summary>
-    /// Verifies the WP001 API host exposes only health and readiness probe behavior.
+    /// Verifies the API host exposes operational probes while composing the currently implemented feature modules.
     /// </summary>
     public sealed class ArchonApiHealthEndpointTests
     {
@@ -25,7 +25,7 @@ namespace ArchonApi.Tests
 
             using HttpClient client = app.GetTestClient();
 
-            // The readiness and liveness endpoints are the complete API surface for Work Item 2.
+            // The readiness and liveness endpoints remain available as feature endpoints are added in later work packages.
             HttpResponseMessage healthResponse = await client.GetAsync(ServiceDefaultEndpointNames.Health);
             HttpResponseMessage aliveResponse = await client.GetAsync(ServiceDefaultEndpointNames.Alive);
 
@@ -34,20 +34,19 @@ namespace ArchonApi.Tests
         }
 
         /// <summary>
-        /// Confirms feature endpoints excluded from WP001 are not accidentally exposed by the API host.
+    /// Confirms feature endpoints still outside WP004 are not accidentally exposed by the API host.
         /// </summary>
         /// <returns>A task that completes after representative excluded endpoint paths have been checked.</returns>
         [Fact]
-        public async Task FeatureEndpointsAreNotMappedInWp001()
+        public async Task FeatureEndpointsOutsideWp004AreNotMapped()
         {
-            // The API host must remain a health-only shell until later work packages add feature modules.
+            // WP004 adds extraction routes, but unrelated query, management, documentation, and UI routes remain absent.
             await using WebApplication app = Program.BuildApplication(Array.Empty<string>(), builder => builder.WebHost.UseTestServer());
             await app.StartAsync();
 
             using HttpClient client = app.GetTestClient();
 
-            // Representative extraction, query, management, Swagger, Scalar, and UI paths should remain absent in Work Item 2.
-            Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/extractions")).StatusCode);
+            // Representative query, management, Swagger, Scalar, and UI paths should remain absent until their own work packages.
             Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/query")).StatusCode);
             Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/management")).StatusCode);
             Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/swagger")).StatusCode);

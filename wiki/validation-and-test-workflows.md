@@ -53,6 +53,25 @@ dotnet test .\test\Archon.Application.Tests\Archon.Application.Tests.csproj --fi
 
 These commands validate controlled values, stable keys, metadata canonicalization, fingerprints, graph fact models, unknown-state rules, evidence records, and application-layer snapshot accumulation. They do not run Roslyn extraction, write Neo4j data, expose APIs, invoke MCP behavior, render markdown, or start UI behavior.
 
+## WP004 API extraction start, status, history, and orchestration validation
+
+The WP004 extraction slices are validated through application and API tests rather than a running Aspire AppHost. The application tests exercise request validation, path normalization, duplicate solution detection, outside-root rejection, no-run-on-validation-failure behavior, run creation, scheduling through the application seam, status lookup, recent-run ordering, progress update visibility, deterministic pipeline execution, placeholder stage boundaries, snapshot assembly, orchestration order, controlled failure handling, and persistence handoff through the application-layer writer port. The persistence-handoff coverage is intentionally explicit: tests prove the writer is invoked once for successful accepted runs, not invoked for validation or pipeline failures, and receives the complete generalized snapshot shape with repository, solution, snapshot header, nodes, edges, evidence, rules, findings, metrics, generated summaries, warnings, and errors sections. The API extraction tests exercise JSON route behavior for `POST /extractions`, `GET /extractions/{runId}`, and `GET /extractions` through an in-memory ASP.NET Core test server. They also verify the direct no-`/api` route contract, validation problem responses, metadata-value redaction, not-found behavior, terminal completed status with snapshot identity, status progress visibility, history summaries, and accepted-run failure redaction.
+
+Use these focused commands from the repository root after building the changed projects:
+
+```powershell
+dotnet test .\test\Archon.Application.Tests\Archon.Application.Tests.csproj --no-build --filter FullyQualifiedName~StartExtractionApplicationServiceTests
+dotnet test .\test\Archon.Application.Tests\Archon.Application.Tests.csproj --no-build --filter "FullyQualifiedName~ExtractionPipelineRunnerTests|FullyQualifiedName~ExtractionSnapshotAssemblerTests"
+dotnet test .\test\Archon.Application.Tests\Archon.Application.Tests.csproj --no-build --filter FullyQualifiedName~ExtractionOrchestratorTests
+dotnet test .\test\Archon.Application.Tests\Archon.Application.Tests.csproj --no-build --filter FullyQualifiedName~ArchitectureSnapshotAccumulatorTests
+dotnet test .\test\Archon.Api.Extraction.Tests\Archon.Api.Extraction.Tests.csproj --no-build --filter FullyQualifiedName~ExtractionEndpointTests
+dotnet test .\test\ArchonApi.Tests\ArchonApi.Tests.csproj --no-build --filter FullyQualifiedName~ArchonApiHealthEndpointTests
+```
+
+These commands do not start the Aspire AppHost, do not require Neo4j credentials, and do not execute full repository or Roslyn extraction. They prove that the API can accept valid start requests, reject invalid requests before creating run state, return status for accepted runs, list recent run summaries, expose progress updates through the application surface, run deterministic placeholder pipeline stages in application tests, assemble a generalized snapshot shape, hand the complete snapshot to persistence through a test double exactly once for successful accepted runs, record snapshot identity only after persistence success, convert pipeline/persistence/exception failures into controlled failed runs, sanitize unsafe diagnostic text at the HTTP boundary, and keep unrelated host endpoints absent until their own work packages implement them.
+
+When a contributor needs to verify the API surface manually, use the examples on [API extraction workflow](api-extraction-workflow.md). Manual verification is an exploration activity, not an automated acceptance gate. It should use non-sensitive sample paths and metadata, should confirm the direct `/extractions` route family rather than `/api/extractions`, and should treat stack traces or secret-like values in responses as a bug. Automated validation for WP004 remains the focused build and test commands above; it must not start the Aspire AppHost.
+
 ## WP003 Neo4j validation and Testcontainers
 
 Neo4j integration tests use Testcontainers instead of the Aspire AppHost. **Testcontainers** starts short-lived Docker containers under test control and removes them after the test run. Docker Desktop or another OCI-compatible runtime must be running for these tests.
