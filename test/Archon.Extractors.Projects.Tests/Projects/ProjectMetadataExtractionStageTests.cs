@@ -866,6 +866,154 @@ namespace Archon.Extractors.Projects.Tests.Projects
         }
 
         /// <summary>
+        /// Verifies application classification covers every required high-confidence project category through deterministic metadata indicators.
+        /// </summary>
+        /// <param name="projectName">The project display name written to the solution fixture.</param>
+        /// <param name="relativeProjectPath">The repository-relative project path written to the solution fixture.</param>
+        /// <param name="projectXml">The project XML containing the classification indicators.</param>
+        /// <param name="expectedApplicationType">The expected application type metadata value.</param>
+        /// <returns>A task that completes after classification metadata has been asserted.</returns>
+        [Theory]
+        [InlineData("Modern.Web", "src/Modern.Web/Modern.Web.csproj", "<Project Sdk=\"Microsoft.NET.Sdk.Web\"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>", "AspNetCoreWebApp")]
+        [InlineData("Modern.Api", "src/Modern.Api/Modern.Api.csproj", "<Project Sdk=\"Microsoft.NET.Sdk.Web\"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup><ItemGroup><PackageReference Include=\"Swashbuckle.AspNetCore\" Version=\"7.0.0\" /></ItemGroup></Project>", "AspNetCoreWebApi")]
+        [InlineData("Classic.Web", "src/Classic.Web/Classic.Web.csproj", "<Project ToolsVersion=\"15.0\" xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\"><PropertyGroup><TargetFrameworkVersion>v4.8</TargetFrameworkVersion><ProjectTypeGuids>{349C5851-65DF-11DA-9384-00065B846F21};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids></PropertyGroup></Project>", "ClassicAspNetWebApp")]
+        [InlineData("Legacy.Forms", "src/Legacy.Forms/Legacy.Forms.csproj", "<Project ToolsVersion=\"15.0\" xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\"><ItemGroup><Content Include=\"Default.aspx\" /></ItemGroup><PropertyGroup><TargetFrameworkVersion>v4.8</TargetFrameworkVersion></PropertyGroup></Project>", "WebFormsApp")]
+        [InlineData("Legacy.Mvc", "src/Legacy.Mvc/Legacy.Mvc.csproj", "<Project ToolsVersion=\"15.0\" xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\"><ItemGroup><Reference Include=\"System.Web.Mvc\" /></ItemGroup><PropertyGroup><TargetFrameworkVersion>v4.8</TargetFrameworkVersion></PropertyGroup></Project>", "MvcApp")]
+        [InlineData("Legacy.Api", "src/Legacy.Api/Legacy.Api.csproj", "<Project ToolsVersion=\"15.0\" xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\"><ItemGroup><PackageReference Include=\"Microsoft.AspNet.WebApi.Core\" Version=\"5.2.9\" /></ItemGroup><PropertyGroup><TargetFrameworkVersion>v4.8</TargetFrameworkVersion></PropertyGroup></Project>", "WebApi2App")]
+        [InlineData("Modern.Console", "src/Modern.Console/Modern.Console.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net10.0</TargetFramework><OutputType>Exe</OutputType></PropertyGroup></Project>", "ConsoleApp")]
+        [InlineData("Modern.Worker", "src/Modern.Worker/Modern.Worker.csproj", "<Project Sdk=\"Microsoft.NET.Sdk.Worker\"><PropertyGroup><TargetFramework>net10.0</TargetFramework><OutputType>Exe</OutputType></PropertyGroup></Project>", "WorkerService")]
+        [InlineData("Modern.Library", "src/Modern.Library/Modern.Library.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net10.0</TargetFramework><OutputType>Library</OutputType></PropertyGroup></Project>", "ClassLibrary")]
+        [InlineData("Modern.Tests", "test/Modern.Tests/Modern.Tests.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup><ItemGroup><PackageReference Include=\"Microsoft.NET.Test.Sdk\" Version=\"18.0.1\" /></ItemGroup></Project>", "TestProject")]
+        [InlineData("Modern.Tools", "tools/Modern.Tools/Modern.Tools.csproj", "<Project Sdk=\"Microsoft.Build.NoTargets\"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>", "ToolingProject")]
+        public async Task ExecuteAsync_WhenProjectHasApplicationTypeIndicators_ShouldClassifyRequiredApplicationType(string projectName, string relativeProjectPath, string projectXml, string expectedApplicationType)
+        {
+            // The table exercises direct SDK, project GUID, output type, package, content, and reference indicators without invoking build evaluation.
+            string repositoryRoot = CreateRepositoryRoot();
+            string solutionPath = CreateSolutionFile(repositoryRoot, "ClassificationSuite.sln", [ProjectDeclaration.CSharp(projectName, relativeProjectPath)]);
+            CreateProjectFile(repositoryRoot, relativeProjectPath, projectXml);
+
+            ExtractedArchitectureSnapshot snapshot = await ExecuteStageAsync(repositoryRoot, [solutionPath]);
+
+            var projectNode = Assert.Single(snapshot.Nodes, node => node.NodeKind == NodeKind.Project);
+            string metadata = projectNode.Metadata.ToCanonicalJson();
+            Assert.Contains($"\"project.applicationType\":\"{expectedApplicationType}\"", metadata, StringComparison.Ordinal);
+            Assert.Contains("\"project.applicationTypeConfidence\":\"High\"", metadata, StringComparison.Ordinal);
+            Assert.Contains("\"project.applicationTypeConfidenceValue\":0.9", metadata, StringComparison.Ordinal);
+            Assert.Contains("\"project.applicationTypeEvidence\"", metadata, StringComparison.Ordinal);
+            Assert.Empty(snapshot.Errors);
+        }
+
+        /// <summary>
+        /// Verifies repository-contained source indicators can produce medium-confidence classification when direct project-file metadata is absent.
+        /// </summary>
+        /// <returns>A task that completes after medium-confidence worker classification has been asserted.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenSourceArtifactIndicatesWorkerService_ShouldClassifyWithMediumConfidence()
+        {
+            // WP005 may safely inspect small repository-contained source artifacts for strong textual indicators without performing Roslyn semantic analysis.
+            string repositoryRoot = CreateRepositoryRoot();
+            string solutionPath = CreateSolutionFile(repositoryRoot, "WorkerArtifactSuite.sln", [ProjectDeclaration.CSharp("BackgroundProcessor", "src/BackgroundProcessor/BackgroundProcessor.csproj")]);
+            CreateProjectFile(repositoryRoot, "src/BackgroundProcessor/BackgroundProcessor.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                </Project>
+                """);
+            CreateTextFile(repositoryRoot, "src/BackgroundProcessor/Worker.cs", "public sealed class Worker : BackgroundService { }");
+
+            ExtractedArchitectureSnapshot snapshot = await ExecuteStageAsync(repositoryRoot, [solutionPath]);
+
+            var projectNode = Assert.Single(snapshot.Nodes, node => node.NodeKind == NodeKind.Project);
+            string metadata = projectNode.Metadata.ToCanonicalJson();
+            Assert.Contains("\"project.applicationType\":\"WorkerService\"", metadata, StringComparison.Ordinal);
+            Assert.Contains("\"project.applicationTypeConfidence\":\"Medium\"", metadata, StringComparison.Ordinal);
+            Assert.Contains("\"project.applicationTypeConfidenceValue\":0.5", metadata, StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// Verifies weak name-based indicators remain low confidence and do not masquerade as direct project metadata evidence.
+        /// </summary>
+        /// <returns>A task that completes after low-confidence tooling classification has been asserted.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenOnlyProjectNameIndicatesTooling_ShouldClassifyWithLowConfidence()
+        {
+            // Naming is intentionally the weakest classification source because repository naming conventions can be inconsistent.
+            string repositoryRoot = CreateRepositoryRoot();
+            string solutionPath = CreateSolutionFile(repositoryRoot, "NamingHeuristicSuite.sln", [ProjectDeclaration.CSharp("Repository.Tools", "src/Repository.Tools/Repository.Tools.csproj")]);
+            CreateProjectFile(repositoryRoot, "src/Repository.Tools/Repository.Tools.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                </Project>
+                """);
+
+            ExtractedArchitectureSnapshot snapshot = await ExecuteStageAsync(repositoryRoot, [solutionPath]);
+
+            var projectNode = Assert.Single(snapshot.Nodes, node => node.NodeKind == NodeKind.Project);
+            string metadata = projectNode.Metadata.ToCanonicalJson();
+            Assert.Contains("\"project.applicationType\":\"ToolingProject\"", metadata, StringComparison.Ordinal);
+            Assert.Contains("\"project.applicationTypeConfidence\":\"Low\"", metadata, StringComparison.Ordinal);
+            Assert.Contains("\"project.applicationTypeConfidenceValue\":0.25", metadata, StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// Verifies contradictory high-confidence indicators produce Unknown instead of an arbitrary category guess.
+        /// </summary>
+        /// <returns>A task that completes after contradictory classification metadata has been asserted.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenProjectHasContradictoryApplicationTypeIndicators_ShouldClassifyAsUnknown()
+        {
+            // A web SDK combined with explicit test project packages is contradictory for WP005 classification, so Unknown is safer than guessing.
+            string repositoryRoot = CreateRepositoryRoot();
+            string solutionPath = CreateSolutionFile(repositoryRoot, "ContradictorySuite.sln", [ProjectDeclaration.CSharp("Conflicted.Project", "src/Conflicted.Project/Conflicted.Project.csproj")]);
+            CreateProjectFile(repositoryRoot, "src/Conflicted.Project/Conflicted.Project.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk.Web">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            ExtractedArchitectureSnapshot snapshot = await ExecuteStageAsync(repositoryRoot, [solutionPath]);
+
+            var projectNode = Assert.Single(snapshot.Nodes, node => node.NodeKind == NodeKind.Project);
+            string metadata = projectNode.Metadata.ToCanonicalJson();
+            Assert.Contains("\"project.applicationType\":\"Unknown\"", metadata, StringComparison.Ordinal);
+            Assert.Contains("\"project.applicationTypeUnknown\":true", metadata, StringComparison.Ordinal);
+            Assert.Contains("\"project.applicationTypeUnknownReason\":\"Contradictory high-confidence indicators were found.\"", metadata, StringComparison.Ordinal);
+            Assert.Contains("\"project.applicationTypeContradictions\"", metadata, StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// Verifies insufficient evidence produces deterministic Unknown metadata and stable repeated results.
+        /// </summary>
+        /// <returns>A task that completes after Unknown and deterministic metadata assertions have run.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenApplicationTypeEvidenceIsInsufficient_ShouldClassifyAsUnknownDeterministically()
+        {
+            // Projects without direct, artifact, or justified naming indicators should preserve uncertainty for downstream consumers.
+            string projectXml = """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                </Project>
+                """;
+            string firstMetadata = await ExtractSingleProjectMetadataAsync("UnknownSuite.sln", "Neutral.Component", "src/Neutral.Component/Neutral.Component.csproj", projectXml);
+            string secondMetadata = await ExtractSingleProjectMetadataAsync("UnknownSuite.sln", "Neutral.Component", "src/Neutral.Component/Neutral.Component.csproj", projectXml);
+
+            Assert.Contains("\"project.applicationType\":\"Unknown\"", firstMetadata, StringComparison.Ordinal);
+            Assert.Contains("\"project.applicationTypeUnknown\":true", firstMetadata, StringComparison.Ordinal);
+            Assert.Contains("\"project.applicationTypeUnknownReason\":\"No supported application type indicators were found.\"", firstMetadata, StringComparison.Ordinal);
+            Assert.Equal(firstMetadata, secondMetadata);
+        }
+
+        /// <summary>
         /// Executes the production stage against accepted input and returns the accumulated snapshot.
         /// </summary>
         /// <param name="repositoryRoot">The temporary repository root to submit.</param>
@@ -883,6 +1031,25 @@ namespace Archon.Extractors.Projects.Tests.Projects
 
             Assert.False(result.HasBlockingError, result.ErrorMessage);
             return accumulation.ToSnapshot();
+        }
+
+        /// <summary>
+        /// Extracts canonical project-node metadata for one temporary project fixture.
+        /// </summary>
+        /// <param name="solutionName">The repository-relative solution file name to create.</param>
+        /// <param name="projectName">The solution project display name.</param>
+        /// <param name="relativeProjectPath">The repository-relative project path.</param>
+        /// <param name="projectXml">The project XML content to write.</param>
+        /// <returns>The canonical metadata JSON for the single extracted project node.</returns>
+        private async Task<string> ExtractSingleProjectMetadataAsync(string solutionName, string projectName, string relativeProjectPath, string projectXml)
+        {
+            // This helper makes deterministic comparisons concise while still exercising the production stage and accumulator.
+            string repositoryRoot = CreateRepositoryRoot();
+            string solutionPath = CreateSolutionFile(repositoryRoot, solutionName, [ProjectDeclaration.CSharp(projectName, relativeProjectPath)]);
+            CreateProjectFile(repositoryRoot, relativeProjectPath, projectXml);
+            ExtractedArchitectureSnapshot snapshot = await ExecuteStageAsync(repositoryRoot, [solutionPath]);
+            var projectNode = Assert.Single(snapshot.Nodes, node => node.NodeKind == NodeKind.Project);
+            return projectNode.Metadata.ToCanonicalJson();
         }
 
         /// <summary>
@@ -940,6 +1107,20 @@ namespace Archon.Extractors.Projects.Tests.Projects
             string projectPath = Path.Combine(repositoryRoot, relativeProjectPath.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(Path.GetDirectoryName(projectPath)!);
             File.WriteAllText(projectPath, xml);
+        }
+
+        /// <summary>
+        /// Creates a text source or configuration fixture with the supplied content.
+        /// </summary>
+        /// <param name="repositoryRoot">The repository root that contains the file.</param>
+        /// <param name="relativePath">The repository-relative file path to write.</param>
+        /// <param name="content">The text content to write.</param>
+        private static void CreateTextFile(string repositoryRoot, string relativePath, string content)
+        {
+            // Source and configuration fixtures let classification tests exercise safe repository-contained artifact indicators.
+            string filePath = Path.Combine(repositoryRoot, relativePath.Replace('/', Path.DirectorySeparatorChar));
+            Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
+            File.WriteAllText(filePath, content);
         }
 
         /// <summary>

@@ -14,6 +14,10 @@ An AppHost is an Aspire project that describes which services, containers, and d
 
 The architecture graph is the durable representation of architecture facts, evidence, findings, metrics, and summaries. In the current persistence foundation, Neo4j stores this graph using stable labels, stable keys, fingerprints, and support relationships.
 
+## Application type classification
+
+Application type classification is the WP005 project metadata value that places a supported project into a broad category such as ASP.NET Core Web App, ASP.NET Core Web API, Classic ASP.NET Web App, Web Forms App, MVC App, Web API 2 App, Console App, Worker Service, Class Library, Test Project, Tooling Project, or Unknown. Archon records confidence, evidence, and unknown reasons with the classification so consumers can distinguish direct project-file evidence from weaker artifact or naming indicators.
+
 ## Architecture relationship
 
 An architecture relationship is the domain fact that one architecture node relates to another. Examples include a project referencing a package, a service calling an endpoint, or a component depending on configuration.
@@ -144,7 +148,7 @@ The project extraction stage is the WP005 pipeline stage family that reads submi
 
 ## Project node
 
-A project node is an architecture node representing a supported C# or VB.NET project file. Its stable key is based on the repository-relative project path so the same project declared by multiple submitted solutions remains one graph identity.
+A project node is an architecture node representing a supported C# or VB.NET project file. Its stable key is based on the repository-relative project path so the same project declared by multiple submitted solutions remains one graph identity. Current project node metadata includes application type classification when WP005 can determine or explicitly preserve that category as Unknown.
 
 ## Package node
 

@@ -1,4 +1,5 @@
 using Archon.Domain.Graph.Metadata;
+using Archon.Extractors.Projects.Classification;
 using Archon.Extractors.Projects.Packages;
 
 namespace Archon.Extractors.Projects.Projects
@@ -25,6 +26,7 @@ namespace Archon.Extractors.Projects.Projects
     /// <param name="PackageDiagnostics">The controlled package extraction diagnostics produced by package-adjacent artifacts.</param>
     /// <param name="AnalyzerReferences">The analyzer-reference declarations discovered in the project file.</param>
     /// <param name="Artifacts">The repository-contained source artifacts that support extracted facts.</param>
+    /// <param name="ApplicationTypeClassification">The deterministic application type decision derived from project metadata and safe artifact indicators.</param>
     /// <param name="LineCount">The number of lines read from the project file for evidence fallback spans.</param>
     internal sealed record ProjectMetadata(
         string ProjectName,
@@ -46,6 +48,7 @@ namespace Archon.Extractors.Projects.Projects
         IReadOnlyList<PackageExtractionDiagnostic> PackageDiagnostics,
         IReadOnlyList<AnalyzerReferenceDeclaration> AnalyzerReferences,
         IReadOnlyList<ProjectArtifactDeclaration> Artifacts,
+        ApplicationTypeClassification ApplicationTypeClassification,
         int LineCount)
     {
         /// <summary>
@@ -66,6 +69,9 @@ namespace Archon.Extractors.Projects.Projects
                 ["project.projectReferenceCount"] = ProjectReferences.Count,
                 ["project.packageReferenceCount"] = PackageReferences.Count,
                 ["project.analyzerReferenceCount"] = AnalyzerReferences.Count,
+                ["project.applicationType"] = ApplicationTypeClassification.ApplicationType,
+                ["project.applicationTypeConfidence"] = ApplicationTypeClassification.ConfidenceLabel,
+                ["project.applicationTypeConfidenceValue"] = ApplicationTypeClassification.ConfidenceValue,
                 ["project.lineCount"] = LineCount
             };
 
@@ -85,6 +91,22 @@ namespace Archon.Extractors.Projects.Projects
             if (AnalyzerReferences.Count > 0)
             {
                 values["project.analyzerReferences"] = AnalyzerReferences.Select(analyzer => analyzer.ResolvedRelativePath ?? analyzer.DeclaredInclude).ToArray();
+            }
+
+            if (ApplicationTypeClassification.Evidence.Count > 0)
+            {
+                values["project.applicationTypeEvidence"] = ApplicationTypeClassification.Evidence.ToArray();
+            }
+
+            if (ApplicationTypeClassification.Contradictions.Count > 0)
+            {
+                values["project.applicationTypeContradictions"] = ApplicationTypeClassification.Contradictions.ToArray();
+            }
+
+            if (ApplicationTypeClassification.IsUnknown)
+            {
+                values["project.applicationTypeUnknown"] = true;
+                AddOptional(values, "project.applicationTypeUnknownReason", ApplicationTypeClassification.UnknownReason);
             }
 
             if (string.IsNullOrWhiteSpace(TargetFramework) && TargetFrameworks.Count == 0 && string.IsNullOrWhiteSpace(LegacyTargetFramework))

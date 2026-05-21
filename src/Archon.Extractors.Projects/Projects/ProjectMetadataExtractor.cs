@@ -1,4 +1,5 @@
 using System.Xml.Linq;
+using Archon.Extractors.Projects.Classification;
 using Archon.Extractors.Projects.Evidence;
 using Archon.Extractors.Projects.Packages;
 
@@ -20,6 +21,11 @@ namespace Archon.Extractors.Projects.Projects
         private readonly LegacyPackageConfigExtractor _legacyPackageConfigExtractor;
 
         /// <summary>
+        /// Stores the deterministic application type classifier used for project node metadata.
+        /// </summary>
+        private readonly ApplicationTypeClassifier _applicationTypeClassifier;
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="ProjectMetadataExtractor" /> class.
         /// </summary>
         internal ProjectMetadataExtractor()
@@ -27,6 +33,7 @@ namespace Archon.Extractors.Projects.Projects
             // Package extraction is isolated in its own collaborator so project metadata parsing stays focused on project-level XML fields.
             _packageReferenceExtractor = new PackageReferenceExtractor();
             _legacyPackageConfigExtractor = new LegacyPackageConfigExtractor();
+            _applicationTypeClassifier = new ApplicationTypeClassifier();
         }
 
         /// <summary>
@@ -81,6 +88,7 @@ namespace Archon.Extractors.Projects.Projects
             }
 
             int lineCount = CountLines(projectXml);
+            ApplicationTypeClassification applicationTypeClassification = _applicationTypeClassifier.Classify(document, projectPath, repositoryRootDirectory, relativeProjectPath, projectName, sdk, outputType, isSdkStyle, packageReferences);
 
             return new ProjectMetadata(
                 projectName,
@@ -102,6 +110,7 @@ namespace Archon.Extractors.Projects.Projects
                 packageDiagnostics,
                 analyzerReferences,
                 DeduplicateArtifacts(artifacts),
+                applicationTypeClassification,
                 lineCount);
         }
 

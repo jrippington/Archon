@@ -452,7 +452,7 @@ The term project extraction slice means the WP005 pipeline stage that reads subm
 
 ## Slice 7 - Application Type Classification
 
-- [ ] Work Item 7: Classify project application types with evidence and confidence
+- [x] Work Item 7: Classify project application types with evidence and confidence - Completed
   - **Purpose**: Provide architecture consumers with deterministic high-level project categories while avoiding unsupported guesses by classifying supported application types from project metadata, package indicators, project type GUIDs, output type, and safe repository-contained artifact indicators.
   - **Acceptance Criteria**:
 	- Classification covers ASP.NET Core Web App, ASP.NET Core Web API, Classic ASP.NET Web App, Web Forms App, MVC App, Web API 2 App, Console App, Worker Service, Class Library, Test Project, Tooling Project, and Unknown.
@@ -472,25 +472,28 @@ The term project extraction slice means the WP005 pipeline stage that reads subm
 	- No standalone implementation notes or `wiki/home.md` detail dumping are created.
 	- Can execute end-to-end through fixture extraction tests that inspect project nodes with classification values and evidence.
 	- Executor must not stop mid-Work Item except for full completion, explicit user interruption, or a true blocker.
-  - [ ] Task 1: Define classifier inputs and outputs
-	- [ ] Align classifier result with existing project node metadata, confidence, unknown-state, and evidence contracts.
-	- [ ] Define deterministic rule priority and contradiction handling.
-	- [ ] Document the rule order in source comments under the documentation-pass standard.
-  - [ ] Task 2: Implement high-confidence classification rules
-	- [ ] Classify direct SDK, project type GUID, output type, and explicit package indicators.
-	- [ ] Capture evidence for each high-confidence decision.
-  - [ ] Task 3: Implement medium- and low-confidence rules
-	- [ ] Add safe source/configuration artifact indicators available within WP005 scope.
-	- [ ] Add naming or weak heuristic handling only where justified and clearly low confidence.
-	- [ ] Preserve `Unknown` when evidence is insufficient or contradictory.
-  - [ ] Task 4: Add classification tests
-	- [ ] Add fixture projects for every required application type.
-	- [ ] Add tests for confidence levels, contradictory evidence, and deterministic results.
-	- [ ] Run targeted builds and focused tests only.
-  - [ ] Task 5: Perform documentation and wiki review for the slice
-	- [ ] Apply documentation-pass comments to classifier and tests.
-	- [ ] Update classification rules and glossary documentation if needed.
-	- [ ] Record wiki review outcome and page-structure decision.
+	- [x] Task 1: Define classifier inputs and outputs - Completed
+	- [x] Align classifier result with existing project node metadata, confidence, unknown-state, and evidence contracts.
+	- [x] Define deterministic rule priority and contradiction handling.
+	- [x] Document the rule order in source comments under the documentation-pass standard.
+  - [x] Task 2: Implement high-confidence classification rules - Completed
+	- [x] Classify direct SDK, project type GUID, output type, and explicit package indicators.
+	- [x] Capture evidence for each high-confidence decision.
+  - [x] Task 3: Implement medium- and low-confidence rules - Completed
+	- [x] Add safe source/configuration artifact indicators available within WP005 scope.
+	- [x] Add naming or weak heuristic handling only where justified and clearly low confidence.
+	- [x] Preserve `Unknown` when evidence is insufficient or contradictory.
+  - [x] Task 4: Add classification tests - Completed
+	- [x] Add fixture projects for every required application type.
+	- [x] Add tests for confidence levels, contradictory evidence, and deterministic results.
+	- [x] Run targeted builds and focused tests only.
+  - [x] Task 5: Perform documentation and wiki review for the slice - Completed
+	- [x] Apply documentation-pass comments to classifier and tests.
+	- [x] Update classification rules and glossary documentation if needed.
+	- [x] Record wiki review outcome and page-structure decision.
+  - **Completion Summary**: Implemented deterministic application type classification through `src/Archon.Extractors.Projects/Classification/ApplicationTypeClassifier.cs` and `ApplicationTypeClassification.cs`, integrated classification into `ProjectMetadataExtractor`, and added project-node metadata for application type, confidence label/value, evidence, Unknown reason, and contradiction indicators. The classifier covers ASP.NET Core Web App, ASP.NET Core Web API, Classic ASP.NET Web App, Web Forms App, MVC App, Web API 2 App, Console App, Worker Service, Class Library, Test Project, Tooling Project, and Unknown. Direct SDK, project type GUID, output type, package, assembly, and content indicators are high confidence; safe repository-contained source/configuration indicators are medium confidence; narrow naming conventions are low confidence; contradictory high-confidence evidence resolves to Unknown.
+	- **Validation Summary**: Passed `dotnet build D:\Dev\Archon\src\Archon.Extractors.Projects\Archon.Extractors.Projects.csproj`, `dotnet build D:\Dev\Archon\test\Archon.Extractors.Projects.Tests\Archon.Extractors.Projects.Tests.csproj`, `dotnet test D:\Dev\Archon\test\Archon.Extractors.Projects.Tests\Archon.Extractors.Projects.Tests.csproj --no-build --filter FullyQualifiedName~ProjectMetadataExtractionStageTests` (38/38), `dotnet test D:\Dev\Archon\test\Archon.Extractors.Projects.Tests\Archon.Extractors.Projects.Tests.csproj --no-build` (42/42), and full workspace `run_build`. The Aspire AppHost was not started.
+  - **Wiki Review Result / Impact Matrix**: Affected concepts were application type classification, classification confidence bands, direct versus artifact versus naming evidence, contradiction handling, Unknown behavior, project-node metadata, deterministic validation, and future extractor refinement without project identity changes. Reviewed `wiki/api-extraction-workflow.md`, `wiki/graph-domain-model.md`, `wiki/validation-and-test-workflows.md`, `wiki/glossary.md`, and `wiki/home.md`; updated all five, with `wiki/home.md` limited to concise current-capability corrections rather than detailed guidance. No new wiki page was created because classification extends the existing project extraction workflow, graph model, validation workflow, and glossary reader paths. Detailed contributor-facing guidance remains on topic pages, not in `home.md` or standalone implementation notes.
   - **Files**:
 	- `src/Archon.Extractors.Projects/Classification/*`: Application type classifier.
 	- `test/Archon.Extractors.Projects.Tests/Classification/*`: Classification fixtures and tests.
