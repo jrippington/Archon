@@ -144,7 +144,7 @@ The placeholder stage was the early extraction stage that proved the pipeline bo
 
 ## Project extraction stage
 
-The project extraction stage is the WP005 pipeline stage family that reads submitted solution and project artifacts and contributes graph facts to the shared extraction accumulator. The current `project-repository-solution` stage reads explicitly submitted solution files, extracts supported C# and VB.NET project files declared by those solutions, and contributes repository nodes, solution nodes, project nodes, containment relationships, solution-file evidence, project-declaration evidence, project-file evidence, and unsupported-project warnings.
+The project extraction stage is the WP005 pipeline stage family that reads submitted solution and project artifacts and contributes graph facts to the shared extraction accumulator. The current `project-repository-solution` stage reads explicitly submitted solution files, extracts supported C# and VB.NET project files declared by those solutions, follows repository-contained project-reference targets, reads deterministic local package, analyzer, and build-artifact declarations, classifies application types, and contributes repository nodes, solution nodes, project nodes, package nodes, FilePath nodes, `CONTAINS`, `REFERENCES`, and `USES_PACKAGE` relationships, evidence records, controlled warnings, and unsupported-project diagnostics.
 
 ## Project node
 

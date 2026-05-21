@@ -571,7 +571,7 @@ The term project extraction slice means the WP005 pipeline stage that reads subm
 
 ## Slice 9 - Final Wiki Review and Work Package Completion Record
 
-- [ ] Work Item 9: Complete the mandatory full-work-package wiki review and final execution record
+- [x] Work Item 9: Complete the mandatory full-work-package wiki review and final execution record - Completed
   - **Purpose**: Close WP005 by performing the mandatory full-work-package wiki information-architecture review, ensuring contributor-facing guidance is current, and recording the final outcome without creating standalone implementation notes or duplicating wiki content in the plan.
   - **Acceptance Criteria**:
 	- Wiki review covers all WP005 affected concepts: project extraction workflow, solution loading, project metadata extraction, package extraction, `packages.config`, central package management, project references, analyzer references, file-path nodes, evidence spans, application type classification, warning/error behavior, validation commands, and terminology.
@@ -588,23 +588,26 @@ The term project extraction slice means the WP005 pipeline stage that reads subm
 	- Final validation outcomes from Work Item 8 are referenced concisely without duplicating contributor-facing guidance that belongs in wiki pages.
 	- No source code changes are made in this Work Item unless required to correct a discovered documentation-pass issue; if code comments are touched, `.github/instructions/documentation-pass.instructions.md` remains mandatory and targeted validation is rerun.
 	- No approval gate, confirmation pause, or status-only stopping point is introduced before full Work Item completion.
-  - [ ] Task 1: Review wiki information architecture
-	- [ ] Review `wiki/home.md` to confirm it remains concise and links to the correct topic pages.
-	- [ ] Review `wiki/api-extraction-workflow.md`, `wiki/graph-domain-model.md`, `wiki/runtime-foundation.md`, `wiki/validation-and-test-workflows.md`, `wiki/glossary.md`, and any project-extraction topic page created during WP005.
-	- [ ] Decide whether pages need splitting, cross-linking, glossary updates, or retirement of stale content.
-  - [ ] Task 2: Update wiki pages as needed
-	- [ ] Write current-state contributor guidance in the correct topic page.
-	- [ ] Use long-form explanatory prose for architecture, runtime, workflow, setup, validation, and dense extraction concepts.
-	- [ ] Include relevant examples or walkthrough fragments when helpful.
-  - [ ] Task 3: Check prohibited substitute artifacts
-	- [ ] Confirm no standalone implementation notes, implementation ledgers, architecture notes, or completion-record documents were created for contributor-facing detail.
-	- [ ] If any existing implementation-note-style artifacts are discovered in the WP005 scope, move still-current guidance into the wiki and retire the redundant artifact before completion.
-  - [ ] Task 4: Record final wiki impact matrix
-	- [ ] Record affected concepts.
-	- [ ] Record pages reviewed.
-	- [ ] Record pages updated or created.
-	- [ ] Record pages intentionally unchanged and why.
-	- [ ] Record page-structure decision and why the selected structure remains readable.
+	- [x] Task 1: Review wiki information architecture - Completed
+	- [x] Reviewed `wiki/home.md` and confirmed it remains a concise landing page with reader paths to the correct topic pages.
+	- [x] Reviewed `wiki/api-extraction-workflow.md`, `wiki/graph-domain-model.md`, `wiki/runtime-foundation.md`, `wiki/validation-and-test-workflows.md`, and `wiki/glossary.md`.
+	- [x] Decided no page split or dedicated project-extraction topic page is needed because WP005 guidance is cohesive across the existing workflow, graph model, runtime, validation, and glossary pages.
+  - [x] Task 2: Update wiki pages as needed - Completed
+	- [x] Updated current-state runtime guidance so it no longer describes the extraction path as placeholder-only and now acknowledges the implemented project extraction stage.
+	- [x] Updated the project extraction stage glossary entry to reflect the complete WP005 scope, including package, analyzer, FilePath, relationship, evidence, classification, and diagnostic facts.
+	- [x] Confirmed existing workflow, graph model, validation, and glossary pages retain narrative WP005 explanation and examples where they materially aid contributor understanding.
+  - [x] Task 3: Check prohibited substitute artifacts - Completed
+	- [x] Confirmed no standalone implementation notes, implementation ledgers, architecture notes, or completion-record documents were found for contributor-facing WP005 detail.
+	- [x] No retirement or migration of substitute artifacts was required.
+  - [x] Task 4: Record final wiki impact matrix - Completed
+	- [x] Recorded affected concepts.
+	- [x] Recorded pages reviewed.
+	- [x] Recorded pages updated or created.
+	- [x] Recorded pages intentionally unchanged and why.
+	- [x] Recorded page-structure decision and why the selected structure remains readable.
+  - **Completion Summary**: Completed the final WP005 wiki information-architecture review and execution record. The review confirmed that WP005 contributor guidance belongs in the existing topic-page structure rather than a new standalone project-extraction page: `wiki/api-extraction-workflow.md` explains the current extraction workflow, `wiki/graph-domain-model.md` explains graph facts and evidence, `wiki/runtime-foundation.md` explains host/runtime scope, `wiki/validation-and-test-workflows.md` explains targeted validation, and `wiki/glossary.md` defines specialized terms. Updated `wiki/runtime-foundation.md` to remove stale placeholder-only wording and clarify that the API extraction workflow now runs the implemented project extraction stage. Updated `wiki/glossary.md` so the project extraction stage definition reflects the complete WP005 scope.
+  - **Validation Summary**: Per Work Item 9 guidance, only markdown files were changed, so no code build or test run was required. Reviewed the changed markdown content directly after editing. Work Item 8 remains the final code validation reference: changed project builds and focused WP005 extractor tests passed, including the full `Archon.Extractors.Projects.Tests` project, without starting the Aspire AppHost or running the repository-wide full test suite.
+  - **Wiki Review Result / Impact Matrix**: Affected concepts were project extraction workflow, solution loading, project metadata extraction, package extraction, legacy `packages.config`, Central Package Management, project references, analyzer references, FilePath nodes, evidence spans, application type classification, warning/error behavior, validation commands, runtime-scope boundaries, terminology, and final page-structure clarity. Reviewed `wiki/home.md`, `wiki/api-extraction-workflow.md`, `wiki/graph-domain-model.md`, `wiki/runtime-foundation.md`, `wiki/validation-and-test-workflows.md`, `wiki/glossary.md`, and the WP005 implementation plan. Updated `wiki/runtime-foundation.md`, `wiki/glossary.md`, and this implementation plan. No wiki pages were created, split, renamed, or retired. `wiki/home.md` was intentionally left unchanged because it already remains a concise landing page and current-capability summary rather than a detail dump. `wiki/api-extraction-workflow.md`, `wiki/graph-domain-model.md`, and `wiki/validation-and-test-workflows.md` were intentionally left unchanged because they already contain current-state, narrative WP005 guidance with examples and validation commands. Page-structure decision: keep WP005 guidance distributed across the established workflow, graph model, runtime, validation, and glossary pages; a dedicated project-extraction page would duplicate those reader paths rather than improve them. No prohibited substitute artifacts were found, so no artifact retirement was required.
   - **Files**:
 	- `wiki/home.md`: Landing page only if links need updating.
 	- `wiki/api-extraction-workflow.md`: Extraction orchestration and workflow links as needed.
