@@ -132,7 +132,11 @@ Recent run history is the operational list of accepted extraction runs returned 
 
 ## Placeholder stage
 
-The placeholder stage is the current non-final extraction stage that proves the pipeline boundary by contributing a warning without inventing real repository, Roslyn, runtime, UI, data-access, markdown, MCP, rule, or architecture facts.
+The placeholder stage was the early extraction stage that proved the pipeline boundary by contributing a warning without inventing real repository, Roslyn, runtime, UI, data-access, markdown, MCP, rule, or architecture facts. The current extraction composition has moved beyond that placeholder for repository and submitted-solution facts.
+
+## Project extraction stage
+
+The project extraction stage is the WP005 pipeline stage family that reads submitted solution and project artifacts and contributes graph facts to the shared extraction accumulator. The current `project-repository-solution` stage reads only explicitly submitted solution files and contributes repository nodes, solution nodes, repository-to-solution containment relationships, and solution-file evidence.
 
 ## Run lifecycle
 

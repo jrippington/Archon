@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Archon.Api.Extraction\Archon.Api.Extraction.csproj" />
+    <ProjectReference Include="..\..\src\Archon.Extractors.Projects\Archon.Extractors.Projects.csproj" />
   </ItemGroup>
 
 </Project>

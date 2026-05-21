@@ -72,6 +72,25 @@ These commands do not start the Aspire AppHost, do not require Neo4j credentials
 
 When a contributor needs to verify the API surface manually, use the examples on [API extraction workflow](api-extraction-workflow.md). Manual verification is an exploration activity, not an automated acceptance gate. It should use non-sensitive sample paths and metadata, should confirm the direct `/extractions` route family rather than `/api/extractions`, and should treat stack traces or secret-like values in responses as a bug. Automated validation for WP004 remains the focused build and test commands above; it must not start the Aspire AppHost.
 
+## WP005 repository and solution extraction validation
+
+The first WP005 slice replaces the placeholder pipeline behavior with real repository and submitted-solution graph contributions. Its focused validation should still avoid the Aspire AppHost and should not require Neo4j credentials. The production project extractor tests create temporary repository roots and minimal Visual Studio solution files, then execute the `project-repository-solution` stage directly through the shared stage context. These tests prove repository node creation, solution node creation, multi-solution preservation, no unsubmitted solution scanning, solution-file evidence, project-declaration evidence, `CONTAINS` relationships, and controlled malformed-solution errors.
+
+Use these focused commands from the repository root after building changed projects:
+
+```powershell
+dotnet build .\src\Archon.Extractors.Projects\Archon.Extractors.Projects.csproj
+dotnet build .\src\Archon.Api.Extraction\Archon.Api.Extraction.csproj
+dotnet build .\test\Archon.Extractors.Projects.Tests\Archon.Extractors.Projects.Tests.csproj
+dotnet build .\test\Archon.Application.Tests\Archon.Application.Tests.csproj
+dotnet build .\test\Archon.Api.Extraction.Tests\Archon.Api.Extraction.Tests.csproj
+dotnet test .\test\Archon.Extractors.Projects.Tests\Archon.Extractors.Projects.Tests.csproj --no-build --filter FullyQualifiedName~RepositorySolutionExtractionStageTests
+dotnet test .\test\Archon.Application.Tests\Archon.Application.Tests.csproj --no-build --filter FullyQualifiedName~ExtractionOrchestratorTests
+dotnet test .\test\Archon.Api.Extraction.Tests\Archon.Api.Extraction.Tests.csproj --no-build --filter "FullyQualifiedName~ExtractionEndpointTests|FullyQualifiedName~AddArchonExtractionApi"
+```
+
+The solution fixtures used for this validation must contain a recognizable Visual Studio solution header. Empty `.sln` files still pass the earlier existence and extension validation boundary, but they are not valid evidence for the WP005 stage and should produce a controlled pipeline error during extraction. That distinction is intentional: request validation proves the path is allowed to be analyzed, while the project extraction stage proves the submitted file is useful solution evidence.
+
 ## WP003 Neo4j validation and Testcontainers
 
 Neo4j integration tests use Testcontainers instead of the Aspire AppHost. **Testcontainers** starts short-lived Docker containers under test control and removes them after the test run. Docker Desktop or another OCI-compatible runtime must be running for these tests.

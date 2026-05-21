@@ -1,7 +1,9 @@
 using Archon.Api.Extraction;
 using Archon.Api.Extraction.Contracts;
 using Archon.Application.Extraction.Contracts;
+using Archon.Application.Extraction.Pipeline;
 using Archon.Application.Graph.Persistence;
+using Archon.Extractors.Projects.Solutions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
@@ -36,6 +38,23 @@ namespace Archon.Api.Extraction.Tests
                     Directory.Delete(temporaryDirectory, recursive: true);
                 }
             }
+        }
+
+        /// <summary>
+        /// Verifies extraction API service registration composes the WP005 project extraction stage instead of the WP004 placeholder stage.
+        /// </summary>
+        [Fact]
+        public void AddArchonExtractionApi_WhenServicesAreBuilt_ShouldRegisterRepositorySolutionExtractionStage()
+        {
+            // The API module is the existing composition boundary for the extraction pipeline, so this test guards the stage registration path.
+            ServiceCollection services = new();
+
+            services.AddArchonExtractionApi();
+            using ServiceProvider serviceProvider = services.BuildServiceProvider();
+
+            IExtractionStage stage = Assert.Single(serviceProvider.GetServices<IExtractionStage>());
+            Assert.IsType<RepositorySolutionExtractionStage>(stage);
+            Assert.Equal("project-repository-solution", stage.StageId);
         }
 
         /// <summary>
@@ -226,7 +245,7 @@ namespace Archon.Api.Extraction.Tests
                 Assert.Equal(100, progress.GetProperty("percentage").GetInt32());
                 Assert.NotEqual(default, progress.GetProperty("lastUpdatedUtc").GetDateTimeOffset());
 
-                Assert.NotEmpty(statusBody.RootElement.GetProperty("warnings").EnumerateArray());
+                Assert.Empty(statusBody.RootElement.GetProperty("warnings").EnumerateArray());
                 Assert.Empty(statusBody.RootElement.GetProperty("errors").EnumerateArray());
             }
         }
@@ -404,10 +423,19 @@ namespace Archon.Api.Extraction.Tests
         /// <returns>The absolute path to the created solution file.</returns>
         private static string CreateSolutionFile(string repositoryRoot, params string[] pathParts)
         {
-            // Work Item 1 validation only requires the solution path to exist and carry a .sln extension.
+            // The WP005 project extraction stage now reads submitted solution headers, so endpoint fixtures use valid minimal solution content.
             string solutionPath = Path.Combine([repositoryRoot, .. pathParts]);
             Directory.CreateDirectory(Path.GetDirectoryName(solutionPath)!);
-            File.WriteAllText(solutionPath, string.Empty);
+            File.WriteAllText(
+                solutionPath,
+                string.Join(
+                    Environment.NewLine,
+                    [
+                        "Microsoft Visual Studio Solution File, Format Version 12.00",
+                        "# Visual Studio Version 17",
+                        "Global",
+                        "EndGlobal"
+                    ]));
             return solutionPath;
         }
 

@@ -7,6 +7,8 @@ using Archon.Application.Extraction.Runs;
 using Archon.Application.Extraction.Snapshots;
 using Archon.Application.Extraction.Validation;
 using Archon.Application.Graph.Persistence;
+using Archon.Domain.Graph.ControlledValues;
+using Archon.Extractors.Projects.Solutions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -74,6 +76,46 @@ namespace Archon.Application.Tests.Extraction.Orchestration
             Assert.Empty(writer.WrittenSnapshot.GeneratedSummaries);
             Assert.Contains("Placeholder warning retained.", writer.WrittenSnapshot.Warnings);
             Assert.Empty(writer.WrittenSnapshot.Errors);
+        }
+
+        /// <summary>
+        /// Verifies orchestration hands WP005 repository and solution graph contributions to snapshot persistence through the existing application path.
+        /// </summary>
+        /// <returns>A task that completes after the persisted snapshot shape has been asserted.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenProjectExtractionStageRuns_ShouldPersistRepositorySolutionFactsAndEvidence()
+        {
+            // This test protects the end-to-end handoff shape without starting the Aspire AppHost or writing to Neo4j.
+            InMemoryExtractionRunHistory runHistory = new();
+            string repositoryRoot = CreateRepositoryRoot();
+            string solutionPath = CreateSolutionFile(repositoryRoot, "CustomerSuite.sln", "Customer.Api", "Customer.Api.csproj");
+            ResolvedExtractionInput input = new(
+                repositoryRoot,
+                [solutionPath],
+                BranchName: "main",
+                CommitSha: "abcdef1234567890",
+                RequestedBy: "developer@example.invalid",
+                Metadata: new Dictionary<string, string>
+                {
+                    ["source"] = "wp005-orchestration-test"
+                });
+            ExtractionRun run = await runHistory.CreateAsync(input, new DateTimeOffset(2026, 5, 20, 8, 0, 0, TimeSpan.Zero), CancellationToken.None);
+            RecordingSnapshotWriter writer = RecordingSnapshotWriter.Success("snapshot://wp005-persisted");
+            ExtractionOrchestrator orchestrator = CreateOrchestrator(runHistory, [new RepositorySolutionExtractionStage()], writer);
+
+            bool executed = await orchestrator.ExecuteAsync(run.RunId, CancellationToken.None);
+
+            ExtractedArchitectureSnapshot snapshot = writer.WrittenSnapshot!;
+            Assert.True(executed);
+            Assert.Equal(1, writer.WriteCount);
+            Assert.NotNull(snapshot.SnapshotHeader);
+            Assert.Single(snapshot.Repositories);
+            Assert.Single(snapshot.Solutions);
+            Assert.Contains(snapshot.Nodes, node => node.NodeKind == NodeKind.Repository);
+            Assert.Contains(snapshot.Nodes, node => node.NodeKind == NodeKind.Solution && node.StableKey.Value == "solution://CustomerSuite.sln");
+            Assert.Contains(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.Contains && edge.TargetNodeStableKey.Value == "solution://CustomerSuite.sln");
+            Assert.Contains(snapshot.Evidence, evidence => evidence.FilePath.Value == "CustomerSuite.sln" && evidence.SymbolName == "Customer.Api");
+            Assert.Empty(snapshot.Errors);
         }
 
         /// <summary>
@@ -215,6 +257,47 @@ namespace Archon.Application.Tests.Extraction.Orchestration
                 {
                     ["source"] = "orchestration-test"
                 });
+        }
+
+        /// <summary>
+        /// Creates an isolated temporary repository root for orchestration tests that need real submitted files.
+        /// </summary>
+        /// <returns>The absolute temporary repository root path.</returns>
+        private string CreateRepositoryRoot()
+        {
+            // Temporary repository roots let the real WP005 stage read solution files while keeping tests isolated and disposable.
+            string repositoryRoot = Path.Combine(Path.GetTempPath(), "archon-wp005-application-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(repositoryRoot);
+            _temporaryDirectories.Add(repositoryRoot);
+            return repositoryRoot;
+        }
+
+        /// <summary>
+        /// Creates a minimal Visual Studio solution file under a temporary repository root.
+        /// </summary>
+        /// <param name="repositoryRoot">The repository root that should contain the solution file.</param>
+        /// <param name="relativeSolutionPath">The repository-relative solution path to write.</param>
+        /// <param name="projectName">The project name declared by the solution file.</param>
+        /// <param name="projectPath">The project path declared by the solution file.</param>
+        /// <returns>The absolute solution path written to disk.</returns>
+        private static string CreateSolutionFile(string repositoryRoot, string relativeSolutionPath, string projectName, string projectPath)
+        {
+            // Orchestration tests use real solution content so the real WP005 stage can parse evidence before persistence.
+            string solutionPath = Path.Combine(repositoryRoot, relativeSolutionPath);
+            Directory.CreateDirectory(Path.GetDirectoryName(solutionPath)!);
+            File.WriteAllText(
+                solutionPath,
+                string.Join(
+                    Environment.NewLine,
+                    [
+                        "Microsoft Visual Studio Solution File, Format Version 12.00",
+                        "# Visual Studio Version 17",
+                        $"Project(\"{{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}}\") = \"{projectName}\", \"{projectPath}\", \"{{33333333-3333-3333-3333-333333333333}}\"",
+                        "EndProject",
+                        "Global",
+                        "EndGlobal"
+                    ]));
+            return solutionPath;
         }
 
         /// <summary>

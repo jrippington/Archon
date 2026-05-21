@@ -93,7 +93,7 @@ The term project extraction slice means the WP005 pipeline stage that reads subm
 
 ## Slice 1 - Repository and Solution Fact Extraction
 
-- [ ] Work Item 1: Extract repository and solution graph facts through the shared extraction path
+- [x] Work Item 1: Extract repository and solution graph facts through the shared extraction path - Completed
   - **Purpose**: Replace the WP004 placeholder boundary with the first real WP005 extraction capability by contributing repository and submitted-solution facts from the existing extraction API/orchestrator path into the generalized snapshot contract.
   - **Acceptance Criteria**:
 	- A valid WP004 extraction request for one repository root and one or more submitted solution paths runs the WP005 project extraction stage.
@@ -113,35 +113,38 @@ The term project extraction slice means the WP005 pipeline stage that reads subm
 	- No standalone implementation notes, implementation ledgers, architecture-note files, or `wiki/home.md` detail dumping are created for contributor-facing explanation.
 	- Can execute end-to-end through focused extraction application/API tests without starting the Aspire AppHost.
 	- Executor must not stop mid-Work Item; execution continues through implementation, validation, documentation/wiki review, and plan-record updates unless the Work Item is complete, the user explicitly interrupts, or a true blocker prevents further autonomous progress.
-  - [ ] Task 1: Discover existing WP004 extraction pipeline and snapshot contracts
-	- [ ] Identify the current extraction stage registration mechanism, accumulation model, snapshot assembler, and persistence writer abstraction.
-	- [ ] Identify existing stable-key, metadata, confidence, unknown-state, node, edge, and evidence contracts from WP002/WP003.
-	- [ ] Identify existing test fixture style and targeted test commands used by WP004.
-  - [ ] Task 2: Add the WP005 project extraction stage shell
-	- [ ] Create or align the project extraction stage in the appropriate extractor/application project.
-	- [ ] Register the stage in the existing extraction pipeline without changing public API endpoint shapes.
-	- [ ] Ensure stage ordering remains deterministic and future extractor stages can be added without redesign.
-  - [ ] Task 3: Contribute repository facts
-	- [ ] Create deterministic repository stable keys using existing stable-key helpers.
-	- [ ] Populate repository node metadata from the resolved extraction input without leaking unsafe metadata values into logs.
-	- [ ] Capture repository evidence where supported by existing contracts.
-  - [ ] Task 4: Parse submitted solution files for solution facts
-	- [ ] Read only submitted solution files resolved by WP004 validation.
-	- [ ] Create deterministic solution stable keys from repository identity and repository-relative solution path.
-	- [ ] Capture solution-file evidence, including project declaration spans where feasible.
-  - [ ] Task 5: Contribute graph relationships and warnings
-	- [ ] Add repository-to-solution `CONTAINS` relationships.
-	- [ ] Convert malformed or unreadable solution content into controlled run errors or warnings according to the specification's unsupported project policy.
-	- [ ] Preserve all warnings/errors in run status and snapshot output.
-  - [ ] Task 6: Add tests and validation
-	- [ ] Add focused unit tests for repository and solution fact contribution.
-	- [ ] Add orchestration/persistence handoff tests proving the generalized snapshot receives repository, solution, relationship, and evidence contributions.
-	- [ ] Run targeted project builds and tests only; do not run the full test suite and do not start Aspire AppHost.
-  - [ ] Task 7: Perform documentation and wiki review for the slice
-	- [ ] Apply documentation-pass comments to all changed production and test code.
-	- [ ] Review `wiki/api-extraction-workflow.md`, `wiki/graph-domain-model.md`, `wiki/validation-and-test-workflows.md`, `wiki/glossary.md`, and `wiki/home.md` for required updates.
-	- [ ] Decide whether a new `wiki/project-extraction-workflow.md` or equivalent topic page is needed; do not place detailed content in `wiki/home.md`.
-	- [ ] Record pages reviewed, pages updated, pages intentionally unchanged, and page-structure decision in the Work Item completion record.
+	- [x] Task 1: Discover existing WP004 extraction pipeline and snapshot contracts - Completed
+	- [x] Identify the current extraction stage registration mechanism, accumulation model, snapshot assembler, and persistence writer abstraction.
+	- [x] Identify existing stable-key, metadata, confidence, unknown-state, node, edge, and evidence contracts from WP002/WP003.
+	- [x] Identify existing test fixture style and targeted test commands used by WP004.
+  - [x] Task 2: Add the WP005 project extraction stage shell - Completed
+	- [x] Create or align the project extraction stage in the appropriate extractor/application project.
+	- [x] Register the stage in the existing extraction pipeline without changing public API endpoint shapes.
+	- [x] Ensure stage ordering remains deterministic and future extractor stages can be added without redesign.
+  - [x] Task 3: Contribute repository facts - Completed
+	- [x] Create deterministic repository stable keys using existing stable-key helpers.
+	- [x] Populate repository node metadata from the resolved extraction input without leaking unsafe metadata values into logs.
+	- [x] Capture repository evidence where supported by existing contracts.
+  - [x] Task 4: Parse submitted solution files for solution facts - Completed
+	- [x] Read only submitted solution files resolved by WP004 validation.
+	- [x] Create deterministic solution stable keys from repository identity and repository-relative solution path.
+	- [x] Capture solution-file evidence, including project declaration spans where feasible.
+  - [x] Task 5: Contribute graph relationships and warnings - Completed
+	- [x] Add repository-to-solution `CONTAINS` relationships.
+	- [x] Convert malformed or unreadable solution content into controlled run errors or warnings according to the specification's unsupported project policy.
+	- [x] Preserve all warnings/errors in run status and snapshot output.
+  - [x] Task 6: Add tests and validation - Completed
+	- [x] Add focused unit tests for repository and solution fact contribution.
+	- [x] Add orchestration/persistence handoff tests proving the generalized snapshot receives repository, solution, relationship, and evidence contributions.
+	- [x] Run targeted project builds and tests only; do not run the full test suite and do not start Aspire AppHost.
+  - [x] Task 7: Perform documentation and wiki review for the slice - Completed
+	- [x] Apply documentation-pass comments to all changed production and test code.
+	- [x] Review `wiki/api-extraction-workflow.md`, `wiki/graph-domain-model.md`, `wiki/validation-and-test-workflows.md`, `wiki/glossary.md`, and `wiki/home.md` for required updates.
+	- [x] Decide whether a new `wiki/project-extraction-workflow.md` or equivalent topic page is needed; do not place detailed content in `wiki/home.md`.
+	- [x] Record pages reviewed, pages updated, pages intentionally unchanged, and page-structure decision in the Work Item completion record.
+  - **Completion Summary**: Implemented `RepositorySolutionExtractionStage` in `src/Archon.Extractors.Projects/Solutions`, including lightweight submitted-solution parsing, repository and solution architecture nodes, repository-to-solution `CONTAINS` edges, solution-file and project-declaration evidence, deterministic stable keys and fingerprints, and controlled blocking errors for malformed/unreadable submitted solution content. Registered the stage through `AddArchonExtractionApi` without changing public endpoint shapes. Added focused tests in `test/Archon.Extractors.Projects.Tests`, `test/Archon.Application.Tests`, and `test/Archon.Api.Extraction.Tests` for stage behavior, multi-solution preservation, no unsubmitted solution scanning, persistence handoff shape, and stage registration.
+  - **Validation Summary**: Targeted builds passed for `src/Archon.Extractors.Projects/Archon.Extractors.Projects.csproj`, `src/Archon.Api.Extraction/Archon.Api.Extraction.csproj`, `test/Archon.Extractors.Projects.Tests/Archon.Extractors.Projects.Tests.csproj`, `test/Archon.Application.Tests/Archon.Application.Tests.csproj`, and `test/Archon.Api.Extraction.Tests/Archon.Api.Extraction.Tests.csproj`. Focused tests passed: `dotnet test test/Archon.Extractors.Projects.Tests/Archon.Extractors.Projects.Tests.csproj --no-build --filter FullyQualifiedName~RepositorySolutionExtractionStageTests`, `dotnet test test/Archon.Application.Tests/Archon.Application.Tests.csproj --no-build --filter FullyQualifiedName~ExtractionOrchestratorTests`, and `dotnet test test/Archon.Api.Extraction.Tests/Archon.Api.Extraction.Tests.csproj --no-build --filter "FullyQualifiedName~ExtractionEndpointTests|FullyQualifiedName~AddArchonExtractionApi"`. The Aspire AppHost was not started and the full test suite was not run.
+  - **Wiki Review Result / Impact Matrix**: Affected concepts were API extraction workflow, graph domain model, evidence-first repository/solution extraction, validation workflow, and glossary terminology. Reviewed `wiki/api-extraction-workflow.md`, `wiki/graph-domain-model.md`, `wiki/validation-and-test-workflows.md`, `wiki/glossary.md`, and `wiki/home.md`; updated all five. No new wiki page was created because the slice changes the existing API extraction workflow and graph model rather than introducing a broad standalone project metadata workflow; a dedicated project extraction page can be reconsidered in later slices when project metadata, package, and reference extraction require longer separate treatment. `wiki/home.md` remained a concise landing page with only summary text updated, while detailed behavior and validation guidance were placed on topic pages.
   - **Files**:
 	- `src/Archon.Application/Extraction/Projects/*`: Project extraction stage contracts or application-level contribution models if this is the existing location.
 	- `src/Archon.Extractors.Projects/*` or existing equivalent: Repository and solution fact extraction implementation.
