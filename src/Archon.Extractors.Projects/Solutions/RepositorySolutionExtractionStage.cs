@@ -149,6 +149,8 @@ namespace Archon.Extractors.Projects.Solutions
                 }
             }
 
+            ContributeFilePathNodes(context, snapshotStableKey, parsedSolutions.Select(solution => new ProjectArtifactDeclaration(solution.RelativePath, "SolutionFile", null)).Concat(extractedProjectsByPath.Values.SelectMany(project => project.Metadata.Artifacts)));
+
             foreach ((ProjectLanguage _, string relativeProjectPath, ProjectMetadata metadata) in extractedProjectsByPath.Values)
             {
                 // Repository-contained referenced projects may not be declared by a submitted solution, so they are contributed after membership edges.
@@ -159,10 +161,50 @@ namespace Archon.Extractors.Projects.Solutions
             }
 
             ContributeProjectReferenceFacts(context, snapshotStableKey, extractedProjectsByPath.Values.Select(project => project.Metadata));
+            ContributeAnalyzerReferenceFacts(context, snapshotStableKey, extractedProjectsByPath.Values.Select(project => project.Metadata));
             ContributePackageDiagnostics(context, snapshotStableKey, extractedProjectsByPath.Values.Select(project => project.Metadata));
             ContributePackageReferenceFacts(context, snapshotStableKey, extractedProjectsByPath.Values.Select(project => project.Metadata));
 
             return ExtractionStageResult.Success();
+        }
+
+        /// <summary>
+        /// Contributes deterministic FilePath nodes for repository-contained artifacts that support extracted facts.
+        /// </summary>
+        /// <param name="context">The stage context containing shared accumulation state.</param>
+        /// <param name="snapshotStableKey">The snapshot stable key that scopes FilePath nodes.</param>
+        /// <param name="artifacts">The artifact declarations to represent as FilePath nodes.</param>
+        private static void ContributeFilePathNodes(ExtractionStageContext context, StableKey snapshotStableKey, IEnumerable<ProjectArtifactDeclaration> artifacts)
+        {
+            // FilePath nodes make source artifacts queryable, while evidence records remain the precise explanation anchors for individual facts.
+            foreach (ProjectArtifactDeclaration artifact in artifacts.GroupBy(item => item.RelativePath, StringComparer.OrdinalIgnoreCase).Select(group => group.OrderBy(item => item.ArtifactKind, StringComparer.Ordinal).First()).OrderBy(item => item.RelativePath, StringComparer.OrdinalIgnoreCase))
+            {
+                context.Accumulation.AddNode(CreateFilePathNode(snapshotStableKey, artifact));
+            }
+        }
+
+        /// <summary>
+        /// Contributes analyzer-reference evidence and warnings for all extracted projects.
+        /// </summary>
+        /// <param name="context">The stage context containing shared accumulation state.</param>
+        /// <param name="snapshotStableKey">The snapshot stable key that scopes analyzer evidence.</param>
+        /// <param name="projectMetadata">The extracted project metadata values to inspect for analyzer references.</param>
+        private static void ContributeAnalyzerReferenceFacts(ExtractionStageContext context, StableKey snapshotStableKey, IEnumerable<ProjectMetadata> projectMetadata)
+        {
+            // Analyzer references are currently represented as project metadata plus evidence because the existing graph vocabulary has no analyzer node kind.
+            foreach (ProjectMetadata metadata in projectMetadata)
+            {
+                foreach (AnalyzerReferenceDeclaration analyzerReference in metadata.AnalyzerReferences)
+                {
+                    StableKey evidenceStableKey = CreateAnalyzerReferenceEvidenceStableKey(snapshotStableKey, analyzerReference);
+                    context.Accumulation.AddEvidence(CreateAnalyzerReferenceEvidence(snapshotStableKey, evidenceStableKey, analyzerReference));
+
+                    if (!analyzerReference.IsRepositoryContained)
+                    {
+                        context.Accumulation.AddWarning($"Analyzer reference '{analyzerReference.DeclaredInclude}' declared by '{analyzerReference.DeclaringProjectRelativePath}' could not be resolved inside the submitted repository.");
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -382,6 +424,37 @@ namespace Archon.Extractors.Projects.Solutions
         }
 
         /// <summary>
+        /// Creates a FilePath architecture node from a repository-contained source artifact declaration.
+        /// </summary>
+        /// <param name="snapshotStableKey">The snapshot stable key that scopes the node.</param>
+        /// <param name="artifact">The source artifact declaration to represent.</param>
+        /// <returns>An architecture node representing one repository-relative artifact path.</returns>
+        private static ArchitectureNode CreateFilePathNode(StableKey snapshotStableKey, ProjectArtifactDeclaration artifact)
+        {
+            // FilePath nodes are artifact identities, so the repository-relative path is the display, qualified, and search name.
+            StableKey fileStableKey = StableKeyGenerator.ForFile(artifact.RelativePath);
+            GraphMetadata metadata = artifact.ToGraphMetadata();
+            return new ArchitectureNode(
+                snapshotStableKey,
+                fileStableKey,
+                NodeKind.FilePath,
+                artifact.RelativePath,
+                qualifiedName: artifact.RelativePath,
+                searchName: artifact.RelativePath,
+                language: null,
+                projectStableKey: null,
+                parentNodeStableKey: null,
+                KnowledgeKind.Fact,
+                ownership: null,
+                externalCategory: null,
+                Confidence.Certain,
+                UnknownState.Known,
+                primaryEvidenceStableKey: null,
+                metadata,
+                FingerprintGenerator.ForNode(NodeKind.FilePath, artifact.RelativePath, artifact.RelativePath, artifact.RelativePath, KnowledgeKind.Fact, metadata));
+        }
+
+        /// <summary>
         /// Creates project-file evidence for a supported project node and its extracted metadata.
         /// </summary>
         /// <param name="snapshotStableKey">The snapshot stable key that scopes the evidence.</param>
@@ -586,13 +659,42 @@ namespace Archon.Extractors.Projects.Solutions
                 lineNumber,
                 symbolName: packageReference.PackageId,
                 containingSymbol: packageReference.DeclaringProjectRelativePath,
-                snippetHash: null,
-                snippetPreview: packageReference.PackageId,
+                snippetHash: packageReference.SnippetHash,
+                snippetPreview: packageReference.SnippetPreview ?? packageReference.PackageId,
                 KnowledgeKind.Fact,
                 Confidence.Certain,
                 UnknownState.Known,
                 metadata,
                 FingerprintGenerator.ForEvidence(EvidenceKind.ProjectFile, packageReference.EvidenceRelativePath, lineNumber, lineNumber, packageReference.PackageId, KnowledgeKind.Fact, metadata));
+        }
+
+        /// <summary>
+        /// Creates source evidence for an analyzer declaration in a project file.
+        /// </summary>
+        /// <param name="snapshotStableKey">The snapshot stable key that scopes the evidence.</param>
+        /// <param name="evidenceStableKey">The stable key for this evidence record.</param>
+        /// <param name="analyzerReference">The analyzer-reference declaration to represent.</param>
+        /// <returns>An evidence record representing the source `Analyzer` item.</returns>
+        private static EvidenceRecord CreateAnalyzerReferenceEvidence(StableKey snapshotStableKey, StableKey evidenceStableKey, AnalyzerReferenceDeclaration analyzerReference)
+        {
+            // Analyzer evidence remains project-file evidence because the source declaration is the Analyzer item in the project XML.
+            GraphMetadata metadata = analyzerReference.ToGraphMetadata();
+            return new EvidenceRecord(
+                snapshotStableKey,
+                evidenceStableKey,
+                EvidenceKind.ProjectFile,
+                RepositoryRelativePath.Parse(analyzerReference.DeclaringProjectRelativePath),
+                analyzerReference.LineNumber,
+                analyzerReference.LineNumber,
+                symbolName: analyzerReference.ResolvedRelativePath ?? analyzerReference.DeclaredInclude,
+                containingSymbol: analyzerReference.DeclaringProjectRelativePath,
+                snippetHash: analyzerReference.SnippetHash,
+                snippetPreview: analyzerReference.SnippetPreview ?? analyzerReference.DeclaredInclude,
+                KnowledgeKind.Fact,
+                Confidence.Certain,
+                UnknownState.Known,
+                metadata,
+                FingerprintGenerator.ForEvidence(EvidenceKind.ProjectFile, analyzerReference.DeclaringProjectRelativePath, analyzerReference.LineNumber, analyzerReference.LineNumber, analyzerReference.ResolvedRelativePath ?? analyzerReference.DeclaredInclude, KnowledgeKind.Fact, metadata));
         }
 
         /// <summary>
@@ -900,6 +1002,19 @@ namespace Archon.Extractors.Projects.Solutions
             // Include the declaring project and evidence path so imported references and direct references remain traceable.
             string lineSegment = packageReference.LineNumber?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "file";
             return CreateEvidenceStableKey(snapshotStableKey, "package-reference", string.Concat(packageReference.DeclaringProjectRelativePath, ":", packageReference.EvidenceRelativePath, ":", packageReference.NormalizedPackageId, ":", lineSegment));
+        }
+
+        /// <summary>
+        /// Creates a deterministic evidence stable key for an analyzer-reference declaration.
+        /// </summary>
+        /// <param name="snapshotStableKey">The snapshot stable key that scopes evidence identity.</param>
+        /// <param name="analyzerReference">The analyzer-reference declaration that requires evidence.</param>
+        /// <returns>A stable evidence key for the analyzer declaration.</returns>
+        private static StableKey CreateAnalyzerReferenceEvidenceStableKey(StableKey snapshotStableKey, AnalyzerReferenceDeclaration analyzerReference)
+        {
+            // Include the raw include and line number so duplicate analyzer declarations keep distinct evidence records.
+            string lineSegment = analyzerReference.LineNumber?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "file";
+            return CreateEvidenceStableKey(snapshotStableKey, "analyzer-reference", string.Concat(analyzerReference.DeclaringProjectRelativePath, ":", analyzerReference.DeclaredInclude, ":", lineSegment));
         }
 
         /// <summary>

@@ -23,6 +23,8 @@ namespace Archon.Extractors.Projects.Projects
     /// <param name="ProjectReferences">The project-reference declarations discovered in the project file.</param>
     /// <param name="PackageReferences">The package-reference declarations discovered in the project file and safe imported build files.</param>
     /// <param name="PackageDiagnostics">The controlled package extraction diagnostics produced by package-adjacent artifacts.</param>
+    /// <param name="AnalyzerReferences">The analyzer-reference declarations discovered in the project file.</param>
+    /// <param name="Artifacts">The repository-contained source artifacts that support extracted facts.</param>
     /// <param name="LineCount">The number of lines read from the project file for evidence fallback spans.</param>
     internal sealed record ProjectMetadata(
         string ProjectName,
@@ -42,6 +44,8 @@ namespace Archon.Extractors.Projects.Projects
         IReadOnlyList<ProjectReferenceDeclaration> ProjectReferences,
         IReadOnlyList<PackageReferenceDeclaration> PackageReferences,
         IReadOnlyList<PackageExtractionDiagnostic> PackageDiagnostics,
+        IReadOnlyList<AnalyzerReferenceDeclaration> AnalyzerReferences,
+        IReadOnlyList<ProjectArtifactDeclaration> Artifacts,
         int LineCount)
     {
         /// <summary>
@@ -61,6 +65,7 @@ namespace Archon.Extractors.Projects.Projects
                 ["project.assemblyName"] = AssemblyName,
                 ["project.projectReferenceCount"] = ProjectReferences.Count,
                 ["project.packageReferenceCount"] = PackageReferences.Count,
+                ["project.analyzerReferenceCount"] = AnalyzerReferences.Count,
                 ["project.lineCount"] = LineCount
             };
 
@@ -75,6 +80,11 @@ namespace Archon.Extractors.Projects.Projects
             if (TargetFrameworks.Count > 0)
             {
                 values["project.targetFrameworks"] = TargetFrameworks.ToArray();
+            }
+
+            if (AnalyzerReferences.Count > 0)
+            {
+                values["project.analyzerReferences"] = AnalyzerReferences.Select(analyzer => analyzer.ResolvedRelativePath ?? analyzer.DeclaredInclude).ToArray();
             }
 
             if (string.IsNullOrWhiteSpace(TargetFramework) && TargetFrameworks.Count == 0 && string.IsNullOrWhiteSpace(LegacyTargetFramework))

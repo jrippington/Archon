@@ -46,6 +46,10 @@ A controlled value is a domain-owned string identity that behaves like a smart e
 
 Evidence-first means graph facts are designed to carry or link to the explanation that caused Archon to believe them. Evidence can be a project file, source symbol, configuration artifact, compiler diagnostic, inference, or manual annotation.
 
+## Evidence span
+
+An evidence span is the source line range associated with an evidence record. When XML parsers expose line information, Archon records the exact line for project references, analyzer references, package references, and legacy package entries; otherwise it falls back to file-level evidence.
+
 ## Extraction pipeline
 
 The extraction pipeline is the application-layer sequence of deterministic stages that contribute facts, warnings, or errors to the shared accumulator for one accepted run.
@@ -145,6 +149,18 @@ A project node is an architecture node representing a supported C# or VB.NET pro
 ## Package node
 
 A package node is an architecture node representing a NuGet package dependency extracted from a supported project file or safe imported build file. Its stable key uses the normalized package ID and known version or explicit version-source state.
+
+## FilePath node
+
+A FilePath node is an architecture node representing a repository-contained source artifact path. In WP005, FilePath nodes are used for submitted solutions, supported project files, package manifests, local central package files, repository-contained imported build files, and repository-contained analyzer assemblies that support extracted facts.
+
+## Analyzer reference
+
+An analyzer reference is an MSBuild `Analyzer` item that points at a compiler analyzer assembly. Archon reads analyzer declarations from project XML as metadata and evidence without loading or running the analyzer.
+
+## Imported build artifact
+
+An imported build artifact is a repository-contained `.props` or `.targets` file that a project imports and that can be inspected safely as static XML. Archon excludes imports that require property expansion, wildcard traversal, missing files, or outside-repository paths because those cases would require build evaluation or external state.
 
 ## PackageReference
 

@@ -1,4 +1,5 @@
 using System.Xml.Linq;
+using Archon.Extractors.Projects.Evidence;
 using Archon.Extractors.Projects.Packages;
 
 namespace Archon.Extractors.Projects.Projects
@@ -63,14 +64,20 @@ namespace Archon.Extractors.Projects.Projects
             string? nullable = GetFirstPropertyValue(document, "Nullable");
             string? implicitUsings = GetFirstPropertyValue(document, "ImplicitUsings");
             IReadOnlyList<ProjectReferenceDeclaration> projectReferences = GetProjectReferences(document, projectPath, repositoryRootDirectory, relativeProjectPath);
+            IReadOnlyList<AnalyzerReferenceDeclaration> analyzerReferences = GetAnalyzerReferences(document, projectPath, repositoryRootDirectory, relativeProjectPath);
             List<PackageReferenceDeclaration> packageReferences = [.. await _packageReferenceExtractor.ExtractAsync(document, projectPath, repositoryRootDirectory, relativeProjectPath, cancellationToken).ConfigureAwait(false)];
             List<PackageExtractionDiagnostic> packageDiagnostics = [];
+            List<ProjectArtifactDeclaration> artifacts = [new(relativeProjectPath, "ProjectFile", relativeProjectPath)];
+            AddBuildArtifacts(artifacts, projectPath, repositoryRootDirectory, relativeProjectPath);
+            AddPackageArtifacts(artifacts, packageReferences, packageDiagnostics, relativeProjectPath);
+            AddAnalyzerArtifacts(artifacts, analyzerReferences);
 
             if (!isSdkStyle)
             {
                 LegacyPackageConfigExtractionResult legacyPackageResult = await _legacyPackageConfigExtractor.ExtractAsync(projectPath, repositoryRootDirectory, relativeProjectPath, cancellationToken).ConfigureAwait(false);
                 packageReferences.AddRange(legacyPackageResult.PackageReferences);
                 packageDiagnostics.AddRange(legacyPackageResult.Diagnostics);
+                AddPackageArtifacts(artifacts, legacyPackageResult.PackageReferences, legacyPackageResult.Diagnostics, relativeProjectPath);
             }
 
             int lineCount = CountLines(projectXml);
@@ -93,7 +100,153 @@ namespace Archon.Extractors.Projects.Projects
                 projectReferences,
                 packageReferences,
                 packageDiagnostics,
+                analyzerReferences,
+                DeduplicateArtifacts(artifacts),
                 lineCount);
+        }
+
+        /// <summary>
+        /// Extracts `Analyzer` declarations from parsed project XML.
+        /// </summary>
+        /// <param name="document">The parsed project XML document.</param>
+        /// <param name="projectPath">The absolute path of the project file being inspected.</param>
+        /// <param name="repositoryRootDirectory">The absolute repository root used for containment checks.</param>
+        /// <param name="relativeProjectPath">The repository-relative path of the declaring project.</param>
+        /// <returns>Ordered analyzer declarations with raw include text, resolved repository-relative paths, and evidence snippet details.</returns>
+        private static IReadOnlyList<AnalyzerReferenceDeclaration> GetAnalyzerReferences(XDocument document, string projectPath, string repositoryRootDirectory, string relativeProjectPath)
+        {
+            // Analyzer items are static MSBuild declarations and can be read safely without Roslyn workspace loading or target execution.
+            List<AnalyzerReferenceDeclaration> references = [];
+            string projectDirectory = Path.GetDirectoryName(projectPath) ?? repositoryRootDirectory;
+
+            foreach (XElement analyzerElement in document.Descendants().Where(element => string.Equals(element.Name.LocalName, "Analyzer", StringComparison.Ordinal)))
+            {
+                string? declaredInclude = GetOptionalAttribute(analyzerElement, "Include");
+
+                if (declaredInclude is null)
+                {
+                    continue;
+                }
+
+                string platformPath = declaredInclude.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
+                string absoluteAnalyzerPath = Path.GetFullPath(Path.Combine(projectDirectory, platformPath));
+                bool isRepositoryContained = IsPathContainedByDirectory(repositoryRootDirectory, absoluteAnalyzerPath);
+                string? resolvedRelativePath = isRepositoryContained ? GetRepositoryRelativePath(repositoryRootDirectory, absoluteAnalyzerPath) : null;
+                int? lineNumber = XmlEvidence.GetLineNumber(analyzerElement);
+                SourceSnippet sourceSnippet = XmlEvidence.CreateSnippet(analyzerElement);
+
+                references.Add(new AnalyzerReferenceDeclaration(
+                    relativeProjectPath,
+                    declaredInclude,
+                    resolvedRelativePath,
+                    isRepositoryContained,
+                    lineNumber,
+                    sourceSnippet.Hash,
+                    sourceSnippet.Preview));
+            }
+
+            return references;
+        }
+
+        /// <summary>
+        /// Adds repository-contained build artifacts that may support imported or central package facts.
+        /// </summary>
+        /// <param name="artifacts">The artifact collection being assembled for the project.</param>
+        /// <param name="projectPath">The absolute project path whose hierarchy and imports are inspected.</param>
+        /// <param name="repositoryRootDirectory">The absolute repository root used for containment checks.</param>
+        /// <param name="relativeProjectPath">The repository-relative project path that introduced the artifacts.</param>
+        private static void AddBuildArtifacts(List<ProjectArtifactDeclaration> artifacts, string projectPath, string repositoryRootDirectory, string relativeProjectPath)
+        {
+            // Build artifacts are represented only when they are local, repository-contained files relevant to deterministic XML extraction.
+            string? projectDirectory = Path.GetDirectoryName(projectPath);
+
+            if (projectDirectory is null)
+            {
+                return;
+            }
+
+            foreach (string fileName in new[] { "Directory.Build.props", "Directory.Build.targets", "Directory.Packages.props" })
+            {
+                string currentDirectory = Path.GetFullPath(projectDirectory);
+
+                while (IsPathContainedByDirectory(repositoryRootDirectory, currentDirectory))
+                {
+                    string candidatePath = Path.Combine(currentDirectory, fileName);
+
+                    if (File.Exists(candidatePath))
+                    {
+                        artifacts.Add(new ProjectArtifactDeclaration(GetRepositoryRelativePath(repositoryRootDirectory, candidatePath), fileName, relativeProjectPath));
+                    }
+
+                    if (string.Equals(Path.TrimEndingDirectorySeparator(currentDirectory), Path.TrimEndingDirectorySeparator(repositoryRootDirectory), StringComparison.OrdinalIgnoreCase))
+                    {
+                        break;
+                    }
+
+                    string? parentDirectory = Directory.GetParent(currentDirectory)?.FullName;
+
+                    if (parentDirectory is null || string.Equals(parentDirectory, currentDirectory, StringComparison.OrdinalIgnoreCase))
+                    {
+                        break;
+                    }
+
+                    currentDirectory = parentDirectory;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Adds artifacts used by package declarations and package diagnostics.
+        /// </summary>
+        /// <param name="artifacts">The artifact collection being assembled for the project.</param>
+        /// <param name="packageReferences">The package references whose evidence files should be represented.</param>
+        /// <param name="packageDiagnostics">The package diagnostics whose evidence files should be represented.</param>
+        /// <param name="relativeProjectPath">The repository-relative project path that introduced the package artifacts.</param>
+        private static void AddPackageArtifacts(List<ProjectArtifactDeclaration> artifacts, IEnumerable<PackageReferenceDeclaration> packageReferences, IEnumerable<PackageExtractionDiagnostic> packageDiagnostics, string relativeProjectPath)
+        {
+            // Package artifacts include direct project files, imported props/targets, central package files, and packages.config files that support package facts or diagnostics.
+            foreach (PackageReferenceDeclaration packageReference in packageReferences)
+            {
+                string kind = string.Equals(packageReference.SourceType, "packages.config", StringComparison.Ordinal) ? "PackagesConfig" : "PackageReferenceSource";
+                artifacts.Add(new ProjectArtifactDeclaration(packageReference.EvidenceRelativePath, kind, relativeProjectPath));
+            }
+
+            foreach (PackageExtractionDiagnostic diagnostic in packageDiagnostics)
+            {
+                artifacts.Add(new ProjectArtifactDeclaration(diagnostic.EvidenceRelativePath, "PackageDiagnosticSource", relativeProjectPath));
+            }
+        }
+
+        /// <summary>
+        /// Adds repository-contained analyzer files that can be represented as FilePath artifacts.
+        /// </summary>
+        /// <param name="artifacts">The artifact collection being assembled for the project.</param>
+        /// <param name="analyzerReferences">The analyzer declarations discovered in project XML.</param>
+        private static void AddAnalyzerArtifacts(List<ProjectArtifactDeclaration> artifacts, IEnumerable<AnalyzerReferenceDeclaration> analyzerReferences)
+        {
+            // Analyzer file artifacts are added only when the include path resolved inside the submitted repository boundary.
+            foreach (AnalyzerReferenceDeclaration analyzerReference in analyzerReferences)
+            {
+                if (!string.IsNullOrWhiteSpace(analyzerReference.ResolvedRelativePath))
+                {
+                    artifacts.Add(new ProjectArtifactDeclaration(analyzerReference.ResolvedRelativePath, "AnalyzerFile", analyzerReference.DeclaringProjectRelativePath));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Deduplicates artifact declarations by repository-relative path while preserving deterministic order.
+        /// </summary>
+        /// <param name="artifacts">The collected artifact declarations.</param>
+        /// <returns>A deterministic artifact list containing one entry per relative path.</returns>
+        private static IReadOnlyList<ProjectArtifactDeclaration> DeduplicateArtifacts(IEnumerable<ProjectArtifactDeclaration> artifacts)
+        {
+            // Artifact paths are graph identities, so repeated evidence from the same file collapses to one FilePath node.
+            return artifacts
+                .GroupBy(artifact => artifact.RelativePath, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.OrderBy(artifact => artifact.ArtifactKind, StringComparer.Ordinal).First())
+                .OrderBy(artifact => artifact.RelativePath, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
         }
 
         /// <summary>

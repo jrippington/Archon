@@ -711,6 +711,161 @@ namespace Archon.Extractors.Projects.Tests.Projects
         }
 
         /// <summary>
+        /// Verifies analyzer declarations are extracted as project metadata with analyzer evidence and repository artifact nodes.
+        /// </summary>
+        /// <returns>A task that completes after analyzer metadata and evidence assertions have run.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenProjectDeclaresAnalyzer_ShouldPreserveAnalyzerMetadataEvidenceAndFilePathNode()
+        {
+            // Analyzer references are build-time inputs that should be visible without loading Roslyn workspaces or executing targets.
+            string repositoryRoot = CreateRepositoryRoot();
+            string solutionPath = CreateSolutionFile(repositoryRoot, "AnalyzerSuite.sln", [ProjectDeclaration.CSharp("Customer.Api", "src/Customer.Api/Customer.Api.csproj")]);
+            CreateProjectFile(repositoryRoot, "src/Customer.Api/Customer.Api.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <ItemGroup>
+                    <Analyzer Include="..\..\analyzers\Customer.Analyzers.dll" />
+                  </ItemGroup>
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                </Project>
+                """);
+            CreateProjectFile(repositoryRoot, "analyzers/Customer.Analyzers.dll", string.Empty);
+
+            ExtractedArchitectureSnapshot snapshot = await ExecuteStageAsync(repositoryRoot, [solutionPath]);
+
+            var projectNode = Assert.Single(snapshot.Nodes, node => node.NodeKind == NodeKind.Project);
+            Assert.Contains("\"project.analyzerReferenceCount\":1", projectNode.Metadata.ToCanonicalJson(), StringComparison.Ordinal);
+            Assert.Contains("Customer.Analyzers.dll", projectNode.Metadata.ToCanonicalJson(), StringComparison.Ordinal);
+            Assert.Contains(snapshot.Evidence, evidence => evidence.FilePath.Value == "src/Customer.Api/Customer.Api.csproj" && evidence.SymbolName == "analyzers/Customer.Analyzers.dll" && evidence.SnippetPreview is not null && evidence.SnippetPreview.Contains("Analyzer", StringComparison.Ordinal) && evidence.SnippetPreview.Contains("Customer.Analyzers.dll", StringComparison.Ordinal));
+            Assert.Contains(snapshot.Nodes, node => node.NodeKind == NodeKind.FilePath && node.StableKey.Value == "file://analyzers/Customer.Analyzers.dll");
+            Assert.Empty(snapshot.Errors);
+        }
+
+        /// <summary>
+        /// Verifies relevant source artifacts are represented as deterministic `FilePath` nodes when they support extracted facts.
+        /// </summary>
+        /// <returns>A task that completes after file-path node assertions have run.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenExtractionUsesProjectPackageAndImportedArtifacts_ShouldContributeFilePathNodes()
+        {
+            // FilePath nodes make the physical artifacts behind solution, project, package, central package, and imported-build facts queryable.
+            string repositoryRoot = CreateRepositoryRoot();
+            string solutionPath = CreateSolutionFile(repositoryRoot, "ArtifactSuite.sln", [ProjectDeclaration.CSharp("Customer.Api", "src/Customer.Api/Customer.Api.csproj")]);
+            CreateProjectFile(repositoryRoot, "Directory.Packages.props", """
+                <Project>
+                  <ItemGroup>
+                    <PackageVersion Include="Serilog" Version="4.0.0" />
+                  </ItemGroup>
+                </Project>
+                """);
+            CreateProjectFile(repositoryRoot, "Directory.Build.props", """
+                <Project>
+                  <PropertyGroup>
+                    <RepositoryBuild>true</RepositoryBuild>
+                  </PropertyGroup>
+                </Project>
+                """);
+            CreateProjectFile(repositoryRoot, "build/Packages.targets", """
+                <Project>
+                  <ItemGroup>
+                    <PackageReference Include="Polly" Version="8.0.0" />
+                  </ItemGroup>
+                </Project>
+                """);
+            CreateProjectFile(repositoryRoot, "src/Customer.Api/Customer.Api.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <Import Project="..\..\build\Packages.targets" />
+                  <ItemGroup>
+                    <PackageReference Include="Serilog" />
+                  </ItemGroup>
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                </Project>
+                """);
+
+            ExtractedArchitectureSnapshot snapshot = await ExecuteStageAsync(repositoryRoot, [solutionPath]);
+
+            string[] expectedFileKeys =
+            [
+                "file://ArtifactSuite.sln",
+                "file://src/Customer.Api/Customer.Api.csproj",
+                "file://Directory.Packages.props",
+                "file://Directory.Build.props",
+                "file://build/Packages.targets"
+            ];
+
+            foreach (string expectedFileKey in expectedFileKeys)
+            {
+                Assert.Contains(snapshot.Nodes, node => node.NodeKind == NodeKind.FilePath && node.StableKey.Value == expectedFileKey);
+            }
+
+            Assert.Empty(snapshot.Errors);
+        }
+
+        /// <summary>
+        /// Verifies external or unsafe imports do not produce imported artifact nodes or imported package evidence.
+        /// </summary>
+        /// <returns>A task that completes after unsafe import exclusion assertions have run.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenProjectDeclaresExternalOrDynamicImports_ShouldExcludeImportedArtifacts()
+        {
+            // Imports requiring property expansion or outside-repository traversal are excluded because they would require unsafe build evaluation.
+            string repositoryRoot = CreateRepositoryRoot();
+            string externalRoot = CreateRepositoryRoot();
+            string externalImport = Path.Combine(externalRoot, "External.targets");
+            File.WriteAllText(externalImport, "<Project />");
+            string solutionPath = CreateSolutionFile(repositoryRoot, "ExternalImportSuite.sln", [ProjectDeclaration.CSharp("Customer.Api", "src/Customer.Api/Customer.Api.csproj")]);
+            CreateProjectFile(repositoryRoot, "src/Customer.Api/Customer.Api.csproj", $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <Import Project="$(MSBuildThisFileDirectory)Dynamic.targets" />
+                  <Import Project="{{externalImport}}" />
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                </Project>
+                """);
+
+            ExtractedArchitectureSnapshot snapshot = await ExecuteStageAsync(repositoryRoot, [solutionPath]);
+
+            Assert.DoesNotContain(snapshot.Nodes, node => node.NodeKind == NodeKind.FilePath && node.DisplayName.Contains("External.targets", StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(snapshot.Evidence, evidence => evidence.FilePath.Value.Contains("External.targets", StringComparison.OrdinalIgnoreCase));
+            Assert.Empty(snapshot.Errors);
+        }
+
+        /// <summary>
+        /// Verifies XML-backed evidence includes line spans plus deterministic snippet hashes and concise previews.
+        /// </summary>
+        /// <returns>A task that completes after strengthened evidence assertions have run.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenXmlEvidenceIsCaptured_ShouldIncludeSnippetHashAndPreview()
+        {
+            // Evidence precision lets later troubleshooting explain the exact XML fact without copying complete source files into metadata.
+            string repositoryRoot = CreateRepositoryRoot();
+            string solutionPath = CreateSolutionFile(repositoryRoot, "EvidencePrecisionSuite.sln", [ProjectDeclaration.CSharp("Customer.Api", "src/Customer.Api/Customer.Api.csproj")]);
+            CreateProjectFile(repositoryRoot, "src/Customer.Api/Customer.Api.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <ItemGroup>
+                    <PackageReference Include="Serilog" Version="4.0.0" />
+                  </ItemGroup>
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                </Project>
+                """);
+
+            ExtractedArchitectureSnapshot snapshot = await ExecuteStageAsync(repositoryRoot, [solutionPath]);
+
+            var packageEvidence = Assert.Single(snapshot.Evidence, evidence => evidence.FilePath.Value == "src/Customer.Api/Customer.Api.csproj" && evidence.SymbolName == "Serilog");
+            Assert.Equal(3, packageEvidence.StartLine);
+            Assert.Equal(3, packageEvidence.EndLine);
+            Assert.StartsWith("sha256:", packageEvidence.SnippetHash, StringComparison.Ordinal);
+            Assert.Contains("PackageReference", packageEvidence.SnippetPreview, StringComparison.Ordinal);
+            Assert.Contains("Serilog", packageEvidence.SnippetPreview, StringComparison.Ordinal);
+        }
+
+        /// <summary>
         /// Executes the production stage against accepted input and returns the accumulated snapshot.
         /// </summary>
         /// <param name="repositoryRoot">The temporary repository root to submit.</param>

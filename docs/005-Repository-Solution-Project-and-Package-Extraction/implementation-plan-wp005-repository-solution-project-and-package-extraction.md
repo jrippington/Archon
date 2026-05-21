@@ -392,7 +392,7 @@ The term project extraction slice means the WP005 pipeline stage that reads subm
 
 ## Slice 6 - Analyzer References, FilePath Nodes, Imported Build Artifacts, and Evidence Precision
 
-- [ ] Work Item 6: Extract analyzer references and strengthen file/evidence modeling
+- [x] Work Item 6: Extract analyzer references and strengthen file/evidence modeling - Completed
   - **Purpose**: Complete WP005 artifact-level extraction by representing analyzer references, relevant `FilePath` nodes, repository-contained imported build artifacts, and precise evidence spans across solution, project, package, and reference facts.
   - **Acceptance Criteria**:
 	- Analyzer references declared by project files are extracted and represented according to existing graph contract capabilities.
@@ -411,29 +411,32 @@ The term project extraction slice means the WP005 pipeline stage that reads subm
 	- No standalone implementation notes or `wiki/home.md` detail dumping are created.
 	- Can execute end-to-end through fixture extraction tests that inspect analyzer facts, file-path nodes, and evidence records.
 	- Executor must not stop mid-Work Item except for full completion, explicit user interruption, or a true blocker.
-  - [ ] Task 1: Extract analyzer references
-	- [ ] Read analyzer declarations from supported project files.
-	- [ ] Preserve paths or package-derived identities where available.
-	- [ ] Represent unresolved analyzers as warnings or unknown metadata when relevant.
-  - [ ] Task 2: Contribute file-path nodes
-	- [ ] Create deterministic file-path node stable keys using repository-relative paths for files inside the repository.
-	- [ ] Contribute nodes for relevant solution, project, package, and imported build artifacts.
-	- [ ] Link file-path nodes to facts where existing graph contracts support such relationships.
-  - [ ] Task 3: Implement imported build artifact policy
-	- [ ] Include `Directory.Build.props`, `Directory.Build.targets`, `Directory.Packages.props`, and explicitly imported repository-contained `.props`/`.targets` files.
-	- [ ] Exclude external SDK/package import chains unless safely exposed by evaluated metadata.
-	- [ ] Preserve warnings for inaccessible or malformed local imports.
-  - [ ] Task 4: Strengthen evidence span handling
-	- [ ] Implement reusable XML line-span capture where supported by the parser.
-	- [ ] Add file-level fallback evidence with snippet hash/preview where supported.
-	- [ ] Ensure evidence stable keys and fingerprints remain deterministic.
-  - [ ] Task 5: Add tests and validation
-	- [ ] Add fixtures for analyzer references, file-path nodes, local imports, external import exclusions, and evidence span fallback.
-	- [ ] Run targeted builds and focused tests only.
-  - [ ] Task 6: Perform documentation and wiki review for the slice
-	- [ ] Apply documentation-pass comments to all changed code.
-	- [ ] Update evidence and artifact modeling wiki guidance if needed.
-	- [ ] Record wiki review outcome and page-structure decision.
+	- [x] Task 1: Extract analyzer references - Completed
+	- [x] Read analyzer declarations from supported project files.
+	- [x] Preserve paths or package-derived identities where available.
+	- [x] Represent unresolved analyzers as warnings or unknown metadata when relevant.
+  - [x] Task 2: Contribute file-path nodes - Completed
+	- [x] Create deterministic file-path node stable keys using repository-relative paths for files inside the repository.
+	- [x] Contribute nodes for relevant solution, project, package, and imported build artifacts.
+	- [x] Link file-path nodes to facts where existing graph contracts support such relationships.
+  - [x] Task 3: Implement imported build artifact policy - Completed
+	- [x] Include `Directory.Build.props`, `Directory.Build.targets`, `Directory.Packages.props`, and explicitly imported repository-contained `.props`/`.targets` files.
+	- [x] Exclude external SDK/package import chains unless safely exposed by evaluated metadata.
+	- [x] Preserve warnings for inaccessible or malformed local imports.
+  - [x] Task 4: Strengthen evidence span handling - Completed
+	- [x] Implement reusable XML line-span capture where supported by the parser.
+	- [x] Add file-level fallback evidence with snippet hash/preview where supported.
+	- [x] Ensure evidence stable keys and fingerprints remain deterministic.
+  - [x] Task 5: Add tests and validation - Completed
+	- [x] Add fixtures for analyzer references, file-path nodes, local imports, external import exclusions, and evidence span fallback.
+	- [x] Run targeted builds and focused tests only.
+  - [x] Task 6: Perform documentation and wiki review for the slice - Completed
+	- [x] Apply documentation-pass comments to all changed code.
+	- [x] Update evidence and artifact modeling wiki guidance if needed.
+	- [x] Record wiki review outcome and page-structure decision.
+  - **Completion Summary**: Implemented static analyzer reference extraction, repository artifact tracking, FilePath node contribution, imported build artifact modeling, and XML evidence snippet precision. Analyzer `Analyzer` items are extracted from supported project XML, preserved as project metadata and evidence, and repository-contained analyzer files are represented as FilePath nodes. FilePath nodes are contributed for submitted solutions, project files, package manifests, central package files, local Directory.Build artifacts, explicit repository-contained imports, and analyzer files. Evidence for XML-backed package and analyzer facts now preserves line spans when available plus deterministic snippet hashes and bounded previews without storing full source files.
+	- **Validation Summary**: Passed `dotnet build D:\Dev\Archon\src\Archon.Extractors.Projects\Archon.Extractors.Projects.csproj`, `dotnet build D:\Dev\Archon\test\Archon.Extractors.Projects.Tests\Archon.Extractors.Projects.Tests.csproj`, `dotnet test D:\Dev\Archon\test\Archon.Extractors.Projects.Tests\Archon.Extractors.Projects.Tests.csproj --no-build --filter FullyQualifiedName~ProjectMetadataExtractionStageTests` (23/23), `dotnet test D:\Dev\Archon\test\Archon.Extractors.Projects.Tests\Archon.Extractors.Projects.Tests.csproj --no-build` (27/27), and full workspace `run_build`. The Aspire AppHost was not started.
+  - **Wiki Review Result / Impact Matrix**: Affected concepts were analyzer references, FilePath nodes, imported build artifacts, evidence spans, snippet hashes/previews, safe static XML import policy, artifact inventory, and focused validation commands. Reviewed `wiki/api-extraction-workflow.md`, `wiki/graph-domain-model.md`, `wiki/validation-and-test-workflows.md`, `wiki/glossary.md`, and `wiki/home.md`; updated the first four and intentionally left `wiki/home.md` unchanged because no new reader path or topic page was needed. No new wiki page was created because the behavior extends the existing extraction workflow, graph model, validation workflow, and glossary. Detailed contributor-facing guidance remains on topic pages, not in `home.md` or standalone implementation notes.
   - **Files**:
 	- `src/Archon.Extractors.Projects/Projects/*`: Analyzer reference extraction.
 	- `src/Archon.Extractors.Projects/Evidence/*`: Evidence span and snippet helpers.
