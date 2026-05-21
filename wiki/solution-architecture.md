@@ -2,7 +2,7 @@
 
 Archon uses **Onion Architecture**, which means dependencies point inward toward stable business concepts and away from delivery or infrastructure details. The domain model sits at the center, application contracts coordinate use cases around that model, infrastructure projects adapt external systems, and host projects compose runtime behavior at the outer edge. This separation matters because Archon is intended to reason about architecture facts over time; if the core model depended on a web host, database driver, or UI framework, later extraction, query, and reporting work would inherit avoidable coupling.
 
-For term definitions used on this page, see the [glossary](glossary.md). For runtime composition details, continue to the [runtime foundation](runtime-foundation.md). For commands that validate these boundaries, use [validation and test workflows](validation-and-test-workflows.md).
+For term definitions used on this page, see the [glossary](glossary.md). For compiler-backed source extraction details, continue to [Roslyn semantic extraction](roslyn-semantic-extraction.md). For runtime composition details, continue to the [runtime foundation](runtime-foundation.md). For commands that validate these boundaries, use [validation and test workflows](validation-and-test-workflows.md).
 
 Reader path: [Home](home.md) -> Solution architecture -> [Runtime foundation](runtime-foundation.md) -> [Graph domain model](graph-domain-model.md).
 
@@ -15,7 +15,7 @@ The main project families are:
 - Host and composition projects, including the Aspire AppHost in `src/Archon`, `src/ArchonApi`, and `src/ArchonMcp`.
 - Core projects, including `src/Archon.Domain` and `src/Archon.Application`.
 - API module projects, which provide future homes for extraction, query, and management endpoints without putting feature logic directly into the API host.
-- Roslyn and extractor projects, which provide future analysis and source-evidence extraction areas.
+- Roslyn and extractor projects, which provide analysis and source-evidence extraction areas. The current Roslyn slice places language-neutral semantic contracts in `src/Archon.Roslyn` and C# compiler-backed declaration extraction in `src/Archon.Roslyn.CSharp`.
 - Infrastructure projects, including Roslyn workspace loading, Neo4j persistence, and markdown export adapters.
 
 The Discovery UI is intentionally absent in the current foundation. No `ArchonUi` or `ArchonUi.Tests` project exists, and no AppHost resource composes a UI. Missing UI behavior is a correctness condition for the current foundation, not an accidental omission.
@@ -23,6 +23,8 @@ The Discovery UI is intentionally absent in the current foundation. No `ArchonUi
 ## Dependency direction
 
 The `Archon.Domain` project is the center. It must not reference application, infrastructure, API module, extractor, Roslyn implementation, or host projects. `Archon.Application` may depend on the domain layer, but it must not depend on infrastructure or hosts. API modules and extractors can depend on application-facing contracts. Infrastructure adapts external systems such as Neo4j, and hosts wire the outer runtime together.
+
+The Roslyn projects follow the same direction. `Archon.Roslyn` owns language-neutral semantic extraction contracts and deterministic helpers. `Archon.Roslyn.CSharp` depends on those shared contracts and on Roslyn's C# compiler APIs to turn C# declarations into graph-ready semantic facts. Infrastructure remains responsible for future workspace loading and compilation acquisition, while persistence remains outside the Roslyn projects. This means a C# extractor can understand compiler symbols without also knowing how API requests are accepted or how Neo4j stores graph facts.
 
 Host projects are delivery and composition endpoints. They may compose infrastructure and project resources, but they must not become a home for domain rules, extraction logic, graph persistence behavior, API feature logic, or MCP tool implementation. The Aspire AppHost is the clearest example: it may declare that Neo4j, `ArchonApi`, and `ArchonMcp` run together, but it must not implement the business behavior those services eventually expose.
 

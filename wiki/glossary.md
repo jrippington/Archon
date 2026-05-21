@@ -54,6 +54,22 @@ Evidence-first means graph facts are designed to carry or link to the explanatio
 
 An evidence span is the source line range associated with an evidence record. When XML parsers expose line information, Archon records the exact line for project references, analyzer references, package references, and legacy package entries; otherwise it falls back to file-level evidence.
 
+## Roslyn semantic model
+
+A Roslyn semantic model is the compiler object that answers symbol and type questions for a specific syntax tree in a compilation. Archon uses semantic models so source declarations can be extracted from compiler-resolved symbols rather than from text matching alone.
+
+## Semantic declaration fact
+
+A semantic declaration fact is the Roslyn layer's graph-ready intermediate representation of a source declaration such as a namespace, type, constructor, method, property, or field. It carries source language, declaration kind, symbol identity, stable key, project context, parent declaration identity, and semantic evidence.
+
+## Semantic evidence
+
+Semantic evidence is source evidence captured for compiler-backed declarations and relationships. It includes repository-relative file path, one-based line and column span, symbol name, containing symbol, snippet preview, and snippet hash when source text is available.
+
+## Semantic stable key
+
+A semantic stable key is the deterministic logical identity used by Roslyn extraction before domain persistence projection. Current C# declaration keys are scoped by source language, project context, fully qualified symbol name, and compiler-facing metadata name or signature; relationship keys are derived from relationship kind and endpoint keys.
+
 ## Extraction pipeline
 
 The extraction pipeline is the application-layer sequence of deterministic stages that contribute facts, warnings, or errors to the shared accumulator for one accepted run.

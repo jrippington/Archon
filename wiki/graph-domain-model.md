@@ -20,7 +20,7 @@ A **stable key** is the durable logical identity for an architecture fact. It is
 
 Path-based stable keys use **repository-relative paths**, meaning paths are written from the repository root rather than from a developer machine root. For example, `src/Customer.Api/Customer.Api.csproj` is repository-relative, while `D:\Dev\Archon\src\Customer.Api\Customer.Api.csproj` is not. The domain helper normalizes separators to forward slashes and rejects absolute or rooted paths so keys remain deterministic across Windows workstations, Linux agents, and CI environments.
 
-Extraction slices should call `StableKeyGenerator` instead of assembling strings by hand. This keeps prefixes such as `repository://`, `solution://`, `project://`, `package://`, `endpoint://`, `dbtable://`, `rule://`, `finding://`, `metric://`, and `summary://` consistent across the product.
+Extraction slices should call `StableKeyGenerator` instead of assembling strings by hand where they are producing domain graph contracts directly. This keeps prefixes such as `repository://`, `solution://`, `project://`, `package://`, `endpoint://`, `dbtable://`, `rule://`, `finding://`, `metric://`, and `summary://` consistent across the product. The current Roslyn semantic slice emits graph-ready intermediate facts before domain projection, so it uses semantic stable keys scoped by language, project context, symbol identity, and relationship endpoints. Those semantic keys follow the same principle: they are deterministic logical identities, not database IDs or absolute paths.
 
 ## Metadata and fingerprints
 
@@ -45,6 +45,14 @@ The graph fact model is **evidence-first**. Evidence-first means a fact is desig
 This model helps contributors answer not only “what did Archon find?” but also “why did Archon believe it?” without inferring evidence from incidental logs or persistence details.
 
 For example, a `Project` node for `Customer.Api` can point to the project-file evidence that caused extraction to emit the node. A `DependsOn` edge can point at package-reference evidence or a source call site. A finding can preserve both the rule version that classified it and the primary evidence that explains why the concern exists.
+
+Semantic source evidence extends this model into compiler-backed code declarations. For a C# method declaration, evidence records the repository-relative `.cs` file, one-based line and column span, method symbol name, containing type symbol, bounded snippet preview, and snippet hash. The preview is only a navigation aid; it is intentionally short and should not be treated as stored source content. The hash is the deterministic comparison value for the exact source span.
+
+## Semantic declaration facts
+
+A semantic declaration fact is the Roslyn layer's graph-ready representation of a source declaration before that fact is persisted as a domain architecture node. The current C# slice emits declaration facts for namespaces, types, constructors, methods, properties, and fields. Each fact carries a declaration kind, source language, symbol identity, project context, stable key, optional parent declaration stable key, and semantic evidence. Direct nesting is represented separately through `CONTAINS` relationship facts so the hierarchy can be traversed without relying on string prefixes in qualified names.
+
+This intermediate shape lets Roslyn extraction remain compiler-focused while still aligning with the domain vocabulary. A namespace declaration maps naturally to the domain `Namespace` node kind, a class or interface maps to `Type`, a constructor or method maps to `Method`, a property maps to `Property`, and a field maps to `Field`. The current slice validates this behavior through in-memory Roslyn compilations rather than through Neo4j, API endpoints, MCP tools, or the Aspire AppHost. Later work can project the same facts into `ArchitectureNode`, `ArchitectureEdge`, and `EvidenceRecord` instances for snapshot persistence without changing how the compiler-backed declaration facts are discovered.
 
 ## Confidence and unknown state
 

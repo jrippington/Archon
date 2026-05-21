@@ -93,6 +93,20 @@ dotnet test .\test\Archon.Api.Extraction.Tests\Archon.Api.Extraction.Tests.cspro
 
 The solution fixtures used for this validation must contain a recognizable Visual Studio solution header. Empty `.sln` files still pass the earlier existence and extension validation boundary, but they are not valid evidence for the WP005 stage and should produce a controlled pipeline error during extraction. Supported C# and VB.NET declarations must point to real project XML files because the current stage reads those files for deterministic metadata. That distinction is intentional: request validation proves the path is allowed to be analyzed, while the project extraction stage proves the submitted file is useful solution evidence and that supported project declarations can be explained by project-file evidence.
 
+## WP006 Roslyn semantic extraction validation
+
+The current WP006 slice validates compiler-backed C# declaration extraction without starting the Aspire AppHost, Neo4j, API endpoints, MCP tools, repository scanning, or Visual Studio automation. The shared Roslyn tests cover repository-relative path normalization, semantic stable-key determinism, snippet preview limits, and snippet hash determinism. The C# Roslyn tests create in-memory syntax trees and compilations, obtain real semantic models, and assert that namespace, type, constructor, method, property, field, evidence, and `CONTAINS` relationship facts are emitted deterministically.
+
+Use these focused commands from the repository root after package restore when Roslyn semantic extraction changes:
+
+```powershell
+dotnet test .\test\Archon.Roslyn.Tests\Archon.Roslyn.Tests.csproj --no-restore
+dotnet test .\test\Archon.Roslyn.CSharp.Tests\Archon.Roslyn.CSharp.Tests.csproj --no-restore
+dotnet build .\Archon.slnx --no-restore
+```
+
+These commands are intentionally narrower than a full test-suite run. They validate the shared semantic helper layer, the C# declaration extractor, and integrated solution compilation. When package references have changed or a clean environment is being used, run `dotnet restore .\Archon.slnx` first and then repeat the commands with `--no-restore` so failures are attributable to compile or test behavior rather than package acquisition.
+
 ## WP003 Neo4j validation and Testcontainers
 
 Neo4j integration tests use Testcontainers instead of the Aspire AppHost. **Testcontainers** starts short-lived Docker containers under test control and removes them after the test run. Docker Desktop or another OCI-compatible runtime must be running for these tests.

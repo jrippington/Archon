@@ -33,9 +33,38 @@ namespace Archon.Api.Extraction.Tests
             // Endpoint tests use real filesystem paths because validation is part of the public HTTP behavior.
             foreach (string temporaryDirectory in _temporaryDirectories)
             {
-                if (Directory.Exists(temporaryDirectory))
+                DeleteTemporaryDirectoryWithRetry(temporaryDirectory);
+            }
+        }
+
+        /// <summary>
+        /// Deletes a temporary repository directory while tolerating brief background extraction file handles.
+        /// </summary>
+        /// <param name="temporaryDirectory">The temporary repository directory created by the test.</param>
+        private static void DeleteTemporaryDirectoryWithRetry(string temporaryDirectory)
+        {
+            // The in-process scheduler can still be finishing solution-file reads after an endpoint returns Accepted, so cleanup retries transient sharing violations.
+            const int MaximumAttempts = 5;
+            for (int attempt = 1; attempt <= MaximumAttempts; attempt++)
+            {
+                try
                 {
-                    Directory.Delete(temporaryDirectory, recursive: true);
+                    if (Directory.Exists(temporaryDirectory))
+                    {
+                        Directory.Delete(temporaryDirectory, recursive: true);
+                    }
+
+                    return;
+                }
+                catch (IOException) when (attempt < MaximumAttempts)
+                {
+                    // A short backoff lets the background extraction task release its file handle without making normal cleanup slow.
+                    Thread.Sleep(TimeSpan.FromMilliseconds(50 * attempt));
+                }
+                catch (UnauthorizedAccessException) when (attempt < MaximumAttempts)
+                {
+                    // Windows can report transient file-handle cleanup races as unauthorized access, so retry them the same way.
+                    Thread.Sleep(TimeSpan.FromMilliseconds(50 * attempt));
                 }
             }
         }
