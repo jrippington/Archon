@@ -11,15 +11,17 @@ namespace Archon.Extractors.Projects.Projects
         /// Extracts deterministic metadata from one supported project file.
         /// </summary>
         /// <param name="projectPath">The absolute project file path to read.</param>
+        /// <param name="repositoryRootDirectory">The absolute repository root used to normalize project-reference targets.</param>
         /// <param name="relativeProjectPath">The repository-relative project path used for graph identity.</param>
         /// <param name="projectName">The project display name declared by the submitted solution.</param>
         /// <param name="language">The source language inferred from the supported project declaration.</param>
         /// <param name="cancellationToken">The cancellation token that stops project file reading before or during asynchronous I/O.</param>
         /// <returns>Project metadata extracted from XML properties and deterministic defaults.</returns>
-        internal async Task<ProjectMetadata> ExtractAsync(string projectPath, string relativeProjectPath, string projectName, ProjectLanguage language, CancellationToken cancellationToken)
+        internal async Task<ProjectMetadata> ExtractAsync(string projectPath, string repositoryRootDirectory, string relativeProjectPath, string projectName, ProjectLanguage language, CancellationToken cancellationToken)
         {
             // The extractor reads project files as data. It never creates MSBuildWorkspace, invokes targets, restores packages, or runs repository scripts.
             ArgumentException.ThrowIfNullOrWhiteSpace(projectPath);
+            ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRootDirectory);
             ArgumentException.ThrowIfNullOrWhiteSpace(relativeProjectPath);
             ArgumentException.ThrowIfNullOrWhiteSpace(projectName);
             cancellationToken.ThrowIfCancellationRequested();
@@ -39,6 +41,7 @@ namespace Archon.Extractors.Projects.Projects
             string? rootNamespace = GetFirstPropertyValue(document, "RootNamespace");
             string? nullable = GetFirstPropertyValue(document, "Nullable");
             string? implicitUsings = GetFirstPropertyValue(document, "ImplicitUsings");
+            IReadOnlyList<ProjectReferenceDeclaration> projectReferences = GetProjectReferences(document, projectPath, repositoryRootDirectory, relativeProjectPath);
             int lineCount = CountLines(projectXml);
 
             return new ProjectMetadata(
@@ -56,7 +59,48 @@ namespace Archon.Extractors.Projects.Projects
                 !isSdkStyle,
                 nullable,
                 implicitUsings,
+                projectReferences,
                 lineCount);
+        }
+
+        /// <summary>
+        /// Extracts `ProjectReference` declarations from the parsed project XML.
+        /// </summary>
+        /// <param name="document">The parsed project XML document.</param>
+        /// <param name="projectPath">The absolute path of the project file being inspected.</param>
+        /// <param name="repositoryRootDirectory">The absolute repository root used for containment checks.</param>
+        /// <param name="relativeProjectPath">The repository-relative path of the declaring project.</param>
+        /// <returns>Ordered project-reference declarations with raw include text, normalized repository-relative target paths, and evidence line numbers.</returns>
+        private static IReadOnlyList<ProjectReferenceDeclaration> GetProjectReferences(XDocument document, string projectPath, string repositoryRootDirectory, string relativeProjectPath)
+        {
+            // ProjectReference items are MSBuild item declarations; local-name matching supports old-style XML namespaces and SDK-style XML.
+            List<ProjectReferenceDeclaration> references = [];
+            string projectDirectory = Path.GetDirectoryName(projectPath) ?? repositoryRootDirectory;
+
+            foreach (XElement projectReferenceElement in document.Descendants().Where(element => string.Equals(element.Name.LocalName, "ProjectReference", StringComparison.Ordinal)))
+            {
+                string? declaredInclude = GetOptionalAttribute(projectReferenceElement, "Include");
+
+                if (declaredInclude is null)
+                {
+                    continue;
+                }
+
+                string platformPath = declaredInclude.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
+                string absoluteReferencedPath = Path.GetFullPath(Path.Combine(projectDirectory, platformPath));
+                bool isRepositoryContained = IsPathContainedByDirectory(repositoryRootDirectory, absoluteReferencedPath);
+                string? resolvedRelativePath = isRepositoryContained ? GetRepositoryRelativePath(repositoryRootDirectory, absoluteReferencedPath) : null;
+                int? lineNumber = projectReferenceElement is System.Xml.IXmlLineInfo lineInfo && lineInfo.HasLineInfo() ? lineInfo.LineNumber : null;
+
+                references.Add(new ProjectReferenceDeclaration(
+                    relativeProjectPath,
+                    declaredInclude,
+                    resolvedRelativePath,
+                    isRepositoryContained,
+                    lineNumber));
+            }
+
+            return references;
         }
 
         /// <summary>
@@ -116,6 +160,32 @@ namespace Archon.Extractors.Projects.Projects
             }
 
             return content.Count(character => character == '\n') + 1;
+        }
+
+        /// <summary>
+        /// Builds a repository-relative path using forward slash separators.
+        /// </summary>
+        /// <param name="repositoryRootDirectory">The absolute repository root directory.</param>
+        /// <param name="filePath">The absolute file path to normalize.</param>
+        /// <returns>A repository-relative path suitable for graph identity.</returns>
+        private static string GetRepositoryRelativePath(string repositoryRootDirectory, string filePath)
+        {
+            // Project-reference identities use the same path normalization as project node identities.
+            string relativePath = Path.GetRelativePath(repositoryRootDirectory, filePath);
+            return relativePath.Replace(Path.DirectorySeparatorChar, '/').Replace(Path.AltDirectorySeparatorChar, '/');
+        }
+
+        /// <summary>
+        /// Determines whether a candidate path is contained by the submitted repository root.
+        /// </summary>
+        /// <param name="repositoryRootDirectory">The absolute repository root directory.</param>
+        /// <param name="candidatePath">The absolute candidate path to check.</param>
+        /// <returns><see langword="true" /> when the candidate path is inside the repository root; otherwise, <see langword="false" />.</returns>
+        private static bool IsPathContainedByDirectory(string repositoryRootDirectory, string candidatePath)
+        {
+            // The relative-path check avoids accepting sibling paths that merely share a string prefix with the repository path.
+            string relativePath = Path.GetRelativePath(repositoryRootDirectory, candidatePath);
+            return !relativePath.StartsWith("..", StringComparison.Ordinal) && !Path.IsPathRooted(relativePath);
         }
     }
 }

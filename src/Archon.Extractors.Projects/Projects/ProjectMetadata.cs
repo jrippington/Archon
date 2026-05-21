@@ -19,6 +19,7 @@ namespace Archon.Extractors.Projects.Projects
     /// <param name="IsOldStyle">A value indicating whether the project uses old-style MSBuild XML metadata.</param>
     /// <param name="Nullable">The nullable context setting declared by the project, when present.</param>
     /// <param name="ImplicitUsings">The implicit using directives setting declared by the project, when present.</param>
+    /// <param name="ProjectReferences">The project-reference declarations discovered in the project file.</param>
     /// <param name="LineCount">The number of lines read from the project file for evidence fallback spans.</param>
     internal sealed record ProjectMetadata(
         string ProjectName,
@@ -35,6 +36,7 @@ namespace Archon.Extractors.Projects.Projects
         bool IsOldStyle,
         string? Nullable,
         string? ImplicitUsings,
+        IReadOnlyList<ProjectReferenceDeclaration> ProjectReferences,
         int LineCount)
     {
         /// <summary>
@@ -52,6 +54,7 @@ namespace Archon.Extractors.Projects.Projects
                 ["project.isSdkStyle"] = IsSdkStyle,
                 ["project.isOldStyle"] = IsOldStyle,
                 ["project.assemblyName"] = AssemblyName,
+                ["project.projectReferenceCount"] = ProjectReferences.Count,
                 ["project.lineCount"] = LineCount
             };
 
@@ -102,4 +105,5 @@ namespace Archon.Extractors.Projects.Projects
             }
         }
     }
+
 }

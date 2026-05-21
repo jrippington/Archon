@@ -239,6 +239,217 @@ namespace Archon.Extractors.Projects.Tests.Projects
         }
 
         /// <summary>
+        /// Verifies resolved project references create deterministic `REFERENCES` relationships and project-reference evidence.
+        /// </summary>
+        /// <returns>A task that completes after resolved reference assertions have run.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenProjectReferenceTargetsSubmittedProject_ShouldCreateReferencesEdgeAndEvidence()
+        {
+            // This scenario verifies the primary Work Item 3 dependency path where both projects are declared by the submitted solution.
+            string repositoryRoot = CreateRepositoryRoot();
+            string solutionPath = CreateSolutionFile(
+                repositoryRoot,
+                "ReferenceSuite.sln",
+                [
+                    ProjectDeclaration.CSharp("Customer.Api", "src/Customer.Api/Customer.Api.csproj"),
+                    ProjectDeclaration.CSharp("Customer.Core", "src/Customer.Core/Customer.Core.csproj")
+                ]);
+            CreateProjectFile(repositoryRoot, "src/Customer.Api/Customer.Api.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <ItemGroup>
+                    <ProjectReference Include="..\Customer.Core\Customer.Core.csproj" />
+                  </ItemGroup>
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                </Project>
+                """);
+            CreateProjectFile(repositoryRoot, "src/Customer.Core/Customer.Core.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                </Project>
+                """);
+
+            ExtractedArchitectureSnapshot snapshot = await ExecuteStageAsync(repositoryRoot, [solutionPath]);
+
+            var referenceEdge = Assert.Single(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.References);
+            Assert.Equal("project://src/Customer.Api/Customer.Api.csproj", referenceEdge.SourceNodeStableKey.Value);
+            Assert.Equal("project://src/Customer.Core/Customer.Core.csproj", referenceEdge.TargetNodeStableKey.Value);
+            Assert.Contains("\"projectReference.declaredInclude\":\"..\\\\Customer.Core\\\\Customer.Core.csproj\"", referenceEdge.Metadata.ToCanonicalJson(), StringComparison.Ordinal);
+            Assert.Contains(snapshot.Evidence, evidence => evidence.FilePath.Value == "src/Customer.Api/Customer.Api.csproj" && evidence.SnippetPreview == "..\\Customer.Core\\Customer.Core.csproj");
+            Assert.Empty(snapshot.Errors);
+        }
+
+        /// <summary>
+        /// Verifies missing repository-contained referenced project files produce warnings and evidence without creating a dependency edge.
+        /// </summary>
+        /// <returns>A task that completes after unresolved-reference assertions have run.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenProjectReferenceTargetIsMissing_ShouldWarnAndPreserveEvidenceWithoutEdge()
+        {
+            // Missing referenced project files should remain actionable warnings rather than blocking otherwise useful project extraction.
+            string repositoryRoot = CreateRepositoryRoot();
+            string solutionPath = CreateSolutionFile(repositoryRoot, "MissingReferenceSuite.sln", [ProjectDeclaration.CSharp("Customer.Api", "src/Customer.Api/Customer.Api.csproj")]);
+            CreateProjectFile(repositoryRoot, "src/Customer.Api/Customer.Api.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <ItemGroup>
+                    <ProjectReference Include="..\Missing\Missing.csproj" />
+                  </ItemGroup>
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                </Project>
+                """);
+
+            ExtractedArchitectureSnapshot snapshot = await ExecuteStageAsync(repositoryRoot, [solutionPath]);
+
+            Assert.DoesNotContain(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.References);
+            Assert.Contains(snapshot.Warnings, warning => warning.Contains("does not exist", StringComparison.OrdinalIgnoreCase) && warning.Contains("Missing.csproj", StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(snapshot.Evidence, evidence => evidence.FilePath.Value == "src/Customer.Api/Customer.Api.csproj" && evidence.SnippetPreview == "..\\Missing\\Missing.csproj");
+            Assert.Empty(snapshot.Errors);
+        }
+
+        /// <summary>
+        /// Verifies duplicate `ProjectReference` items create one deterministic `REFERENCES` edge while preserving source evidence.
+        /// </summary>
+        /// <returns>A task that completes after duplicate-reference assertions have run.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenProjectReferenceIsDuplicated_ShouldDeduplicateReferencesEdge()
+        {
+            // Duplicate declarations can occur through hand-edited project files; graph dependencies must remain deterministic.
+            string repositoryRoot = CreateRepositoryRoot();
+            string solutionPath = CreateSolutionFile(
+                repositoryRoot,
+                "DuplicateReferenceSuite.sln",
+                [
+                    ProjectDeclaration.CSharp("Customer.Api", "src/Customer.Api/Customer.Api.csproj"),
+                    ProjectDeclaration.CSharp("Customer.Core", "src/Customer.Core/Customer.Core.csproj")
+                ]);
+            CreateProjectFile(repositoryRoot, "src/Customer.Api/Customer.Api.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <ItemGroup>
+                    <ProjectReference Include="..\Customer.Core\Customer.Core.csproj" />
+                    <ProjectReference Include="..\Customer.Core\Customer.Core.csproj" />
+                  </ItemGroup>
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                </Project>
+                """);
+            CreateProjectFile(repositoryRoot, "src/Customer.Core/Customer.Core.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                </Project>
+                """);
+
+            ExtractedArchitectureSnapshot snapshot = await ExecuteStageAsync(repositoryRoot, [solutionPath]);
+
+            Assert.Single(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.References);
+            Assert.Equal(2, snapshot.Evidence.Count(evidence => evidence.FilePath.Value == "src/Customer.Api/Customer.Api.csproj" && evidence.SnippetPreview == "..\\Customer.Core\\Customer.Core.csproj"));
+        }
+
+        /// <summary>
+        /// Verifies projects shared across submitted solutions stay deduplicated while cross-solution references remain visible.
+        /// </summary>
+        /// <returns>A task that completes after multi-solution dependency assertions have run.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenSubmittedSolutionsShareProjectsAndCrossReference_ShouldPreserveMembershipAndReferences()
+        {
+            // Multi-solution repositories should retain explicit solution membership and still expose project-to-project dependencies.
+            string repositoryRoot = CreateRepositoryRoot();
+            string firstSolutionPath = CreateSolutionFile(
+                repositoryRoot,
+                "CustomerSuite.sln",
+                [
+                    ProjectDeclaration.CSharp("Customer.Api", "src/Customer.Api/Customer.Api.csproj"),
+                    ProjectDeclaration.CSharp("Customer.Shared", "src/Customer.Shared/Customer.Shared.csproj")
+                ]);
+            string secondSolutionPath = CreateSolutionFile(
+                repositoryRoot,
+                "ToolsSuite.sln",
+                [
+                    ProjectDeclaration.CSharp("Customer.Tools", "tools/Customer.Tools/Customer.Tools.csproj"),
+                    ProjectDeclaration.CSharp("Customer.Shared", "src/Customer.Shared/Customer.Shared.csproj")
+                ]);
+            CreateProjectFile(repositoryRoot, "src/Customer.Api/Customer.Api.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <ItemGroup>
+                    <ProjectReference Include="..\Customer.Shared\Customer.Shared.csproj" />
+                  </ItemGroup>
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                </Project>
+                """);
+            CreateProjectFile(repositoryRoot, "tools/Customer.Tools/Customer.Tools.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <ItemGroup>
+                    <ProjectReference Include="..\..\src\Customer.Shared\Customer.Shared.csproj" />
+                  </ItemGroup>
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                </Project>
+                """);
+            CreateProjectFile(repositoryRoot, "src/Customer.Shared/Customer.Shared.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                </Project>
+                """);
+
+            ExtractedArchitectureSnapshot snapshot = await ExecuteStageAsync(repositoryRoot, [firstSolutionPath, secondSolutionPath]);
+
+            Assert.Equal(3, snapshot.Nodes.Count(node => node.NodeKind == NodeKind.Project));
+            Assert.Equal(2, snapshot.Edges.Count(edge => edge.EdgeKind == EdgeKind.Contains && edge.TargetNodeStableKey.Value == "project://src/Customer.Shared/Customer.Shared.csproj"));
+            Assert.Equal(2, snapshot.Edges.Count(edge => edge.EdgeKind == EdgeKind.References && edge.TargetNodeStableKey.Value == "project://src/Customer.Shared/Customer.Shared.csproj"));
+            Assert.Empty(snapshot.Errors);
+        }
+
+        /// <summary>
+        /// Verifies repository-contained referenced projects outside submitted solutions are represented as project nodes and reference targets.
+        /// </summary>
+        /// <returns>A task that completes after out-of-solution reference assertions have run.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenProjectReferenceTargetsRepositoryProjectOutsideSubmittedSolutions_ShouldExtractTargetProjectNodeAndReference()
+        {
+            // The submitted solution bounds solution membership, but repository-contained project references still provide dependency facts.
+            string repositoryRoot = CreateRepositoryRoot();
+            string solutionPath = CreateSolutionFile(repositoryRoot, "OutOfSolutionReferenceSuite.sln", [ProjectDeclaration.CSharp("Customer.Api", "src/Customer.Api/Customer.Api.csproj")]);
+            CreateProjectFile(repositoryRoot, "src/Customer.Api/Customer.Api.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <ItemGroup>
+                    <ProjectReference Include="..\Customer.Internal\Customer.Internal.csproj" />
+                  </ItemGroup>
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                </Project>
+                """);
+            CreateProjectFile(repositoryRoot, "src/Customer.Internal/Customer.Internal.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <AssemblyName>Customer.Internal.Assembly</AssemblyName>
+                  </PropertyGroup>
+                </Project>
+                """);
+
+            ExtractedArchitectureSnapshot snapshot = await ExecuteStageAsync(repositoryRoot, [solutionPath]);
+
+            Assert.Contains(snapshot.Nodes, node => node.NodeKind == NodeKind.Project && node.StableKey.Value == "project://src/Customer.Internal/Customer.Internal.csproj");
+            Assert.DoesNotContain(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.Contains && edge.TargetNodeStableKey.Value == "project://src/Customer.Internal/Customer.Internal.csproj");
+            Assert.Contains(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.References && edge.SourceNodeStableKey.Value == "project://src/Customer.Api/Customer.Api.csproj" && edge.TargetNodeStableKey.Value == "project://src/Customer.Internal/Customer.Internal.csproj");
+            Assert.Contains("Customer.Internal.Assembly", snapshot.Nodes.Single(node => node.StableKey.Value == "project://src/Customer.Internal/Customer.Internal.csproj").Metadata.ToCanonicalJson(), StringComparison.Ordinal);
+            Assert.Empty(snapshot.Errors);
+        }
+
+        /// <summary>
         /// Executes the production stage against accepted input and returns the accumulated snapshot.
         /// </summary>
         /// <param name="repositoryRoot">The temporary repository root to submit.</param>

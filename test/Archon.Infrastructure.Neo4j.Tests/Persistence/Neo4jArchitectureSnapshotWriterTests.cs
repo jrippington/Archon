@@ -182,7 +182,7 @@ namespace Archon.Infrastructure.Neo4j.Tests.Persistence
                 nodes.Add(CreateNode(snapshotStableKey, new StableKey($"project://{suffix}/second"), secondEvidenceStableKey, suffix, "Second Project"));
             }
 
-            return new ExtractedArchitectureSnapshot(header, new[] { repository }, new[] { solution }, nodes, Array.Empty<ArchitectureEdge>(), evidence, Array.Empty<FindingRecord>(), Array.Empty<MetricRecord>(), Array.Empty<GeneratedSummary>(), Array.Empty<string>(), Array.Empty<string>());
+            return new ExtractedArchitectureSnapshot(header, new[] { repository }, new[] { solution }, nodes, Array.Empty<ArchitectureEdge>(), evidence, Array.Empty<RuleDefinition>(), Array.Empty<FindingRecord>(), Array.Empty<MetricRecord>(), Array.Empty<GeneratedSummary>(), Array.Empty<string>(), Array.Empty<string>());
         }
 
         /// <summary>
@@ -201,7 +201,7 @@ namespace Archon.Infrastructure.Neo4j.Tests.Persistence
             SnapshotHeader header = CreateHeader(repositoryStableKey, snapshotStableKey, suffix);
             ArchitectureNode node = CreateNode(snapshotStableKey, new StableKey($"project://{suffix}"), new StableKey($"evidence://{suffix}/missing"), suffix, "Project");
 
-            return new ExtractedArchitectureSnapshot(header, new[] { repository }, new[] { solution }, new[] { node }, Array.Empty<ArchitectureEdge>(), Array.Empty<EvidenceRecord>(), Array.Empty<FindingRecord>(), Array.Empty<MetricRecord>(), Array.Empty<GeneratedSummary>(), Array.Empty<string>(), Array.Empty<string>());
+            return new ExtractedArchitectureSnapshot(header, new[] { repository }, new[] { solution }, new[] { node }, Array.Empty<ArchitectureEdge>(), Array.Empty<EvidenceRecord>(), Array.Empty<RuleDefinition>(), Array.Empty<FindingRecord>(), Array.Empty<MetricRecord>(), Array.Empty<GeneratedSummary>(), Array.Empty<string>(), Array.Empty<string>());
         }
 
         /// <summary>

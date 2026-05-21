@@ -224,7 +224,7 @@ The term project extraction slice means the WP005 pipeline stage that reads subm
 
 ## Slice 3 - Project Reference Extraction and Multi-Solution Deduplication
 
-- [ ] Work Item 3: Extract project references and preserve multi-solution membership
+- [x] Work Item 3: Extract project references and preserve multi-solution membership - Completed
   - **Purpose**: Make project-level dependency structure visible by contributing `REFERENCES` relationships between projects while preserving explicit solution membership and deterministic deduplication across multi-solution repositories.
   - **Acceptance Criteria**:
 	- Project references declared by C# and VB.NET projects are extracted.
@@ -242,26 +242,29 @@ The term project extraction slice means the WP005 pipeline stage that reads subm
 	- No standalone implementation notes or `wiki/home.md` detail dumping are created.
 	- Can execute end-to-end through fixture extraction tests that inspect `REFERENCES` edges in the assembled snapshot.
 	- Executor must not stop mid-Work Item except for full completion, explicit user interruption, or a true blocker.
-  - [ ] Task 1: Extract project reference declarations
-	- [ ] Read `ProjectReference` items from SDK-style and old-style project files.
-	- [ ] Normalize referenced paths relative to the declaring project file.
-	- [ ] Preserve raw declared path metadata where useful for evidence and troubleshooting.
-  - [ ] Task 2: Resolve referenced projects
-	- [ ] Resolve references to project nodes already included in the submitted solution set.
-	- [ ] Represent repository-contained but non-submitted referenced projects according to available graph contracts.
-	- [ ] Capture unresolved reference warnings with evidence.
-  - [ ] Task 3: Contribute reference relationships
-	- [ ] Create deterministic `REFERENCES` edge stable keys.
-	- [ ] Preserve directness, confidence, unknown-state, and evidence metadata.
-	- [ ] Deduplicate duplicate references deterministically.
-  - [ ] Task 4: Add multi-solution tests
-	- [ ] Add fixtures where two submitted solutions share one project.
-	- [ ] Add fixtures where projects reference each other across solution boundaries.
-	- [ ] Verify project node deduplication and multiple solution-to-project `CONTAINS` relationships.
-  - [ ] Task 5: Perform documentation and wiki review for the slice
-	- [ ] Update code comments under the documentation-pass standard.
-	- [ ] Review graph-domain and project-extraction wiki guidance for dependency terminology and examples.
-	- [ ] Record pages reviewed, updated, created, intentionally unchanged, and page-structure decision.
+	- [x] Task 1: Extract project reference declarations - Completed
+	- [x] Read `ProjectReference` items from SDK-style and old-style project files.
+	- [x] Normalize referenced paths relative to the declaring project file.
+	- [x] Preserve raw declared path metadata where useful for evidence and troubleshooting.
+  - [x] Task 2: Resolve referenced projects - Completed
+	- [x] Resolve references to project nodes already included in the submitted solution set.
+	- [x] Represent repository-contained but non-submitted referenced projects according to available graph contracts.
+	- [x] Capture unresolved reference warnings with evidence.
+  - [x] Task 3: Contribute reference relationships - Completed
+	- [x] Create deterministic `REFERENCES` edge stable keys.
+	- [x] Preserve directness, confidence, unknown-state, and evidence metadata.
+	- [x] Deduplicate duplicate references deterministically.
+  - [x] Task 4: Add multi-solution tests - Completed
+	- [x] Add fixtures where two submitted solutions share one project.
+	- [x] Add fixtures where projects reference each other across solution boundaries.
+	- [x] Verify project node deduplication and multiple solution-to-project `CONTAINS` relationships.
+  - [x] Task 5: Perform documentation and wiki review for the slice - Completed
+	- [x] Update code comments under the documentation-pass standard.
+	- [x] Review graph-domain and project-extraction wiki guidance for dependency terminology and examples.
+	- [x] Record pages reviewed, updated, created, intentionally unchanged, and page-structure decision.
+  - **Completion Summary**: Implemented project-reference extraction by adding `ProjectReferenceDeclaration`, extending `ProjectMetadata` and `ProjectMetadataExtractor`, and updating `RepositorySolutionExtractionStage` to read `ProjectReference` items, normalize raw include paths, resolve submitted and repository-contained referenced projects, synthesize out-of-solution repository-contained project nodes, create deterministic direct `REFERENCES` edges, capture project-reference evidence, warn for unresolved or missing targets, and deduplicate duplicate reference edges. Added focused tests in `test/Archon.Extractors.Projects.Tests/Projects/ProjectMetadataExtractionStageTests.cs` for resolved references, missing targets, duplicate declarations, multi-solution shared projects with cross-solution references, and repository-contained targets outside submitted solutions.
+  - **Validation Summary**: Passed `dotnet build D:\Dev\Archon\src\Archon.Extractors.Projects\Archon.Extractors.Projects.csproj`, `dotnet build D:\Dev\Archon\test\Archon.Extractors.Projects.Tests\Archon.Extractors.Projects.Tests.csproj`, `dotnet test D:\Dev\Archon\test\Archon.Extractors.Projects.Tests\Archon.Extractors.Projects.Tests.csproj --no-build --filter FullyQualifiedName~ProjectMetadataExtractionStageTests` (11/11), and `dotnet test D:\Dev\Archon\test\Archon.Extractors.Projects.Tests\Archon.Extractors.Projects.Tests.csproj --no-build` (15/15). Full workspace build was attempted with `run_build` and still reports unrelated pre-existing `Archon.Infrastructure.Neo4j.Tests` `ExtractedArchitectureSnapshot` constructor arity errors at `Neo4jArchitectureSnapshotWriterTests.cs` lines 185 and 204; those failures were not introduced by this work item. The Aspire AppHost was not started.
+  - **Wiki Review Result / Impact Matrix**: Affected concepts were project-reference extraction, project-to-project `REFERENCES` edges, repository-contained out-of-solution dependency targets, unresolved-reference warnings, duplicate dependency deduplication, project-reference evidence, validation commands, and dependency terminology. Reviewed `wiki/api-extraction-workflow.md`, `wiki/graph-domain-model.md`, `wiki/validation-and-test-workflows.md`, `wiki/glossary.md`, and `wiki/home.md`; updated all five. No new wiki page was created because the behavior extends the existing API extraction workflow, graph model, validation, glossary, and landing-page reader path rather than introducing a separate contributor journey. `wiki/home.md` remained a concise landing page with only summary text updated, while detailed behavior and examples were placed on the topic pages.
   - **Files**:
 	- `src/Archon.Extractors.Projects/Projects/*`: Project reference extraction.
 	- `src/Archon.Extractors.Projects/Evidence/*`: Reference evidence capture.

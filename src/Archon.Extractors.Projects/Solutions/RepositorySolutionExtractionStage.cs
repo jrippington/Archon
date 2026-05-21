@@ -56,7 +56,8 @@ namespace Archon.Extractors.Projects.Solutions
             StableKey repositoryEvidenceStableKey = CreateEvidenceStableKey(snapshotStableKey, "repository", repositoryStableKey.Value);
 
             List<(string AbsolutePath, string RelativePath, SolutionFileFacts Facts)> parsedSolutions = [];
-            List<(string SolutionRelativePath, SolutionProjectDeclaration Declaration, ProjectLanguage Language, string RelativeProjectPath, ProjectMetadata Metadata)> extractedProjects = [];
+            Dictionary<string, (ProjectLanguage Language, string RelativeProjectPath, ProjectMetadata Metadata)> extractedProjectsByPath = new(StringComparer.OrdinalIgnoreCase);
+            List<(string SolutionRelativePath, SolutionProjectDeclaration Declaration, ProjectLanguage Language, string RelativeProjectPath, ProjectMetadata Metadata)> submittedProjectMemberships = [];
             List<(string SolutionRelativePath, SolutionProjectDeclaration Declaration)> unsupportedDeclarations = [];
 
             foreach (string solutionPath in context.ResolvedInput.SolutionPaths)
@@ -79,8 +80,9 @@ namespace Archon.Extractors.Projects.Solutions
 
                         string absoluteProjectPath = ResolveDeclaredProjectPath(Path.GetDirectoryName(solutionPath)!, declaration.DeclaredPath);
                         string relativeProjectPath = GetRepositoryRelativePath(context.ResolvedInput.RepositoryRootDirectory, absoluteProjectPath);
-                        ProjectMetadata projectMetadata = await _projectMetadataExtractor.ExtractAsync(absoluteProjectPath, relativeProjectPath, declaration.Name, language, cancellationToken).ConfigureAwait(false);
-                        extractedProjects.Add((relativeSolutionPath, declaration, language, relativeProjectPath, projectMetadata));
+                        ProjectMetadata projectMetadata = await _projectMetadataExtractor.ExtractAsync(absoluteProjectPath, context.ResolvedInput.RepositoryRootDirectory, relativeProjectPath, declaration.Name, language, cancellationToken).ConfigureAwait(false);
+                        extractedProjectsByPath.TryAdd(relativeProjectPath, (language, relativeProjectPath, projectMetadata));
+                        submittedProjectMemberships.Add((relativeSolutionPath, declaration, language, relativeProjectPath, projectMetadata));
                     }
                 }
                 catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException)
@@ -90,10 +92,12 @@ namespace Archon.Extractors.Projects.Solutions
                 }
             }
 
-            if (extractedProjects.Count == 0 && unsupportedDeclarations.Count > 0)
+            if (submittedProjectMemberships.Count == 0 && unsupportedDeclarations.Count > 0)
             {
                 return ExtractionStageResult.BlockingError("No supported C# or VB.NET projects could be extracted from the submitted solution files.");
             }
+
+            await ExtractRepositoryContainedReferenceTargetsAsync(context.ResolvedInput.RepositoryRootDirectory, extractedProjectsByPath, cancellationToken).ConfigureAwait(false);
 
             context.Accumulation.AddRepository(new RepositoryModel(
                 repositoryStableKey,
@@ -129,7 +133,7 @@ namespace Archon.Extractors.Projects.Solutions
                     context.Accumulation.AddEvidence(CreateProjectDeclarationEvidence(snapshotStableKey, declarationEvidenceStableKey, relativeSolutionPath, declaration));
                 }
 
-                foreach ((string _, SolutionProjectDeclaration declaration, ProjectLanguage _, string relativeProjectPath, ProjectMetadata metadata) in extractedProjects.Where(project => string.Equals(project.SolutionRelativePath, relativeSolutionPath, StringComparison.Ordinal)))
+                foreach ((string _, SolutionProjectDeclaration declaration, ProjectLanguage _, string relativeProjectPath, ProjectMetadata metadata) in submittedProjectMemberships.Where(project => string.Equals(project.SolutionRelativePath, relativeSolutionPath, StringComparison.Ordinal)))
                 {
                     StableKey projectStableKey = CreateProjectStableKey(relativeProjectPath);
                     StableKey projectEvidenceStableKey = CreateEvidenceStableKey(snapshotStableKey, "project", projectStableKey.Value);
@@ -144,7 +148,108 @@ namespace Archon.Extractors.Projects.Solutions
                 }
             }
 
+            foreach ((ProjectLanguage _, string relativeProjectPath, ProjectMetadata metadata) in extractedProjectsByPath.Values)
+            {
+                // Repository-contained referenced projects may not be declared by a submitted solution, so they are contributed after membership edges.
+                StableKey projectStableKey = CreateProjectStableKey(relativeProjectPath);
+                StableKey projectEvidenceStableKey = CreateEvidenceStableKey(snapshotStableKey, "project", projectStableKey.Value);
+                context.Accumulation.AddNode(CreateProjectNode(snapshotStableKey, projectStableKey, metadata, projectEvidenceStableKey));
+                context.Accumulation.AddEvidence(CreateProjectFileEvidence(snapshotStableKey, projectEvidenceStableKey, relativeProjectPath, metadata.ProjectName, metadata));
+            }
+
+            ContributeProjectReferenceFacts(context, snapshotStableKey, extractedProjectsByPath.Values.Select(project => project.Metadata));
+
             return ExtractionStageResult.Success();
+        }
+
+        /// <summary>
+        /// Extracts metadata for repository-contained project-reference targets that were not declared by any submitted solution.
+        /// </summary>
+        /// <param name="repositoryRootDirectory">The accepted repository root directory used to resolve target files.</param>
+        /// <param name="extractedProjectsByPath">The current project metadata map keyed by repository-relative project path.</param>
+        /// <param name="cancellationToken">The cancellation token that stops recursive reference-target extraction.</param>
+        /// <returns>A task that completes after reachable repository-contained project-reference targets have been inspected.</returns>
+        private async Task ExtractRepositoryContainedReferenceTargetsAsync(string repositoryRootDirectory, Dictionary<string, (ProjectLanguage Language, string RelativeProjectPath, ProjectMetadata Metadata)> extractedProjectsByPath, CancellationToken cancellationToken)
+        {
+            // A queue lets the stage discover transitive repository-contained project references without scanning unrelated project files.
+            Queue<ProjectReferenceDeclaration> pendingReferences = new(extractedProjectsByPath.Values.SelectMany(project => project.Metadata.ProjectReferences));
+
+            while (pendingReferences.Count > 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ProjectReferenceDeclaration reference = pendingReferences.Dequeue();
+
+                if (!reference.IsRepositoryContained || string.IsNullOrWhiteSpace(reference.ResolvedRelativePath) || extractedProjectsByPath.ContainsKey(reference.ResolvedRelativePath))
+                {
+                    continue;
+                }
+
+                string absoluteProjectPath = Path.GetFullPath(Path.Combine(repositoryRootDirectory, reference.ResolvedRelativePath.Replace('/', Path.DirectorySeparatorChar)));
+
+                if (!File.Exists(absoluteProjectPath) || !TryInferProjectLanguage(absoluteProjectPath, out ProjectLanguage language))
+                {
+                    continue;
+                }
+
+                ProjectMetadata metadata = await _projectMetadataExtractor.ExtractAsync(
+                    absoluteProjectPath,
+                    repositoryRootDirectory,
+                    reference.ResolvedRelativePath,
+                    Path.GetFileNameWithoutExtension(absoluteProjectPath),
+                    language,
+                    cancellationToken).ConfigureAwait(false);
+                extractedProjectsByPath.Add(reference.ResolvedRelativePath, (language, reference.ResolvedRelativePath, metadata));
+
+                foreach (ProjectReferenceDeclaration nestedReference in metadata.ProjectReferences)
+                {
+                    pendingReferences.Enqueue(nestedReference);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Contributes project-reference evidence, warnings, and `REFERENCES` edges for all extracted projects.
+        /// </summary>
+        /// <param name="context">The stage context containing shared accumulation state.</param>
+        /// <param name="snapshotStableKey">The snapshot stable key that scopes contributed facts.</param>
+        /// <param name="projectMetadata">The extracted project metadata values to inspect for project references.</param>
+        private static void ContributeProjectReferenceFacts(ExtractionStageContext context, StableKey snapshotStableKey, IEnumerable<ProjectMetadata> projectMetadata)
+        {
+            // Edge stable keys deduplicate repeated ProjectReference items while preserving one evidence record per declaration line.
+            HashSet<string> contributedEdgeKeys = new(StringComparer.Ordinal);
+
+            foreach (ProjectMetadata metadata in projectMetadata)
+            {
+                StableKey sourceProjectStableKey = CreateProjectStableKey(metadata.RelativeProjectPath);
+
+                foreach (ProjectReferenceDeclaration reference in metadata.ProjectReferences)
+                {
+                    StableKey referenceEvidenceStableKey = CreateProjectReferenceEvidenceStableKey(snapshotStableKey, reference);
+                    context.Accumulation.AddEvidence(CreateProjectReferenceEvidence(snapshotStableKey, referenceEvidenceStableKey, reference));
+
+                    if (!reference.IsRepositoryContained || string.IsNullOrWhiteSpace(reference.ResolvedRelativePath))
+                    {
+                        context.Accumulation.AddWarning($"Project reference '{reference.DeclaredInclude}' declared by '{reference.DeclaringProjectRelativePath}' could not be resolved inside the submitted repository.");
+                        continue;
+                    }
+
+                    string absoluteReferencedPath = Path.GetFullPath(Path.Combine(context.ResolvedInput.RepositoryRootDirectory, reference.ResolvedRelativePath.Replace('/', Path.DirectorySeparatorChar)));
+
+                    if (!File.Exists(absoluteReferencedPath))
+                    {
+                        context.Accumulation.AddWarning($"Project reference '{reference.DeclaredInclude}' declared by '{reference.DeclaringProjectRelativePath}' points to a repository-contained project file that does not exist.");
+                        continue;
+                    }
+
+                    StableKey targetProjectStableKey = CreateProjectStableKey(reference.ResolvedRelativePath);
+                    ArchitectureEdge referenceEdge = CreateProjectReferenceEdge(snapshotStableKey, sourceProjectStableKey, targetProjectStableKey, referenceEvidenceStableKey, reference);
+
+                    if (contributedEdgeKeys.Add(referenceEdge.StableKey.Value))
+                    {
+                        context.Accumulation.AddEdge(referenceEdge);
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -274,6 +379,65 @@ namespace Archon.Extractors.Projects.Solutions
                 primaryEvidenceStableKey,
                 metadata,
                 FingerprintGenerator.ForEdge(EdgeKind.Contains, solutionStableKey, projectStableKey, isDirect: true, KnowledgeKind.Fact, metadata));
+        }
+
+        /// <summary>
+        /// Creates a project-to-project reference edge from one resolved `ProjectReference` declaration.
+        /// </summary>
+        /// <param name="snapshotStableKey">The snapshot stable key that scopes the edge.</param>
+        /// <param name="sourceProjectStableKey">The stable key of the project declaring the reference.</param>
+        /// <param name="targetProjectStableKey">The stable key of the referenced project.</param>
+        /// <param name="primaryEvidenceStableKey">The evidence stable key for the source `ProjectReference` item.</param>
+        /// <param name="reference">The extracted project-reference declaration.</param>
+        /// <returns>An architecture edge representing a direct project dependency.</returns>
+        private static ArchitectureEdge CreateProjectReferenceEdge(StableKey snapshotStableKey, StableKey sourceProjectStableKey, StableKey targetProjectStableKey, StableKey primaryEvidenceStableKey, ProjectReferenceDeclaration reference)
+        {
+            // REFERENCES edges model explicit project-to-project dependencies declared in MSBuild project files.
+            GraphMetadata metadata = reference.ToGraphMetadata();
+            StableKey edgeStableKey = new($"edge://{snapshotStableKey.Value}/references/{sourceProjectStableKey.Value}/{targetProjectStableKey.Value}");
+            return new ArchitectureEdge(
+                snapshotStableKey,
+                edgeStableKey,
+                EdgeKind.References,
+                sourceProjectStableKey,
+                targetProjectStableKey,
+                isDirect: true,
+                KnowledgeKind.Fact,
+                Confidence.Certain,
+                UnknownState.Known,
+                primaryEvidenceStableKey,
+                metadata,
+                FingerprintGenerator.ForEdge(EdgeKind.References, sourceProjectStableKey, targetProjectStableKey, isDirect: true, KnowledgeKind.Fact, metadata));
+        }
+
+        /// <summary>
+        /// Creates source evidence for a `ProjectReference` declaration in a project file.
+        /// </summary>
+        /// <param name="snapshotStableKey">The snapshot stable key that scopes the evidence.</param>
+        /// <param name="evidenceStableKey">The stable key for this evidence record.</param>
+        /// <param name="reference">The extracted project-reference declaration.</param>
+        /// <returns>An evidence record representing the source `ProjectReference` item.</returns>
+        private static EvidenceRecord CreateProjectReferenceEvidence(StableKey snapshotStableKey, StableKey evidenceStableKey, ProjectReferenceDeclaration reference)
+        {
+            // Line-level evidence is used when XML line info is present, with a file-level fallback for unusual XML readers.
+            int? lineNumber = reference.LineNumber;
+            GraphMetadata metadata = reference.ToGraphMetadata();
+            return new EvidenceRecord(
+                snapshotStableKey,
+                evidenceStableKey,
+                EvidenceKind.ProjectFile,
+                RepositoryRelativePath.Parse(reference.DeclaringProjectRelativePath),
+                lineNumber,
+                lineNumber,
+                symbolName: reference.ResolvedRelativePath,
+                containingSymbol: null,
+                snippetHash: null,
+                snippetPreview: reference.DeclaredInclude,
+                KnowledgeKind.Fact,
+                Confidence.Certain,
+                UnknownState.Known,
+                metadata,
+                FingerprintGenerator.ForEvidence(EvidenceKind.ProjectFile, reference.DeclaringProjectRelativePath, lineNumber, lineNumber, reference.ResolvedRelativePath, KnowledgeKind.Fact, metadata));
         }
 
         /// <summary>
@@ -528,6 +692,19 @@ namespace Archon.Extractors.Projects.Solutions
         }
 
         /// <summary>
+        /// Creates a deterministic evidence stable key for a project-reference declaration.
+        /// </summary>
+        /// <param name="snapshotStableKey">The snapshot stable key that scopes evidence identity.</param>
+        /// <param name="reference">The project-reference declaration that requires evidence.</param>
+        /// <returns>A stable evidence key for the declaration.</returns>
+        private static StableKey CreateProjectReferenceEvidenceStableKey(StableKey snapshotStableKey, ProjectReferenceDeclaration reference)
+        {
+            // Include the raw declaration and line number so duplicate declarations keep separate source evidence even when they produce one edge.
+            string lineSegment = reference.LineNumber?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "file";
+            return CreateEvidenceStableKey(snapshotStableKey, "project-reference", string.Concat(reference.DeclaringProjectRelativePath, ":", reference.DeclaredInclude, ":", lineSegment));
+        }
+
+        /// <summary>
         /// Creates the deterministic project stable key for a repository-relative project path.
         /// </summary>
         /// <param name="relativeProjectPath">The repository-relative project path normalized with forward slashes.</param>
@@ -536,6 +713,33 @@ namespace Archon.Extractors.Projects.Solutions
         {
             // Project identity must be path-based so duplicate declarations across submitted solutions collapse into one node.
             return new StableKey($"project://{relativeProjectPath}");
+        }
+
+        /// <summary>
+        /// Infers a supported project language from a referenced project file extension.
+        /// </summary>
+        /// <param name="projectPath">The absolute project file path to inspect.</param>
+        /// <param name="language">The inferred supported project language when the extension is recognized.</param>
+        /// <returns><see langword="true" /> when the file extension maps to a supported project language; otherwise, <see langword="false" />.</returns>
+        private static bool TryInferProjectLanguage(string projectPath, out ProjectLanguage language)
+        {
+            // Repository-contained reference targets are not solution declarations, so extension-based inference is the deterministic safe fallback.
+            string extension = Path.GetExtension(projectPath);
+
+            if (string.Equals(extension, ".vbproj", StringComparison.OrdinalIgnoreCase))
+            {
+                language = ProjectLanguage.VisualBasic;
+                return true;
+            }
+
+            if (string.Equals(extension, ".csproj", StringComparison.OrdinalIgnoreCase))
+            {
+                language = ProjectLanguage.CSharp;
+                return true;
+            }
+
+            language = ProjectLanguage.CSharp;
+            return false;
         }
 
         /// <summary>
