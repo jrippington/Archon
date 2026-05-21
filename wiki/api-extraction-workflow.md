@@ -6,6 +6,16 @@ Read this page with [solution architecture](solution-architecture.md) for layeri
 
 Reader path: [Home](home.md) -> [Solution architecture](solution-architecture.md) -> API extraction workflow -> [Validation and test workflows](validation-and-test-workflows.md).
 
+## API reference and descriptive metadata
+
+`ArchonApi` exposes a development-time Scalar API reference at `/scalar/v1`. Scalar reads the ASP.NET Core OpenAPI document served at `/openapi/v1.json` and gives contributors a browser-based way to inspect implemented HTTP contracts and exercise requests during local development. Both the OpenAPI document and Scalar endpoint are mapped only in the Development environment because the generated contract can reveal operational paths, request shapes, and response details that are useful to developers but should not be assumed safe for every deployed environment.
+
+Scalar is the repository's API-browsing surface. Swagger UI is intentionally not used in this repository. When contributors add future HTTP endpoints, they should make those endpoints useful in Scalar at the time the endpoint is introduced rather than treating API description as later polish. A minimal endpoint should have a stable operation name through `WithName`, an appropriate grouping tag through `WithTags`, a concise summary through `WithSummary`, and a fuller explanation through `WithDescription`. The summary should read like a short action label, while the description should explain the caller intent, important side effects, lifecycle expectations, and any safety boundary that matters to an API consumer.
+
+Request and response metadata should be explicit. Endpoints that accept JSON bodies should declare their accepted contract with `Accepts<TRequest>("application/json")`, and endpoints should declare successful, validation, not-found, accepted, and problem responses with the appropriate `Produces`, `ProducesValidationProblem`, or related ASP.NET Core metadata helpers. Route and query parameters should use names that are meaningful in the OpenAPI document, and unusual parameter semantics should be documented in the endpoint description or through supported parameter metadata. Public request and response contracts should continue to carry local XML documentation in source so generated documentation, code review, and contributor reading paths all explain the same contract.
+
+This descriptive standard applies to every future API module, not only the extraction workflow. Query, management, MCP-adjacent HTTP surfaces, and later workflow endpoints should be added with rich OpenAPI metadata when they are mapped. Tests for new API modules should verify that the endpoint is reachable and that the generated OpenAPI document contains the expected operation summaries or other key metadata. This keeps Scalar useful as the live contract catalog and prevents undocumented endpoints from becoming normal.
+
 ## Current endpoint surface
 
 The API host maps the extraction start, status, and history endpoints directly without a common `/api` prefix:

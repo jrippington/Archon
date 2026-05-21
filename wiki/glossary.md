@@ -134,6 +134,10 @@ Persistence handoff is the application-layer boundary where an assembled `Extrac
 
 Readiness answers whether a process is ready to accept work. Archon exposes readiness through `/health`.
 
+## Scalar API reference
+
+The Scalar API reference is the development-time browser UI for Archon's generated OpenAPI document. `ArchonApi` exposes it at `/scalar/v1` in the Development environment, backed by the OpenAPI document at `/openapi/v1.json`.
+
 ## Recent run history
 
 Recent run history is the operational list of accepted extraction runs returned by `GET /extractions`. It is ordered deterministically newest first and summarizes run state without becoming the durable architecture graph.

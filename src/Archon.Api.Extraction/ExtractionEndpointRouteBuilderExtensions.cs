@@ -42,17 +42,24 @@ namespace Archon.Api.Extraction
             endpoints.MapGet("/extractions", GetExtractionHistoryAsync)
                 .WithName("GetExtractionHistory")
                 .WithTags("Extraction")
-                .Produces<ExtractionRunHistoryResponse>(StatusCodes.Status200OK);
+                .WithSummary("List recent extraction runs")
+                .WithDescription("Returns a bounded, newest-first operational history of architecture extraction runs so clients can build dashboards or polling views without reading individual run records one at a time.")
+                .Produces<ExtractionRunHistoryResponse>(StatusCodes.Status200OK, "application/json");
 
             endpoints.MapPost("/extractions", StartExtractionAsync)
                 .WithName("StartExtraction")
                 .WithTags("Extraction")
+                .WithSummary("Start an architecture extraction run")
+                .WithDescription("Validates a repository root and submitted solution paths, creates an accepted extraction run, schedules asynchronous processing, and returns the initial run status for follow-up polling.")
+                .Accepts<StartExtractionApiRequest>("application/json")
                 .Produces<ExtractionRunStatusResponse>(StatusCodes.Status202Accepted)
                 .ProducesValidationProblem(StatusCodes.Status400BadRequest);
 
             endpoints.MapGet("/extractions/{runId}", GetExtractionStatusAsync)
                 .WithName("GetExtractionStatus")
                 .WithTags("Extraction")
+                .WithSummary("Get extraction run status")
+                .WithDescription("Returns the current lifecycle state, progress, warnings, errors, and persisted snapshot identity for a previously accepted extraction run.")
                 .Produces<ExtractionRunStatusResponse>(StatusCodes.Status200OK)
                 .Produces(StatusCodes.Status404NotFound);
 

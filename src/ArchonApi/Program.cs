@@ -1,5 +1,6 @@
 ﻿using Archon.Api.Extraction;
 using Archon.ServiceDefaults;
+using Scalar.AspNetCore;
 
 namespace ArchonApi
 {
@@ -7,8 +8,7 @@ namespace ArchonApi
     /// Provides the explicit executable entry point and bootstrap seam for the Archon API host.
     /// </summary>
     /// <remarks>
-    /// WP001 limits the API host to health and readiness probes. Extraction, query, management, Scalar, Swagger UI,
-    /// and human-facing UI endpoints are intentionally absent until their later work packages introduce them.
+        /// The API host composes operational probes, implemented feature modules, and a development-time Scalar API reference.
     /// </remarks>
     public static class Program
     {
@@ -50,9 +50,22 @@ namespace ArchonApi
             WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
             configureBuilder?.Invoke(builder);
             builder.AddServiceDefaults();
+            builder.Services.AddOpenApi();
             builder.Services.AddArchonExtractionApi();
 
             WebApplication app = builder.Build();
+
+            if (app.Environment.IsDevelopment())
+            {
+                // Scalar is deliberately development-only because the generated OpenAPI document can disclose operational contract details.
+                app.MapOpenApi();
+                app.MapScalarApiReference(options =>
+                {
+                    // The UI consumes the built-in ASP.NET Core OpenAPI document and avoids Swagger UI per repository standards.
+                    options.Title = "Archon API";
+                    options.OpenApiRoutePattern = "/openapi/v1.json";
+                });
+            }
 
             // Health probes remain mapped alongside feature modules so operational endpoints stay available for every host slice.
             app.MapDefaultEndpoints();

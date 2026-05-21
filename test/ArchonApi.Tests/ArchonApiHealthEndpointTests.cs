@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using System.Net;
+using System.Text.Json;
 using Xunit;
 
 namespace ArchonApi.Tests
@@ -34,7 +35,36 @@ namespace ArchonApi.Tests
         }
 
         /// <summary>
-    /// Confirms feature endpoints still outside WP004 are not accidentally exposed by the API host.
+        /// Confirms the development host exposes browsable Scalar and machine-readable OpenAPI documentation for implemented APIs.
+        /// </summary>
+        /// <returns>A task that completes after both documentation endpoint responses have been validated.</returns>
+        [Fact]
+        public async Task DocumentationEndpointsReturnSuccessfulResponsesInDevelopment()
+        {
+            // Scalar is a development-time browser for the OpenAPI document that describes the currently mapped API modules.
+            await using WebApplication app = Program.BuildApplication(["--environment", "Development"], builder => builder.WebHost.UseTestServer());
+            await app.StartAsync();
+
+            using HttpClient client = app.GetTestClient();
+
+            HttpResponseMessage openApiResponse = await client.GetAsync("/openapi/v1.json");
+            HttpResponseMessage scalarResponse = await client.GetAsync("/scalar/v1");
+            string openApiJson = await openApiResponse.Content.ReadAsStringAsync();
+
+            Assert.True(openApiResponse.IsSuccessStatusCode);
+            Assert.True(scalarResponse.IsSuccessStatusCode);
+
+            using JsonDocument document = JsonDocument.Parse(openApiJson);
+            JsonElement paths = document.RootElement.GetProperty("paths");
+            Assert.True(paths.TryGetProperty("/extractions", out JsonElement extractionsPath));
+            Assert.Equal("List recent extraction runs", extractionsPath.GetProperty("get").GetProperty("summary").GetString());
+            Assert.Equal("Start an architecture extraction run", extractionsPath.GetProperty("post").GetProperty("summary").GetString());
+            Assert.True(paths.TryGetProperty("/extractions/{runId}", out JsonElement statusPath));
+            Assert.Equal("Get extraction run status", statusPath.GetProperty("get").GetProperty("summary").GetString());
+        }
+
+        /// <summary>
+        /// Confirms feature endpoints still outside WP004 are not accidentally exposed by the API host.
         /// </summary>
         /// <returns>A task that completes after representative excluded endpoint paths have been checked.</returns>
         [Fact]
@@ -46,11 +76,10 @@ namespace ArchonApi.Tests
 
             using HttpClient client = app.GetTestClient();
 
-            // Representative query, management, Swagger, Scalar, and UI paths should remain absent until their own work packages.
+            // Representative query, management, Swagger, and human UI paths should remain absent until their own work packages.
             Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/query")).StatusCode);
             Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/management")).StatusCode);
             Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/swagger")).StatusCode);
-            Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/scalar")).StatusCode);
             Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/")).StatusCode);
         }
     }

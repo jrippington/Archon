@@ -1,6 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />
+    <PackageReference Include="Scalar.AspNetCore" Version="2.14.14" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Archon.ServiceDefaults\Archon.ServiceDefaults.csproj" />
     <ProjectReference Include="..\Archon.Application\Archon.Application.csproj" />
     <ProjectReference Include="..\Archon.Api.Extraction\Archon.Api.Extraction.csproj" />
