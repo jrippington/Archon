@@ -160,7 +160,7 @@ The term project extraction slice means the WP005 pipeline stage that reads subm
 
 ## Slice 2 - C# and VB.NET Project Metadata Extraction
 
-- [ ] Work Item 2: Extract C# and VB.NET project nodes with core build metadata
+- [x] Work Item 2: Extract C# and VB.NET project nodes with core build metadata - Completed
   - **Purpose**: Add the first project-level inventory capability by loading submitted solutions, identifying supported C# and VB.NET projects, and contributing project nodes with target frameworks, output type, assembly name, root namespace, SDK-style/old-style status, nullable setting, and implicit-usings metadata.
   - **Acceptance Criteria**:
 	- C# `.csproj` projects declared in submitted solutions are extracted as project nodes.
@@ -179,34 +179,36 @@ The term project extraction slice means the WP005 pipeline stage that reads subm
 	- No standalone implementation notes or `wiki/home.md` dumping are created.
 	- Can execute end-to-end through focused tests that start extraction for fixture solutions and inspect snapshot contributions.
 	- Executor must not stop mid-Work Item except for full completion, explicit user interruption, or a true blocker.
-  - [ ] Task 1: Implement the project-system abstraction
-	- [ ] Define interfaces for loading submitted solutions and project metadata behind repository-specific abstractions.
-	- [ ] Ensure abstractions do not expose Visual Studio automation, Neo4j driver types, or host-specific types to inward layers.
-	- [ ] Add documented cancellation and error behavior.
-  - [ ] Task 2: Implement hybrid solution/project loading
-	- [ ] Use `MSBuildWorkspace` or repository-approved Roslyn loading where project context is needed.
-	- [ ] Use deterministic project XML/MSBuild evaluation for metadata extraction from `.csproj`, `.vbproj`, `.props`, and `.targets` where safe.
-	- [ ] Avoid executing arbitrary build targets, repository scripts, package restore, or external feed calls.
-  - [ ] Task 3: Extract C# and VB.NET project nodes
-	- [ ] Map `.csproj` and `.vbproj` files to project nodes with stable keys based on repository identity and repository-relative project path.
-	- [ ] Deduplicate project nodes within a snapshot when a project appears through more than one submitted solution.
-	- [ ] Preserve solution-to-project membership using `CONTAINS` relationships.
-  - [ ] Task 4: Extract core build metadata
-	- [ ] Extract `TargetFramework`, `TargetFrameworks`, legacy target framework declarations, output type, assembly name, root namespace, SDK value, nullable setting, and implicit-usings setting.
-	- [ ] Apply documented defaults only when those defaults are deterministic and evidence-supported.
-	- [ ] Represent missing or unresolved values as unknown rather than omitting them.
-  - [ ] Task 5: Capture project-file evidence
-	- [ ] Capture evidence for each project node and each metadata group.
-	- [ ] Include XML element line spans where practical and file-level evidence fallback where spans are unavailable.
-	- [ ] Avoid storing full file contents in metadata.
-  - [ ] Task 6: Add tests and validation
-	- [ ] Add fixture solutions for C#, VB.NET, mixed-language, SDK-style, and old-style project cases.
-	- [ ] Add tests for metadata extraction, unknown handling, evidence capture, and unsupported project warnings.
-	- [ ] Run targeted builds and focused tests only; do not start Aspire AppHost.
-  - [ ] Task 7: Perform documentation and wiki review for the slice
-	- [ ] Apply documentation-pass comments to all changed code.
-	- [ ] Review and update selected wiki pages, creating a dedicated project extraction page if the Slice 1 review did not already create one and the detail now warrants it.
-	- [ ] Record the wiki impact matrix or equivalent Work Item completion result.
+	- [x] Task 1: Implement the project-system abstraction - Completed
+	- [x] Defined repository-specific project metadata extraction behind documented extractor/classifier types in `src/Archon.Extractors.Projects/Projects`.
+	- [x] Kept the abstraction free of Visual Studio automation, Neo4j driver types, and host-specific types.
+	- [x] Added documented cancellation and controlled read/parse error behavior through the existing pipeline stage result path.
+  - [x] Task 2: Implement hybrid solution/project loading - Completed
+	- [x] Reused the submitted-solution parser from Slice 1 for solution context and declaration membership.
+	- [x] Used deterministic project XML inspection for `.csproj` and `.vbproj` metadata extraction where safe.
+	- [x] Avoided arbitrary target execution, repository scripts, package restore, external feed calls, AppHost startup, and Visual Studio automation.
+  - [x] Task 3: Extract C# and VB.NET project nodes - Completed
+	- [x] Mapped `.csproj` and `.vbproj` files to `Project` architecture nodes with repository-relative `project://` stable keys.
+	- [x] Deduplicated project nodes within a snapshot when a project appears through more than one submitted solution.
+	- [x] Preserved solution-to-project membership using direct `CONTAINS` relationships.
+  - [x] Task 4: Extract core build metadata - Completed
+	- [x] Extracted `TargetFramework`, `TargetFrameworks`, legacy `TargetFrameworkVersion`, output type, assembly name, root namespace, SDK value, nullable setting, and implicit-usings setting.
+	- [x] Applied the deterministic assembly-name default from the project file name when `AssemblyName` is absent.
+	- [x] Represented missing target framework data with explicit metadata for unknown target framework state.
+  - [x] Task 5: Capture project-file evidence - Completed
+	- [x] Captured project-file evidence for each project node and preserved solution declaration evidence for membership and unsupported declarations.
+	- [x] Used file-level evidence spans for project metadata groups as the current deterministic fallback.
+	- [x] Avoided storing full project or solution file contents in metadata.
+  - [x] Task 6: Add tests and validation - Completed
+	- [x] Added fixture solutions and project files for C#, VB.NET, mixed-language, SDK-style, and old-style project cases.
+	- [x] Added tests for metadata extraction, evidence capture, unsupported project warnings, no-supported-project blocking behavior, target frameworks, and project deduplication.
+	- [x] Ran targeted builds and focused tests only; did not start the Aspire AppHost.
+  - [x] Task 7: Perform documentation and wiki review for the slice - Completed
+	- [x] Applied documentation-pass comments to all changed production and test code.
+	- [x] Reviewed and updated existing wiki topic pages; no dedicated project extraction page was needed because the current material fit the extraction workflow, graph domain model, validation, glossary, and landing-page reader path.
+	- [x] Recorded the wiki impact matrix in this Work Item completion result.
+  - **Completion Summary**: Implemented deterministic C# and VB.NET project metadata extraction in `src/Archon.Extractors.Projects/Projects/*` and extended `RepositorySolutionExtractionStage` to contribute project nodes, solution-to-project `CONTAINS` edges, project-file evidence, unsupported project warnings, and no-supported-project blocking behavior. Added `test/Archon.Extractors.Projects.Tests/Projects/ProjectMetadataExtractionStageTests.cs` and updated existing solution-stage regression fixtures for the new project-reading behavior. Validation passed for `dotnet build D:\Dev\Archon\src\Archon.Extractors.Projects\Archon.Extractors.Projects.csproj`, `dotnet build D:\Dev\Archon\test\Archon.Extractors.Projects.Tests\Archon.Extractors.Projects.Tests.csproj`, focused `ProjectMetadataExtractionStageTests` (6/6), focused `RepositorySolutionExtractionStageTests` (3/3), and all `Archon.Extractors.Projects.Tests` (10/10). A full workspace `run_build` attempt still reports unrelated pre-existing `Archon.Infrastructure.Neo4j.Tests` constructor arity errors against `ExtractedArchitectureSnapshot`; those were not introduced by this work item.
+  - **Wiki Review Result**: Updated `wiki/api-extraction-workflow.md`, `wiki/graph-domain-model.md`, `wiki/validation-and-test-workflows.md`, `wiki/glossary.md`, and concise orientation text in `wiki/home.md`. Wiki impact matrix: affected concepts were project metadata extraction, project nodes, SDK-style projects, old-style projects, target frameworks, solution-to-project containment, project-file evidence, unsupported declaration warnings, and validation commands; pages reviewed were extraction workflow, graph domain model, validation workflows, glossary, and home; pages updated were those same five pages; pages created/retired were none; page-structure decision was to keep detailed guidance on the existing topic pages and keep `home.md` as a concise landing page because the new material extends existing extraction/domain/validation concepts rather than introducing a separate contributor journey.
   - **Files**:
 	- `src/Archon.Roslyn.Abstractions/Solutions/*`: Solution/project loading abstractions if this project exists.
 	- `src/Archon.Extractors.Projects/Projects/*`: Project metadata extraction implementation.

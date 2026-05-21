@@ -3,6 +3,7 @@ using Archon.Domain.Graph.ControlledValues;
 using Archon.Domain.Graph.Identity;
 using Archon.Domain.Graph.Metadata;
 using Archon.Domain.Graph.Model;
+using Archon.Extractors.Projects.Projects;
 
 namespace Archon.Extractors.Projects.Solutions
 {
@@ -17,12 +18,18 @@ namespace Archon.Extractors.Projects.Solutions
         private readonly SolutionFileParser _solutionFileParser;
 
         /// <summary>
+        /// Stores the deterministic project metadata extractor used for supported C# and VB.NET project files.
+        /// </summary>
+        private readonly ProjectMetadataExtractor _projectMetadataExtractor;
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="RepositorySolutionExtractionStage" /> class.
         /// </summary>
         public RepositorySolutionExtractionStage()
         {
             // The default constructor keeps dependency-injection registration simple while isolating file parsing in a dedicated collaborator.
             _solutionFileParser = new SolutionFileParser();
+            _projectMetadataExtractor = new ProjectMetadataExtractor();
         }
 
         /// <summary>
@@ -49,6 +56,8 @@ namespace Archon.Extractors.Projects.Solutions
             StableKey repositoryEvidenceStableKey = CreateEvidenceStableKey(snapshotStableKey, "repository", repositoryStableKey.Value);
 
             List<(string AbsolutePath, string RelativePath, SolutionFileFacts Facts)> parsedSolutions = [];
+            List<(string SolutionRelativePath, SolutionProjectDeclaration Declaration, ProjectLanguage Language, string RelativeProjectPath, ProjectMetadata Metadata)> extractedProjects = [];
+            List<(string SolutionRelativePath, SolutionProjectDeclaration Declaration)> unsupportedDeclarations = [];
 
             foreach (string solutionPath in context.ResolvedInput.SolutionPaths)
             {
@@ -59,12 +68,31 @@ namespace Archon.Extractors.Projects.Solutions
                 {
                     SolutionFileFacts solutionFacts = await _solutionFileParser.ParseAsync(solutionPath, cancellationToken).ConfigureAwait(false);
                     parsedSolutions.Add((solutionPath, relativeSolutionPath, solutionFacts));
+
+                    foreach (SolutionProjectDeclaration declaration in solutionFacts.ProjectDeclarations)
+                    {
+                        if (!ProjectDeclarationClassifier.TryClassify(declaration, out ProjectLanguage language))
+                        {
+                            unsupportedDeclarations.Add((relativeSolutionPath, declaration));
+                            continue;
+                        }
+
+                        string absoluteProjectPath = ResolveDeclaredProjectPath(Path.GetDirectoryName(solutionPath)!, declaration.DeclaredPath);
+                        string relativeProjectPath = GetRepositoryRelativePath(context.ResolvedInput.RepositoryRootDirectory, absoluteProjectPath);
+                        ProjectMetadata projectMetadata = await _projectMetadataExtractor.ExtractAsync(absoluteProjectPath, relativeProjectPath, declaration.Name, language, cancellationToken).ConfigureAwait(false);
+                        extractedProjects.Add((relativeSolutionPath, declaration, language, relativeProjectPath, projectMetadata));
+                    }
                 }
                 catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException)
                 {
                     // The returned message is intentionally path-free and exception-type-free so run status remains credential-safe.
                     return ExtractionStageResult.BlockingError("A submitted solution file could not be read as a valid Visual Studio solution. Review server logs for details.");
                 }
+            }
+
+            if (extractedProjects.Count == 0 && unsupportedDeclarations.Count > 0)
+            {
+                return ExtractionStageResult.BlockingError("No supported C# or VB.NET projects could be extracted from the submitted solution files.");
             }
 
             context.Accumulation.AddRepository(new RepositoryModel(
@@ -96,13 +124,91 @@ namespace Archon.Extractors.Projects.Solutions
 
                 foreach (SolutionProjectDeclaration declaration in solutionFacts.ProjectDeclarations)
                 {
-                    // Slice 1 captures project declaration evidence only; later slices turn supported declarations into project nodes and relationships.
+                    // The declaration evidence supports both unsupported warnings and supported solution-to-project membership facts.
                     StableKey declarationEvidenceStableKey = CreateEvidenceStableKey(snapshotStableKey, "solution-project", string.Concat(solutionStableKey.Value, ":", declaration.LineNumber.ToString(System.Globalization.CultureInfo.InvariantCulture)));
                     context.Accumulation.AddEvidence(CreateProjectDeclarationEvidence(snapshotStableKey, declarationEvidenceStableKey, relativeSolutionPath, declaration));
+                }
+
+                foreach ((string _, SolutionProjectDeclaration declaration, ProjectLanguage _, string relativeProjectPath, ProjectMetadata metadata) in extractedProjects.Where(project => string.Equals(project.SolutionRelativePath, relativeSolutionPath, StringComparison.Ordinal)))
+                {
+                    StableKey projectStableKey = CreateProjectStableKey(relativeProjectPath);
+                    StableKey projectEvidenceStableKey = CreateEvidenceStableKey(snapshotStableKey, "project", projectStableKey.Value);
+                    context.Accumulation.AddNode(CreateProjectNode(snapshotStableKey, projectStableKey, metadata, projectEvidenceStableKey));
+                    context.Accumulation.AddEvidence(CreateProjectFileEvidence(snapshotStableKey, projectEvidenceStableKey, relativeProjectPath, declaration.Name, metadata));
+                    context.Accumulation.AddEdge(CreateSolutionProjectContainsEdge(snapshotStableKey, solutionStableKey, projectStableKey, projectEvidenceStableKey, relativeProjectPath));
+                }
+
+                foreach ((string _, SolutionProjectDeclaration declaration) in unsupportedDeclarations.Where(project => string.Equals(project.SolutionRelativePath, relativeSolutionPath, StringComparison.Ordinal)))
+                {
+                    context.Accumulation.AddWarning($"Unsupported project declaration '{declaration.Name}' at '{declaration.DeclaredPath}' was recorded as evidence but was not extracted because it is not a C# or VB.NET project.");
                 }
             }
 
             return ExtractionStageResult.Success();
+        }
+
+        /// <summary>
+        /// Creates a project architecture node from deterministic project metadata.
+        /// </summary>
+        /// <param name="snapshotStableKey">The snapshot stable key that scopes the node.</param>
+        /// <param name="projectStableKey">The repository-relative stable key for the project.</param>
+        /// <param name="metadata">The extracted project metadata.</param>
+        /// <param name="primaryEvidenceStableKey">The project-file evidence stable key that explains the node.</param>
+        /// <returns>An architecture node representing one supported C# or VB.NET project file.</returns>
+        private static ArchitectureNode CreateProjectNode(StableKey snapshotStableKey, StableKey projectStableKey, ProjectMetadata metadata, StableKey primaryEvidenceStableKey)
+        {
+            // Project nodes use repository-relative paths as qualified/search names so same-named projects in different folders remain distinct.
+            GraphMetadata graphMetadata = metadata.ToGraphMetadata();
+            string language = ProjectMetadata.ToLanguageDisplayName(metadata.Language);
+            return new ArchitectureNode(
+                snapshotStableKey,
+                projectStableKey,
+                NodeKind.Project,
+                metadata.ProjectName,
+                qualifiedName: metadata.RelativeProjectPath,
+                searchName: metadata.RelativeProjectPath,
+                language,
+                projectStableKey,
+                parentNodeStableKey: null,
+                KnowledgeKind.Fact,
+                ownership: null,
+                externalCategory: null,
+                Confidence.Certain,
+                UnknownState.Known,
+                primaryEvidenceStableKey,
+                graphMetadata,
+                FingerprintGenerator.ForNode(NodeKind.Project, metadata.ProjectName, metadata.RelativeProjectPath, metadata.RelativeProjectPath, KnowledgeKind.Fact, graphMetadata));
+        }
+
+        /// <summary>
+        /// Creates project-file evidence for a supported project node and its extracted metadata.
+        /// </summary>
+        /// <param name="snapshotStableKey">The snapshot stable key that scopes the evidence.</param>
+        /// <param name="evidenceStableKey">The stable key for this evidence record.</param>
+        /// <param name="relativeProjectPath">The repository-relative project path.</param>
+        /// <param name="projectName">The project display name declared by the solution.</param>
+        /// <param name="metadata">The extracted project metadata used for evidence metadata.</param>
+        /// <returns>An evidence record representing the project file that supported the project node.</returns>
+        private static EvidenceRecord CreateProjectFileEvidence(StableKey snapshotStableKey, StableKey evidenceStableKey, string relativeProjectPath, string projectName, ProjectMetadata metadata)
+        {
+            // File-level project evidence is sufficient for core metadata until later slices add property-level line spans.
+            GraphMetadata graphMetadata = metadata.ToGraphMetadata();
+            return new EvidenceRecord(
+                snapshotStableKey,
+                evidenceStableKey,
+                EvidenceKind.ProjectFile,
+                RepositoryRelativePath.Parse(relativeProjectPath),
+                startLine: 1,
+                endLine: Math.Max(1, metadata.LineCount),
+                projectName,
+                containingSymbol: null,
+                snippetHash: null,
+                snippetPreview: "Supported project file used for WP005 project metadata extraction.",
+                KnowledgeKind.Fact,
+                Confidence.Certain,
+                UnknownState.Known,
+                graphMetadata,
+                FingerprintGenerator.ForEvidence(EvidenceKind.ProjectFile, relativeProjectPath, 1, Math.Max(1, metadata.LineCount), projectName, KnowledgeKind.Fact, graphMetadata));
         }
 
         /// <summary>
@@ -135,6 +241,39 @@ namespace Archon.Extractors.Projects.Solutions
                 primaryEvidenceStableKey,
                 metadata,
                 FingerprintGenerator.ForNode(NodeKind.Repository, repositoryName, repositoryName, repositoryName, KnowledgeKind.Fact, metadata));
+        }
+
+        /// <summary>
+        /// Creates a solution-to-project containment edge contributed by project metadata extraction.
+        /// </summary>
+        /// <param name="snapshotStableKey">The snapshot stable key that scopes the edge.</param>
+        /// <param name="solutionStableKey">The source solution stable key.</param>
+        /// <param name="projectStableKey">The target project stable key.</param>
+        /// <param name="primaryEvidenceStableKey">The evidence stable key that explains the project membership.</param>
+        /// <param name="relativeProjectPath">The repository-relative project path used in deterministic metadata.</param>
+        /// <returns>An architecture edge representing solution membership for one project.</returns>
+        private static ArchitectureEdge CreateSolutionProjectContainsEdge(StableKey snapshotStableKey, StableKey solutionStableKey, StableKey projectStableKey, StableKey primaryEvidenceStableKey, string relativeProjectPath)
+        {
+            // The membership edge is distinct per solution so shared projects keep one project node but multiple solution containment facts.
+            GraphMetadata metadata = GraphMetadata.From(new Dictionary<string, object?>
+            {
+                ["contains.source"] = "SubmittedSolution",
+                ["contains.targetPath"] = relativeProjectPath
+            });
+            StableKey edgeStableKey = new($"edge://{snapshotStableKey.Value}/contains/{solutionStableKey.Value}/{projectStableKey.Value}");
+            return new ArchitectureEdge(
+                snapshotStableKey,
+                edgeStableKey,
+                EdgeKind.Contains,
+                solutionStableKey,
+                projectStableKey,
+                isDirect: true,
+                KnowledgeKind.Fact,
+                Confidence.Certain,
+                UnknownState.Known,
+                primaryEvidenceStableKey,
+                metadata,
+                FingerprintGenerator.ForEdge(EdgeKind.Contains, solutionStableKey, projectStableKey, isDirect: true, KnowledgeKind.Fact, metadata));
         }
 
         /// <summary>
@@ -386,6 +525,30 @@ namespace Archon.Extractors.Projects.Solutions
         {
             // Evidence keys are snapshot-scoped so equivalent source lines in different runs remain separate evidence records.
             return new StableKey($"evidence://{snapshotStableKey.Value}/{evidenceKind}/{targetIdentity}");
+        }
+
+        /// <summary>
+        /// Creates the deterministic project stable key for a repository-relative project path.
+        /// </summary>
+        /// <param name="relativeProjectPath">The repository-relative project path normalized with forward slashes.</param>
+        /// <returns>The stable key used for project nodes and solution membership edges.</returns>
+        private static StableKey CreateProjectStableKey(string relativeProjectPath)
+        {
+            // Project identity must be path-based so duplicate declarations across submitted solutions collapse into one node.
+            return new StableKey($"project://{relativeProjectPath}");
+        }
+
+        /// <summary>
+        /// Resolves a solution-declared project path against the directory containing the submitted solution file.
+        /// </summary>
+        /// <param name="solutionDirectory">The absolute directory that contains the submitted solution.</param>
+        /// <param name="declaredProjectPath">The project path text declared inside the solution file.</param>
+        /// <returns>The absolute normalized project file path.</returns>
+        private static string ResolveDeclaredProjectPath(string solutionDirectory, string declaredProjectPath)
+        {
+            // Solution declarations are relative to the solution file; absolute declarations remain absolute after Path.Combine semantics.
+            string platformPath = declaredProjectPath.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
+            return Path.GetFullPath(Path.Combine(solutionDirectory, platformPath));
         }
 
         /// <summary>

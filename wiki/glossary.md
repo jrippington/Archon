@@ -136,7 +136,19 @@ The placeholder stage was the early extraction stage that proved the pipeline bo
 
 ## Project extraction stage
 
-The project extraction stage is the WP005 pipeline stage family that reads submitted solution and project artifacts and contributes graph facts to the shared extraction accumulator. The current `project-repository-solution` stage reads only explicitly submitted solution files and contributes repository nodes, solution nodes, repository-to-solution containment relationships, and solution-file evidence.
+The project extraction stage is the WP005 pipeline stage family that reads submitted solution and project artifacts and contributes graph facts to the shared extraction accumulator. The current `project-repository-solution` stage reads explicitly submitted solution files, extracts supported C# and VB.NET project files declared by those solutions, and contributes repository nodes, solution nodes, project nodes, containment relationships, solution-file evidence, project-declaration evidence, project-file evidence, and unsupported-project warnings.
+
+## Project node
+
+A project node is an architecture node representing a supported C# or VB.NET project file. Its stable key is based on the repository-relative project path so the same project declared by multiple submitted solutions remains one graph identity.
+
+## SDK-style project
+
+An SDK-style project is an MSBuild project whose root `<Project>` element declares an `Sdk` attribute such as `Microsoft.NET.Sdk`. Archon reads that XML as metadata and does not execute build targets to identify the project style.
+
+## Old-style project
+
+An old-style project is a non-SDK-style MSBuild project, often using the legacy MSBuild XML namespace and properties such as `TargetFrameworkVersion`. Archon records it as old-style when no root `Sdk` attribute is present.
 
 ## Run lifecycle
 
@@ -169,6 +181,10 @@ A stable key is the durable logical identity for an architecture fact. It is not
 ## Testcontainers
 
 Testcontainers is a test library that starts short-lived Docker containers under test control and removes them after tests. Archon uses it for real Neo4j integration tests without starting the Aspire AppHost.
+
+## Target framework
+
+A target framework is the .NET platform moniker or legacy framework version a project builds for, such as `net10.0`, `net8.0`, or `v4.7.2`. Archon records single-target, multi-target, and legacy target framework values from project-file metadata when available.
 
 ## Unknown state
 

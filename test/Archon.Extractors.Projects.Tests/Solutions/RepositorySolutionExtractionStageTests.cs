@@ -44,6 +44,7 @@ namespace Archon.Extractors.Projects.Tests.Solutions
             // This scenario is the minimal WP005 vertical slice: one validated repository root and one explicit solution path.
             string repositoryRoot = CreateRepositoryRoot();
             string solutionPath = CreateSolutionFile(repositoryRoot, "CustomerSuite.sln", "Customer.Api", "Customer.Api.csproj");
+            CreateProjectFile(repositoryRoot, "Customer.Api.csproj");
             ResolvedExtractionInput input = CreateResolvedInput(repositoryRoot, [solutionPath]);
             ExtractionRun run = CreateRun(input);
             ArchitectureSnapshotAccumulator accumulation = new();
@@ -74,6 +75,8 @@ namespace Archon.Extractors.Projects.Tests.Solutions
             string repositoryRoot = CreateRepositoryRoot();
             string firstSolutionPath = CreateSolutionFile(repositoryRoot, "CustomerSuite.sln", "Customer.Api", "Customer.Api.csproj");
             string secondSolutionPath = CreateSolutionFile(repositoryRoot, Path.Combine("tools", "Tools.sln"), "Customer.Tools", "Customer.Tools.csproj");
+            CreateProjectFile(repositoryRoot, "Customer.Api.csproj");
+            CreateProjectFile(repositoryRoot, Path.Combine("tools", "Customer.Tools.csproj"));
             _ = CreateSolutionFile(repositoryRoot, "Unsubmitted.sln", "Should.Not.Appear", "Should.Not.Appear.csproj");
             ResolvedExtractionInput input = CreateResolvedInput(repositoryRoot, [firstSolutionPath, secondSolutionPath]);
             ExtractionRun run = CreateRun(input);
@@ -87,7 +90,7 @@ namespace Archon.Extractors.Projects.Tests.Solutions
             Assert.Single(snapshot.Repositories);
             Assert.Equal(2, snapshot.Solutions.Count);
             Assert.Equal(2, snapshot.Nodes.Count(node => node.NodeKind == NodeKind.Solution));
-            Assert.Equal(2, snapshot.Edges.Count(edge => edge.EdgeKind == EdgeKind.Contains));
+            Assert.Equal(2, snapshot.Edges.Count(edge => edge.EdgeKind == EdgeKind.Contains && edge.SourceNodeStableKey.Value.StartsWith("repository://", StringComparison.Ordinal)));
             Assert.Contains(snapshot.Solutions, solution => solution.Path.Value == "CustomerSuite.sln");
             Assert.Contains(snapshot.Solutions, solution => solution.Path.Value == "tools/Tools.sln");
             Assert.DoesNotContain(snapshot.Solutions, solution => solution.Path.Value == "Unsubmitted.sln");
@@ -161,6 +164,29 @@ namespace Archon.Extractors.Projects.Tests.Solutions
                         "EndGlobal"
                     ]));
             return solutionPath;
+        }
+
+        /// <summary>
+        /// Creates a minimal SDK-style project file for repository/solution regression fixtures that declare supported projects.
+        /// </summary>
+        /// <param name="repositoryRoot">The repository root that contains the project file.</param>
+        /// <param name="relativeProjectPath">The repository-relative project path to write.</param>
+        private static void CreateProjectFile(string repositoryRoot, string relativeProjectPath)
+        {
+            // Work Item 2 now reads supported project declarations, so Slice 1 regression fixtures need real project files.
+            string projectPath = Path.Combine(repositoryRoot, relativeProjectPath);
+            Directory.CreateDirectory(Path.GetDirectoryName(projectPath)!);
+            File.WriteAllText(
+                projectPath,
+                string.Join(
+                    Environment.NewLine,
+                    [
+                        "<Project Sdk=\"Microsoft.NET.Sdk\">",
+                        "  <PropertyGroup>",
+                        "    <TargetFramework>net10.0</TargetFramework>",
+                        "  </PropertyGroup>",
+                        "</Project>"
+                    ]));
         }
 
         /// <summary>
