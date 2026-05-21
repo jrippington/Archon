@@ -89,6 +89,7 @@ namespace Archon.Application.Tests.Extraction.Orchestration
             InMemoryExtractionRunHistory runHistory = new();
             string repositoryRoot = CreateRepositoryRoot();
             string solutionPath = CreateSolutionFile(repositoryRoot, "CustomerSuite.sln", "Customer.Api", "Customer.Api.csproj");
+            CreateProjectFile(repositoryRoot, "Customer.Api.csproj");
             ResolvedExtractionInput input = new(
                 repositoryRoot,
                 [solutionPath],
@@ -298,6 +299,29 @@ namespace Archon.Application.Tests.Extraction.Orchestration
                         "EndGlobal"
                     ]));
             return solutionPath;
+        }
+
+        /// <summary>
+        /// Creates a minimal SDK-style project file for orchestration fixtures that exercise the real project extraction stage.
+        /// </summary>
+        /// <param name="repositoryRoot">The repository root that contains the project file.</param>
+        /// <param name="relativeProjectPath">The repository-relative project path to write.</param>
+        private static void CreateProjectFile(string repositoryRoot, string relativeProjectPath)
+        {
+            // The real WP005 stage now reads supported project declarations, so orchestration fixtures need matching project files.
+            string projectPath = Path.Combine(repositoryRoot, relativeProjectPath);
+            Directory.CreateDirectory(Path.GetDirectoryName(projectPath)!);
+            File.WriteAllText(
+                projectPath,
+                string.Join(
+                    Environment.NewLine,
+                    [
+                        "<Project Sdk=\"Microsoft.NET.Sdk\">",
+                        "  <PropertyGroup>",
+                        "    <TargetFramework>net10.0</TargetFramework>",
+                        "  </PropertyGroup>",
+                        "</Project>"
+                    ]));
         }
 
         /// <summary>
