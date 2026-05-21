@@ -43,9 +43,45 @@ namespace Archon.Roslyn.SemanticModel
             string sourceStableKey,
             string targetStableKey)
         {
-            // Relationship keys are derived entirely from endpoint keys and relationship kind so duplicate discoveries collapse deterministically.
-            string payload = JoinPayload(relationshipKind.ToString(), sourceStableKey, targetStableKey);
+            // This overload preserves declaration-containment key behavior when no relationship source qualifier is required.
+            return ForRelationship(relationshipKind, sourceStableKey, targetStableKey, relationshipSource: null);
+        }
+
+        /// <summary>
+        /// Builds a relationship stable key for a semantic relationship fact and deterministic discovery qualifier.
+        /// </summary>
+        /// <param name="relationshipKind">The semantic relationship category represented by the key.</param>
+        /// <param name="sourceStableKey">The stable key of the source declaration or source symbol surrogate.</param>
+        /// <param name="targetStableKey">The stable key of the target declaration or target symbol surrogate.</param>
+        /// <param name="relationshipSource">The deterministic relationship-source qualifier used to keep distinct dependency meanings separate.</param>
+        /// <returns>A deterministic stable key for the relationship.</returns>
+        public static string ForRelationship(
+            SemanticRelationshipKind relationshipKind,
+            string sourceStableKey,
+            string targetStableKey,
+            string? relationshipSource)
+        {
+            // Relationship keys are endpoint-derived and can include a source qualifier so duplicate discoveries collapse without merging distinct dependency categories.
+            string payload = JoinPayload(relationshipKind.ToString(), sourceStableKey, targetStableKey, string.IsNullOrWhiteSpace(relationshipSource) ? "default" : relationshipSource);
             return $"semantic-relationship://{relationshipKind.ToString().ToLowerInvariant()}/{HashPayload(payload)}";
+        }
+
+        /// <summary>
+        /// Builds a symbol reference stable key for a relationship endpoint that may not have a source declaration fact in the analyzed repository.
+        /// </summary>
+        /// <param name="sourceLanguage">The source language that produced the relationship.</param>
+        /// <param name="projectContext">The logical project context supplied by the extraction caller.</param>
+        /// <param name="symbolIdentity">The symbol identity captured from Roslyn.</param>
+        /// <returns>A deterministic stable key for the referenced symbol endpoint.</returns>
+        public static string ForSymbolReference(
+            SourceLanguage sourceLanguage,
+            string projectContext,
+            SemanticSymbolIdentity symbolIdentity)
+        {
+            // Symbol references let relationship targets remain deterministic even before every target is represented as a declaration node.
+            ArgumentNullException.ThrowIfNull(symbolIdentity);
+            string payload = JoinPayload(sourceLanguage.ToString(), projectContext, symbolIdentity.FullyQualifiedName, symbolIdentity.MetadataName);
+            return $"semantic-symbol-reference://{HashPayload(payload)}";
         }
 
         /// <summary>

@@ -139,7 +139,7 @@ The plan assumes WP001 through WP005 have already provided the solution skeleton
 
 ## 2. C# Relationship, Dependency, and Attribute Slice
 
-- [ ] Work Item 2: Extend C# semantic extraction to relationships and dependencies
+- [x] Work Item 2: Extend C# semantic extraction to relationships and dependencies - Completed
   - **Purpose**: Add demonstrable C# architecture intelligence beyond declarations by extracting method calls, property access, object creation, constructor injection, inheritance, interface implementation, attributes, parameters, and return types with evidence and confidence.
   - **Acceptance Criteria**:
 	- C# fixture code produces `CALLS`, `IMPLEMENTS`, `INHERITS`, `INJECTS`, and `DEPENDS_ON` relationships.
@@ -155,28 +155,28 @@ The plan assumes WP001 through WP005 have already provided the solution skeleton
 	- Wiki review is performed for relationship vocabulary and dependency semantics; relevant pages are updated or an explicit no-change result is recorded.
 	- Can execute end to end via targeted C# Roslyn relationship tests.
 	- Executor must not stop mid-work-item unless the work item is complete, the user explicitly interrupts, or a true blocker prevents further autonomous progress.
-  - [ ] Task 1: Extend relationship fact contracts if needed
-	- [ ] Confirm existing relationship fact models can carry relationship kind, source identity, target identity, confidence, evidence links, metadata, and unknown reason.
-	- [ ] Add missing metadata fields only where required by the WP006 specification.
-	- [ ] Document every new or changed contract according to the documentation-pass standard.
-  - [ ] Task 2: Implement C# symbol relationship visitors
-	- [ ] Extract method calls, constructor calls, object creation, property access, and member access using semantic model APIs.
-	- [ ] Extract inheritance, interface implementation, overridden member, and implemented member facts from symbols.
-	- [ ] Extract constructor injection from constructor parameters with conservative confidence classification.
-	- [ ] Extract attributes and related symbol dependencies.
-  - [ ] Task 3: Add confidence and duplicate handling
-	- [ ] Assign high confidence to compiler-resolved relationships.
-	- [ ] Assign lower confidence to deterministic inferred facts where inference is required.
-	- [ ] Implement deterministic de-duplication for repeated syntax, partial declarations, and accessor-related relationships.
-  - [ ] Task 4: Add targeted relationship tests
-	- [ ] Test direct calls, constructor calls, object creation, extension methods, static calls, property access, and delegate invocations where feasible.
-	- [ ] Test base class inheritance, interface implementation, generic relationships, and overridden members.
-	- [ ] Test constructor injection detection and relationship confidence.
-	- [ ] Test attribute extraction and attribute-driven dependencies.
-  - [ ] Task 5: Perform documentation and wiki review for relationship semantics
-	- [ ] Review graph relationship vocabulary in `wiki/graph-domain-model.md`.
-	- [ ] Review extraction workflow explanation in `wiki/api-extraction-workflow.md` or a dedicated Roslyn page if created.
-	- [ ] Update cross-links and glossary entries for terms such as semantic model, symbol, relationship fact, confidence, and constructor injection where needed.
+	- [x] Task 1: Extend relationship fact contracts if needed - Completed
+	- [x] Confirm existing relationship fact models can carry relationship kind, source identity, target identity, confidence, evidence links, metadata, and unknown reason.
+	- [x] Add missing metadata fields only where required by the WP006 specification.
+	- [x] Document every new or changed contract according to the documentation-pass standard.
+  - [x] Task 2: Implement C# symbol relationship visitors - Completed
+	- [x] Extract method calls, constructor calls, object creation, property access, and member access using semantic model APIs.
+	- [x] Extract inheritance, interface implementation, overridden member, and implemented member facts from symbols.
+	- [x] Extract constructor injection from constructor parameters with conservative confidence classification.
+	- [x] Extract attributes and related symbol dependencies.
+  - [x] Task 3: Add confidence and duplicate handling - Completed
+	- [x] Assign high confidence to compiler-resolved relationships.
+	- [x] Assign lower confidence to deterministic inferred facts where inference is required.
+	- [x] Implement deterministic de-duplication for repeated syntax, partial declarations, and accessor-related relationships.
+  - [x] Task 4: Add targeted relationship tests - Completed
+	- [x] Test direct calls, constructor calls, object creation, extension methods, static calls, property access, and delegate invocations where feasible.
+	- [x] Test base class inheritance, interface implementation, generic relationships, and overridden members.
+	- [x] Test constructor injection detection and relationship confidence.
+	- [x] Test attribute extraction and attribute-driven dependencies.
+  - [x] Task 5: Perform documentation and wiki review for relationship semantics - Completed
+	- [x] Review graph relationship vocabulary in `wiki/graph-domain-model.md`.
+	- [x] Review extraction workflow explanation in `wiki/api-extraction-workflow.md` or a dedicated Roslyn page if created.
+	- [x] Update cross-links and glossary entries for terms such as semantic model, symbol, relationship fact, confidence, and constructor injection where needed.
   - **Files**:
 	- `src/Archon.Roslyn/**`: Relationship, confidence, identity, and evidence helpers.
 	- `src/Archon.Roslyn.CSharp/**`: C# relationship extraction implementation.
@@ -191,6 +191,13 @@ The plan assumes WP001 through WP005 have already provided the solution skeleton
 	- `dotnet build .\Archon.slnx --no-restore`
   - **User Instructions**:
 	- None expected.
+
+  - **Completion Summary**:
+	- Extended shared semantic relationship contracts in `src/Archon.Roslyn/**` with `CALLS`, `IMPLEMENTS`, `INHERITS`, `INJECTS`, and `DEPENDS_ON` relationship kinds, categorical confidence, endpoint symbol identities, deterministic metadata, optional unknown reasons, relationship-source stable-key qualifiers, and symbol-reference stable keys for non-declaration endpoints.
+	- Extended `CSharpSemanticDocumentExtractor` in `src/Archon.Roslyn.CSharp/**` to emit compiler-resolved relationship and dependency facts for invocations, constructor calls, object creation, extension methods, static calls, property access, inheritance, interface implementation, overrides, constructor injection, attributes, return types, parameter types, field/property types, generic constraints, and assembly attributes through the same semantic extraction entry point as Work Item 1.
+	- Added targeted tests in `test/Archon.Roslyn.Tests/**` and `test/Archon.Roslyn.CSharp.Tests/**` for relationship-source stable-key disambiguation, symbol-reference stable keys, resolved C# relationships, signature and attribute dependencies, generic constraints, confidence, evidence, endpoint identity, and deterministic de-duplication.
+	- Validation performed: `dotnet test .\test\Archon.Roslyn.Tests\Archon.Roslyn.Tests.csproj --no-restore` passed with 12 tests; `dotnet test .\test\Archon.Roslyn.CSharp.Tests\Archon.Roslyn.CSharp.Tests.csproj --no-restore` passed with 7 tests; `dotnet build .\Archon.slnx --no-restore` passed.
+	- Wiki review result and impact matrix: affected concepts were semantic relationship fact, C# compiler-resolved calls, inheritance, interface implementation, constructor injection, dependency semantics, relationship confidence, relationship-source metadata, symbol-reference stable keys, attributes, generic constraints, and de-duplication. Reviewed `wiki/home.md`, `wiki/roslyn-semantic-extraction.md`, `wiki/graph-domain-model.md`, `wiki/validation-and-test-workflows.md`, `wiki/glossary.md`, and `wiki/api-extraction-workflow.md`. Updated `wiki/home.md`, `wiki/roslyn-semantic-extraction.md`, `wiki/graph-domain-model.md`, `wiki/validation-and-test-workflows.md`, and `wiki/glossary.md`. Created no new wiki pages because the existing dedicated Roslyn page is the correct home for this foundational semantic extraction guidance. Intentionally left `wiki/api-extraction-workflow.md` unchanged because Work Item 2 remains validated through direct Roslyn tests and is not yet composed into API extraction orchestration. Page-structure decision: `wiki/roslyn-semantic-extraction.md` remains the detailed topic page; `wiki/home.md` remains a concise landing page with updated orientation only; graph vocabulary and glossary entries were updated in their existing topic pages rather than creating a parallel implementation note.
 
 ## 3. VB.NET Semantic Extraction Slice
 

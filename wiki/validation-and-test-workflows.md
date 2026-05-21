@@ -95,7 +95,7 @@ The solution fixtures used for this validation must contain a recognizable Visua
 
 ## WP006 Roslyn semantic extraction validation
 
-The current WP006 slice validates compiler-backed C# declaration extraction without starting the Aspire AppHost, Neo4j, API endpoints, MCP tools, repository scanning, or Visual Studio automation. The shared Roslyn tests cover repository-relative path normalization, semantic stable-key determinism, snippet preview limits, and snippet hash determinism. The C# Roslyn tests create in-memory syntax trees and compilations, obtain real semantic models, and assert that namespace, type, constructor, method, property, field, evidence, and `CONTAINS` relationship facts are emitted deterministically.
+The current WP006 slice validates compiler-backed C# declaration and relationship extraction without starting the Aspire AppHost, Neo4j, API endpoints, MCP tools, repository scanning, or Visual Studio automation. The shared Roslyn tests cover repository-relative path normalization, semantic stable-key determinism, symbol-reference key determinism, relationship-source key disambiguation, snippet preview limits, and snippet hash determinism. The C# Roslyn tests create in-memory syntax trees and compilations, obtain real semantic models, and assert that namespace, type, constructor, method, property, field, evidence, `CONTAINS`, `CALLS`, `IMPLEMENTS`, `INHERITS`, `INJECTS`, and `DEPENDS_ON` relationship facts are emitted deterministically.
 
 Use these focused commands from the repository root after package restore when Roslyn semantic extraction changes:
 
@@ -105,7 +105,7 @@ dotnet test .\test\Archon.Roslyn.CSharp.Tests\Archon.Roslyn.CSharp.Tests.csproj 
 dotnet build .\Archon.slnx --no-restore
 ```
 
-These commands are intentionally narrower than a full test-suite run. They validate the shared semantic helper layer, the C# declaration extractor, and integrated solution compilation. When package references have changed or a clean environment is being used, run `dotnet restore .\Archon.slnx` first and then repeat the commands with `--no-restore` so failures are attributable to compile or test behavior rather than package acquisition.
+These commands are intentionally narrower than a full test-suite run. They validate the shared semantic helper layer, the C# declaration and relationship extractor, and integrated solution compilation. When package references have changed or a clean environment is being used, run `dotnet restore .\Archon.slnx` first and then repeat the commands with `--no-restore` so failures are attributable to compile or test behavior rather than package acquisition.
 
 ## WP003 Neo4j validation and Testcontainers
 

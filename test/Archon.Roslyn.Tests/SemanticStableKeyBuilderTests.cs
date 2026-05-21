@@ -52,5 +52,34 @@ namespace Archon.Roslyn.Tests
             Assert.Equal(firstKey, secondKey);
             Assert.StartsWith("semantic-relationship://contains/", firstKey, StringComparison.Ordinal);
         }
+
+        /// <summary>
+        /// Confirms that relationship source qualifiers keep distinct dependency meanings from collapsing to the same key.
+        /// </summary>
+        [Fact]
+        public void ForRelationshipUsesRelationshipSourceToDisambiguateDependencyKinds()
+        {
+            // The same source and target can be related by a parameter type and an attribute, so the qualifier participates in the payload.
+            string firstKey = SemanticStableKeyBuilder.ForRelationship(SemanticRelationshipKind.DependsOn, "semantic-method://a", "semantic-symbol-reference://b", "ParameterType");
+            string secondKey = SemanticStableKeyBuilder.ForRelationship(SemanticRelationshipKind.DependsOn, "semantic-method://a", "semantic-symbol-reference://b", "Attribute");
+
+            Assert.NotEqual(firstKey, secondKey);
+        }
+
+        /// <summary>
+        /// Confirms that symbol reference stable keys are deterministic for metadata or external relationship endpoints.
+        /// </summary>
+        [Fact]
+        public void ForSymbolReferenceReturnsSameKeyForEquivalentSymbolIdentity()
+        {
+            // Relationship targets can be metadata symbols without declaration facts, but they still need stable graph-ready identities.
+            SemanticSymbolIdentity symbolIdentity = new("System.String", "String", "string", "System");
+
+            string firstKey = SemanticStableKeyBuilder.ForSymbolReference(SourceLanguage.CSharp, "src/Sample/Sample.csproj", symbolIdentity);
+            string secondKey = SemanticStableKeyBuilder.ForSymbolReference(SourceLanguage.CSharp, "src/Sample/Sample.csproj", symbolIdentity);
+
+            Assert.Equal(firstKey, secondKey);
+            Assert.StartsWith("semantic-symbol-reference://", firstKey, StringComparison.Ordinal);
+        }
     }
 }

@@ -36,7 +36,11 @@ A composition root wires runtime resources and services together. Archon's Aspir
 
 ## Confidence
 
-Confidence is a deterministic decimal from zero through one that describes how certain Archon is about a graph fact.
+Confidence is a deterministic value that describes how certain Archon is about a graph fact. The persisted domain model uses decimal confidence, while the current Roslyn intermediate model uses categories such as `CompilerResolved` to preserve whether a relationship came from compiler binding or from a weaker future inference path.
+
+## Constructor injection
+
+Constructor injection is the dependency-injection pattern where a type declares required collaborators as constructor parameters. The current Roslyn C# relationship slice represents compiler-resolved constructor parameter types as `INJECTS` relationships because the constructor signature is deterministic source evidence for that collaboration boundary.
 
 ## Constraint
 
@@ -66,9 +70,13 @@ A semantic declaration fact is the Roslyn layer's graph-ready intermediate repre
 
 Semantic evidence is source evidence captured for compiler-backed declarations and relationships. It includes repository-relative file path, one-based line and column span, symbol name, containing symbol, snippet preview, and snippet hash when source text is available.
 
+## Semantic relationship fact
+
+A semantic relationship fact is the Roslyn layer's graph-ready intermediate representation of a compiler-backed relationship such as `CONTAINS`, `CALLS`, `IMPLEMENTS`, `INHERITS`, `INJECTS`, or `DEPENDS_ON`. It carries deterministic endpoint keys, source and target symbol identity where available, confidence, evidence, relationship metadata, and optional unknown-reason data.
+
 ## Semantic stable key
 
-A semantic stable key is the deterministic logical identity used by Roslyn extraction before domain persistence projection. Current C# declaration keys are scoped by source language, project context, fully qualified symbol name, and compiler-facing metadata name or signature; relationship keys are derived from relationship kind and endpoint keys.
+A semantic stable key is the deterministic logical identity used by Roslyn extraction before domain persistence projection. Current C# declaration keys are scoped by source language, project context, fully qualified symbol name, and compiler-facing metadata name or signature; relationship keys are derived from relationship kind, endpoint keys, and a relationship-source qualifier; symbol-reference keys identify relationship endpoints that do not have a source declaration fact.
 
 ## Extraction pipeline
 
