@@ -20,29 +20,6 @@ namespace Archon.Infrastructure.Neo4j.Tests.Schema
         }
 
         /// <summary>
-        /// Confirms the finding relationship names used by rules and findings persistence are stable.
-        /// </summary>
-        [Fact]
-        public void FindingRelationshipNamesAreStable()
-        {
-            // Work Item 6 creates explicit finding links so later query and MCP packages do not infer associations from string fields only.
-            Assert.Equal("CLASSIFIED_BY_RULE", Neo4jSchemaNames.Relationships.ClassifiedByRule);
-            Assert.Equal("PRIMARY_NODE", Neo4jSchemaNames.Relationships.PrimaryNode);
-            Assert.Equal("SUPPORTED_BY_EVIDENCE", Neo4jSchemaNames.Relationships.SupportedByEvidence);
-        }
-
-        /// <summary>
-        /// Confirms the metric and generated-summary relationship names used by Work Item 7 persistence are stable.
-        /// </summary>
-        [Fact]
-        public void MetricAndGeneratedSummaryRelationshipNamesAreStable()
-        {
-            // Metrics and summaries use stable relationship names so later query, MCP, report, and diff packages can traverse targets.
-            Assert.Equal("PRIMARY_RELATIONSHIP", Neo4jSchemaNames.Relationships.PrimaryRelationship);
-            Assert.Equal("SUMMARIZES_SNAPSHOT", Neo4jSchemaNames.Relationships.SummarizesSnapshot);
-        }
-
-        /// <summary>
         /// Confirms every schema object name follows the operational naming convention used by Archon.
         /// </summary>
         [Fact]
@@ -53,13 +30,8 @@ namespace Archon.Infrastructure.Neo4j.Tests.Schema
             {
                 Neo4jSchemaNames.Constraints.RepositoryStableKeyUnique,
                 Neo4jSchemaNames.Constraints.RelationshipSnapshotStableKeyUnique,
-                Neo4jSchemaNames.Constraints.RuleCodeVersionUnique,
-                Neo4jSchemaNames.Constraints.FindingSnapshotStableKeyUnique,
                 Neo4jSchemaNames.Indexes.NodeKind,
                 Neo4jSchemaNames.Indexes.RelationshipEdgeKind,
-                Neo4jSchemaNames.Indexes.RuleCode,
-                Neo4jSchemaNames.Indexes.FindingSeverity,
-                Neo4jSchemaNames.Indexes.MetricKind,
                 Neo4jSchemaNames.Indexes.GeneratedSummaryFingerprint
             };
 

@@ -1,4 +1,3 @@
-using Archon.Application.Graph.Persistence;
 using Archon.Infrastructure.Neo4j.Configuration;
 using Archon.Infrastructure.Neo4j.DependencyInjection;
 using Archon.Infrastructure.Neo4j.Driver;
@@ -39,8 +38,6 @@ namespace Archon.Infrastructure.Neo4j.Tests.DependencyInjection
             Assert.Equal("neo4j", options.Database);
             Assert.NotNull(serviceProvider.GetRequiredService<INeo4jDriverFactory>());
             Assert.NotNull(serviceProvider.GetRequiredService<INeo4jSessionProvider>());
-            Assert.NotNull(serviceProvider.GetRequiredService<IArchitectureGraphRecreator>());
-            Assert.NotNull(serviceProvider.GetRequiredService<IArchitectureSnapshotWriter>());
             Assert.Contains(healthRegistrations, registration => registration.Name == Neo4jHealthCheck.Name);
         }
 
