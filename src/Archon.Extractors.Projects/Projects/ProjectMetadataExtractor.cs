@@ -1,4 +1,5 @@
 using System.Xml.Linq;
+using Archon.Extractors.Projects.Packages;
 
 namespace Archon.Extractors.Projects.Projects
 {
@@ -7,6 +8,20 @@ namespace Archon.Extractors.Projects.Projects
     /// </summary>
     internal sealed class ProjectMetadataExtractor
     {
+        /// <summary>
+        /// Stores the deterministic package-reference extractor used for SDK-style package metadata.
+        /// </summary>
+        private readonly PackageReferenceExtractor _packageReferenceExtractor;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ProjectMetadataExtractor" /> class.
+        /// </summary>
+        internal ProjectMetadataExtractor()
+        {
+            // Package extraction is isolated in its own collaborator so project metadata parsing stays focused on project-level XML fields.
+            _packageReferenceExtractor = new PackageReferenceExtractor();
+        }
+
         /// <summary>
         /// Extracts deterministic metadata from one supported project file.
         /// </summary>
@@ -42,6 +57,7 @@ namespace Archon.Extractors.Projects.Projects
             string? nullable = GetFirstPropertyValue(document, "Nullable");
             string? implicitUsings = GetFirstPropertyValue(document, "ImplicitUsings");
             IReadOnlyList<ProjectReferenceDeclaration> projectReferences = GetProjectReferences(document, projectPath, repositoryRootDirectory, relativeProjectPath);
+            IReadOnlyList<PackageReferenceDeclaration> packageReferences = await _packageReferenceExtractor.ExtractAsync(document, projectPath, repositoryRootDirectory, relativeProjectPath, cancellationToken).ConfigureAwait(false);
             int lineCount = CountLines(projectXml);
 
             return new ProjectMetadata(
@@ -60,6 +76,7 @@ namespace Archon.Extractors.Projects.Projects
                 nullable,
                 implicitUsings,
                 projectReferences,
+                packageReferences,
                 lineCount);
         }
 

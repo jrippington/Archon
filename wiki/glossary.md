@@ -142,6 +142,18 @@ The project extraction stage is the WP005 pipeline stage family that reads submi
 
 A project node is an architecture node representing a supported C# or VB.NET project file. Its stable key is based on the repository-relative project path so the same project declared by multiple submitted solutions remains one graph identity.
 
+## Package node
+
+A package node is an architecture node representing a NuGet package dependency extracted from a supported project file or safe imported build file. Its stable key uses the normalized package ID and known version or explicit version-source state.
+
+## PackageReference
+
+A `PackageReference` is an MSBuild item that declares a NuGet package dependency for an SDK-style project. Archon reads direct package IDs, versions, asset metadata, aliases, and safe repository-contained imported declarations without running restore or contacting package feeds.
+
+## Central Package Management
+
+Central Package Management is the NuGet/MSBuild pattern where project files omit package versions and a `Directory.Packages.props` file supplies `PackageVersion` declarations. Archon resolves local deterministic central versions from repository-contained files only.
+
 ## ProjectReference
 
 A `ProjectReference` is an MSBuild item in a C# or VB.NET project file that declares a direct dependency on another project file. Archon records the raw include path as evidence, resolves repository-contained targets to project nodes when possible, and represents resolved dependencies as `REFERENCES` edges.
@@ -149,6 +161,10 @@ A `ProjectReference` is an MSBuild item in a C# or VB.NET project file that decl
 ## REFERENCES edge
 
 A `REFERENCES` edge is an architecture relationship showing that one graph node directly references another. In the current WP005 project extraction stage, a project-to-project `REFERENCES` edge means a source project file declared a `ProjectReference` to the target project file.
+
+## USES_PACKAGE edge
+
+A `USES_PACKAGE` edge is an architecture relationship showing that a project directly uses a NuGet package. In the current WP005 project extraction stage, this edge comes from an SDK-style `PackageReference` declaration and carries version-source and asset metadata.
 
 ## SDK-style project
 

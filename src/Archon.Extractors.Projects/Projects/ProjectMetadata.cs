@@ -1,4 +1,5 @@
 using Archon.Domain.Graph.Metadata;
+using Archon.Extractors.Projects.Packages;
 
 namespace Archon.Extractors.Projects.Projects
 {
@@ -20,6 +21,7 @@ namespace Archon.Extractors.Projects.Projects
     /// <param name="Nullable">The nullable context setting declared by the project, when present.</param>
     /// <param name="ImplicitUsings">The implicit using directives setting declared by the project, when present.</param>
     /// <param name="ProjectReferences">The project-reference declarations discovered in the project file.</param>
+    /// <param name="PackageReferences">The package-reference declarations discovered in the project file and safe imported build files.</param>
     /// <param name="LineCount">The number of lines read from the project file for evidence fallback spans.</param>
     internal sealed record ProjectMetadata(
         string ProjectName,
@@ -37,6 +39,7 @@ namespace Archon.Extractors.Projects.Projects
         string? Nullable,
         string? ImplicitUsings,
         IReadOnlyList<ProjectReferenceDeclaration> ProjectReferences,
+        IReadOnlyList<PackageReferenceDeclaration> PackageReferences,
         int LineCount)
     {
         /// <summary>
@@ -55,6 +58,7 @@ namespace Archon.Extractors.Projects.Projects
                 ["project.isOldStyle"] = IsOldStyle,
                 ["project.assemblyName"] = AssemblyName,
                 ["project.projectReferenceCount"] = ProjectReferences.Count,
+                ["project.packageReferenceCount"] = PackageReferences.Count,
                 ["project.lineCount"] = LineCount
             };
 

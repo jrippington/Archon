@@ -279,7 +279,7 @@ The term project extraction slice means the WP005 pipeline stage that reads subm
 
 ## Slice 4 - PackageReference and Central Package Management Extraction
 
-- [ ] Work Item 4: Extract SDK-style package references and deterministic central package versions
+- [x] Work Item 4: Extract SDK-style package references and deterministic central package versions - Completed
   - **Purpose**: Make NuGet package dependencies visible for SDK-style projects by contributing package nodes and `USES_PACKAGE` relationships, including local deterministic central package management support without restore or external feed calls.
   - **Acceptance Criteria**:
 	- SDK-style `PackageReference` items are extracted with package ID, declared version, version-source state, private assets, include assets, exclude assets, aliases, confidence, and evidence where available.
@@ -298,30 +298,33 @@ The term project extraction slice means the WP005 pipeline stage that reads subm
 	- No standalone implementation notes or `wiki/home.md` detail dumping are created.
 	- Can execute end-to-end through fixture extraction tests that inspect package nodes and `USES_PACKAGE` edges.
 	- Executor must not stop mid-Work Item except for full completion, explicit user interruption, or a true blocker.
-  - [ ] Task 1: Extract direct `PackageReference` items
-	- [ ] Read package ID, version, asset metadata, and aliases from project XML or evaluated metadata.
-	- [ ] Normalize package IDs for identity while preserving display casing where useful.
-	- [ ] Capture exact XML evidence spans where practical.
-  - [ ] Task 2: Resolve local central package versions
-	- [ ] Detect repository-contained `Directory.Packages.props` files in applicable project directory hierarchy.
-	- [ ] Resolve deterministic locally declared versions without package restore.
-	- [ ] Represent unresolved central versions as centrally managed, inherited, or unknown with evidence.
-  - [ ] Task 3: Contribute package graph facts
-	- [ ] Create deterministic package node stable keys.
-	- [ ] Create `USES_PACKAGE` relationships from project nodes to package nodes.
-	- [ ] Preserve version source, directness, confidence, unknown-state, and evidence metadata.
-  - [ ] Task 4: Handle imported package declarations
-	- [ ] Inspect only local, repository-contained `.props` and `.targets` imports where safe and visible.
-	- [ ] Do not traverse external SDK/package import chains beyond safely evaluated metadata.
-	- [ ] Do not execute targets.
-  - [ ] Task 5: Add tests and validation
-	- [ ] Add fixtures for direct package versions, central package versions, unknown versions, asset metadata, imported references, and duplicate references.
-	- [ ] Add tests proving no external package feed or restore behavior is required.
-	- [ ] Run targeted builds and focused tests only.
-  - [ ] Task 6: Perform documentation and wiki review for the slice
-	- [ ] Apply documentation-pass comments to all changed code.
-	- [ ] Update package extraction wiki guidance and glossary entries if needed.
-	- [ ] Record wiki impact matrix or equivalent completion result.
+	- [x] Task 1: Extract direct `PackageReference` items - Completed
+	- [x] Read package ID, version, asset metadata, and aliases from project XML or evaluated metadata.
+	- [x] Normalize package IDs for identity while preserving display casing where useful.
+	- [x] Capture exact XML evidence spans where practical.
+  - [x] Task 2: Resolve local central package versions - Completed
+	- [x] Detect repository-contained `Directory.Packages.props` files in applicable project directory hierarchy.
+	- [x] Resolve deterministic locally declared versions without package restore.
+	- [x] Represent unresolved central versions as centrally managed, inherited, or unknown with evidence.
+  - [x] Task 3: Contribute package graph facts - Completed
+	- [x] Create deterministic package node stable keys.
+	- [x] Create `USES_PACKAGE` relationships from project nodes to package nodes.
+	- [x] Preserve version source, directness, confidence, unknown-state, and evidence metadata.
+  - [x] Task 4: Handle imported package declarations - Completed
+	- [x] Inspect only local, repository-contained `.props` and `.targets` imports where safe and visible.
+	- [x] Do not traverse external SDK/package import chains beyond safely evaluated metadata.
+	- [x] Do not execute targets.
+  - [x] Task 5: Add tests and validation - Completed
+	- [x] Add fixtures for direct package versions, central package versions, unknown versions, asset metadata, imported references, and duplicate references.
+	- [x] Add tests proving no external package feed or restore behavior is required.
+	- [x] Run targeted builds and focused tests only.
+  - [x] Task 6: Perform documentation and wiki review for the slice - Completed
+	- [x] Apply documentation-pass comments to all changed code.
+	- [x] Update package extraction wiki guidance and glossary entries if needed.
+	- [x] Record wiki impact matrix or equivalent completion result.
+  - **Completion Summary**: Implemented SDK-style `PackageReference` extraction in `src/Archon.Extractors.Projects/Packages/*`, extended project metadata extraction to carry package references, and updated `RepositorySolutionExtractionStage` to contribute package nodes, direct `USES_PACKAGE` edges, package-reference evidence, package version-source metadata, asset metadata, deterministic package stable keys, and duplicate package-reference deduplication. Local central package versions are resolved from repository-contained `Directory.Packages.props` files without restore or external feeds. Explicit repository-contained `.props` and `.targets` imports are inspected as static XML only when safe; property-expanded, wildcard, missing, external, or unsupported imports are not traversed and targets are not executed.
+  - **Validation Summary**: Passed `dotnet build D:\Dev\Archon\src\Archon.Extractors.Projects\Archon.Extractors.Projects.csproj`, `dotnet build D:\Dev\Archon\test\Archon.Extractors.Projects.Tests\Archon.Extractors.Projects.Tests.csproj`, `dotnet test D:\Dev\Archon\test\Archon.Extractors.Projects.Tests\Archon.Extractors.Projects.Tests.csproj --no-build --filter FullyQualifiedName~ProjectMetadataExtractionStageTests` (16/16), `dotnet test D:\Dev\Archon\test\Archon.Extractors.Projects.Tests\Archon.Extractors.Projects.Tests.csproj --no-build` (20/20), and full workspace `run_build`. The Aspire AppHost was not started.
+  - **Wiki Review Result / Impact Matrix**: Affected concepts were SDK-style package extraction, `PackageReference`, Central Package Management, local `Directory.Packages.props` resolution, imported repository-contained `.props`/`.targets` package declarations, no-restore/no-feed policy, package nodes, `USES_PACKAGE` edges, asset metadata, unknown/inherited version state, validation commands, and package terminology. Reviewed `wiki/api-extraction-workflow.md`, `wiki/graph-domain-model.md`, `wiki/validation-and-test-workflows.md`, `wiki/glossary.md`, and `wiki/home.md`; updated all five. No new wiki page was created because the behavior extends the existing API extraction workflow, graph model, validation, glossary, and landing-page reader path rather than introducing a separate contributor journey. `wiki/home.md` remained concise, while detailed package extraction behavior and examples were placed on topic pages.
   - **Files**:
 	- `src/Archon.Extractors.Projects/Packages/*`: Package reference extraction and central version resolution.
 	- `src/Archon.Extractors.Projects/Evidence/*`: Package evidence helpers.

@@ -450,6 +450,170 @@ namespace Archon.Extractors.Projects.Tests.Projects
         }
 
         /// <summary>
+        /// Verifies direct SDK-style `PackageReference` items create package nodes, `USES_PACKAGE` edges, asset metadata, and evidence.
+        /// </summary>
+        /// <returns>A task that completes after direct package-reference graph assertions have run.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenProjectDeclaresDirectPackageReference_ShouldCreatePackageNodeUseEdgeAndEvidence()
+        {
+            // Direct package versions are the simplest SDK-style dependency path and should not require package restore.
+            string repositoryRoot = CreateRepositoryRoot();
+            string solutionPath = CreateSolutionFile(repositoryRoot, "PackageSuite.sln", [ProjectDeclaration.CSharp("Customer.Api", "src/Customer.Api/Customer.Api.csproj")]);
+            CreateProjectFile(repositoryRoot, "src/Customer.Api/Customer.Api.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <ItemGroup>
+                    <PackageReference Include="Serilog" Version="4.0.0" PrivateAssets="all" IncludeAssets="runtime; build" ExcludeAssets="contentFiles" Aliases="Logging" />
+                  </ItemGroup>
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                </Project>
+                """);
+
+            ExtractedArchitectureSnapshot snapshot = await ExecuteStageAsync(repositoryRoot, [solutionPath]);
+
+            var packageNode = Assert.Single(snapshot.Nodes, node => node.NodeKind == NodeKind.Package);
+            Assert.Equal("package://serilog/version/4.0.0", packageNode.StableKey.Value);
+            Assert.Contains("\"package.versionSource\":\"Direct\"", packageNode.Metadata.ToCanonicalJson(), StringComparison.Ordinal);
+            var packageEdge = Assert.Single(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.UsesPackage);
+            Assert.Equal("project://src/Customer.Api/Customer.Api.csproj", packageEdge.SourceNodeStableKey.Value);
+            Assert.Equal(packageNode.StableKey.Value, packageEdge.TargetNodeStableKey.Value);
+            Assert.Contains("\"packageReference.privateAssets\":\"all\"", packageEdge.Metadata.ToCanonicalJson(), StringComparison.Ordinal);
+            Assert.Contains("\"packageReference.aliases\":\"Logging\"", packageEdge.Metadata.ToCanonicalJson(), StringComparison.Ordinal);
+            Assert.Contains(snapshot.Evidence, evidence => evidence.FilePath.Value == "src/Customer.Api/Customer.Api.csproj" && evidence.SymbolName == "Serilog");
+            Assert.Empty(snapshot.Errors);
+        }
+
+        /// <summary>
+        /// Verifies local central package versions are resolved from repository-contained `Directory.Packages.props` files.
+        /// </summary>
+        /// <returns>A task that completes after central package version assertions have run.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenCentralPackageVersionIsDeclared_ShouldResolveLocalCentralVersion()
+        {
+            // Central Package Management resolution reads only local props XML and never performs NuGet feed access.
+            string repositoryRoot = CreateRepositoryRoot();
+            string solutionPath = CreateSolutionFile(repositoryRoot, "CentralPackageSuite.sln", [ProjectDeclaration.CSharp("Customer.Api", "src/Customer.Api/Customer.Api.csproj")]);
+            CreateProjectFile(repositoryRoot, "Directory.Packages.props", """
+                <Project>
+                  <ItemGroup>
+                    <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.0" />
+                  </ItemGroup>
+                </Project>
+                """);
+            CreateProjectFile(repositoryRoot, "src/Customer.Api/Customer.Api.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <ItemGroup>
+                    <PackageReference Include="Microsoft.Extensions.Logging" />
+                  </ItemGroup>
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                </Project>
+                """);
+
+            ExtractedArchitectureSnapshot snapshot = await ExecuteStageAsync(repositoryRoot, [solutionPath]);
+
+            var packageNode = Assert.Single(snapshot.Nodes, node => node.NodeKind == NodeKind.Package);
+            Assert.Equal("package://microsoft.extensions.logging/version/10.0.0", packageNode.StableKey.Value);
+            Assert.Contains("\"package.versionSource\":\"Central\"", packageNode.Metadata.ToCanonicalJson(), StringComparison.Ordinal);
+            Assert.Contains("\"packageReference.versionSource\":\"Central\"", snapshot.Edges.Single(edge => edge.EdgeKind == EdgeKind.UsesPackage).Metadata.ToCanonicalJson(), StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// Verifies package references without direct or local central versions are retained with explicit unknown version state.
+        /// </summary>
+        /// <returns>A task that completes after unknown-version package assertions have run.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenPackageVersionCannotBeResolved_ShouldRetainUnknownVersionState()
+        {
+            // Unknown versions should remain graph facts so later workflows can explain incomplete dependency information.
+            string repositoryRoot = CreateRepositoryRoot();
+            string solutionPath = CreateSolutionFile(repositoryRoot, "UnknownPackageSuite.sln", [ProjectDeclaration.CSharp("Customer.Api", "src/Customer.Api/Customer.Api.csproj")]);
+            CreateProjectFile(repositoryRoot, "src/Customer.Api/Customer.Api.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <ItemGroup>
+                    <PackageReference Include="Newtonsoft.Json" />
+                  </ItemGroup>
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                </Project>
+                """);
+
+            ExtractedArchitectureSnapshot snapshot = await ExecuteStageAsync(repositoryRoot, [solutionPath]);
+
+            var packageNode = Assert.Single(snapshot.Nodes, node => node.NodeKind == NodeKind.Package);
+            Assert.Equal("package://newtonsoft.json/version-source/unknown", packageNode.StableKey.Value);
+            Assert.Contains("\"package.versionSource\":\"Unknown\"", packageNode.Metadata.ToCanonicalJson(), StringComparison.Ordinal);
+            Assert.Contains("\"packageReference.versionSource\":\"Unknown\"", snapshot.Edges.Single(edge => edge.EdgeKind == EdgeKind.UsesPackage).Metadata.ToCanonicalJson(), StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// Verifies repository-contained imported `.props` files are inspected for package declarations without traversing external imports.
+        /// </summary>
+        /// <returns>A task that completes after imported package-reference assertions have run.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenRepositoryContainedPropsImportDeclaresPackageReference_ShouldExtractImportedPackageReference()
+        {
+            // Imported package references are supported only when the import is explicit, local, repository-contained, and static XML.
+            string repositoryRoot = CreateRepositoryRoot();
+            string solutionPath = CreateSolutionFile(repositoryRoot, "ImportedPackageSuite.sln", [ProjectDeclaration.CSharp("Customer.Api", "src/Customer.Api/Customer.Api.csproj")]);
+            CreateProjectFile(repositoryRoot, "build/Packages.props", """
+                <Project>
+                  <ItemGroup>
+                    <PackageReference Include="Polly" Version="8.0.0" />
+                  </ItemGroup>
+                </Project>
+                """);
+            CreateProjectFile(repositoryRoot, "src/Customer.Api/Customer.Api.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <Import Project="..\..\build\Packages.props" />
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                </Project>
+                """);
+
+            ExtractedArchitectureSnapshot snapshot = await ExecuteStageAsync(repositoryRoot, [solutionPath]);
+
+            Assert.Contains(snapshot.Nodes, node => node.NodeKind == NodeKind.Package && node.StableKey.Value == "package://polly/version/8.0.0");
+            var packageUseEdge = Assert.Single(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.UsesPackage);
+            Assert.Contains("\"packageReference.isImported\":true", packageUseEdge.Metadata.ToCanonicalJson(), StringComparison.Ordinal);
+            Assert.Contains(snapshot.Evidence, evidence => evidence.FilePath.Value == "build/Packages.props" && evidence.SymbolName == "Polly");
+        }
+
+        /// <summary>
+        /// Verifies duplicate package references collapse to one package-use edge and do not require restore or external feeds.
+        /// </summary>
+        /// <returns>A task that completes after duplicate package-reference assertions have run.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenPackageReferenceIsDuplicated_ShouldDeduplicateUsesPackageEdge()
+        {
+            // Duplicate package declarations should not create duplicate project-to-package graph dependencies.
+            string repositoryRoot = CreateRepositoryRoot();
+            string solutionPath = CreateSolutionFile(repositoryRoot, "DuplicatePackageSuite.sln", [ProjectDeclaration.CSharp("Customer.Api", "src/Customer.Api/Customer.Api.csproj")]);
+            CreateProjectFile(repositoryRoot, "src/Customer.Api/Customer.Api.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <ItemGroup>
+                    <PackageReference Include="Dapper" Version="2.1.66" />
+                    <PackageReference Include="dapper" Version="2.1.66" />
+                  </ItemGroup>
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                </Project>
+                """);
+
+            ExtractedArchitectureSnapshot snapshot = await ExecuteStageAsync(repositoryRoot, [solutionPath]);
+
+            Assert.Single(snapshot.Nodes, node => node.NodeKind == NodeKind.Package);
+            Assert.Single(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.UsesPackage);
+            Assert.Equal(2, snapshot.Evidence.Count(evidence => evidence.FilePath.Value == "src/Customer.Api/Customer.Api.csproj" && string.Equals(evidence.SymbolName, "Dapper", StringComparison.OrdinalIgnoreCase)));
+            Assert.Empty(snapshot.Errors);
+        }
+
+        /// <summary>
         /// Executes the production stage against accepted input and returns the accumulated snapshot.
         /// </summary>
         /// <param name="repositoryRoot">The temporary repository root to submit.</param>

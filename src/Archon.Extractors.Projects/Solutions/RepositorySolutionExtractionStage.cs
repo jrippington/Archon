@@ -3,6 +3,7 @@ using Archon.Domain.Graph.ControlledValues;
 using Archon.Domain.Graph.Identity;
 using Archon.Domain.Graph.Metadata;
 using Archon.Domain.Graph.Model;
+using Archon.Extractors.Projects.Packages;
 using Archon.Extractors.Projects.Projects;
 
 namespace Archon.Extractors.Projects.Solutions
@@ -158,6 +159,7 @@ namespace Archon.Extractors.Projects.Solutions
             }
 
             ContributeProjectReferenceFacts(context, snapshotStableKey, extractedProjectsByPath.Values.Select(project => project.Metadata));
+            ContributePackageReferenceFacts(context, snapshotStableKey, extractedProjectsByPath.Values.Select(project => project.Metadata));
 
             return ExtractionStageResult.Success();
         }
@@ -203,6 +205,44 @@ namespace Archon.Extractors.Projects.Solutions
                 foreach (ProjectReferenceDeclaration nestedReference in metadata.ProjectReferences)
                 {
                     pendingReferences.Enqueue(nestedReference);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Contributes package nodes, package-use evidence, and `USES_PACKAGE` edges for all extracted project package references.
+        /// </summary>
+        /// <param name="context">The stage context containing shared accumulation state.</param>
+        /// <param name="snapshotStableKey">The snapshot stable key that scopes contributed package facts.</param>
+        /// <param name="projectMetadata">The extracted project metadata values to inspect for package references.</param>
+        private static void ContributePackageReferenceFacts(ExtractionStageContext context, StableKey snapshotStableKey, IEnumerable<ProjectMetadata> projectMetadata)
+        {
+            // Stable-key sets deduplicate package nodes and package-use edges when repeated PackageReference items declare the same dependency.
+            HashSet<string> contributedPackageNodeKeys = new(StringComparer.Ordinal);
+            HashSet<string> contributedPackageEdgeKeys = new(StringComparer.Ordinal);
+
+            foreach (ProjectMetadata metadata in projectMetadata)
+            {
+                StableKey sourceProjectStableKey = CreateProjectStableKey(metadata.RelativeProjectPath);
+
+                foreach (PackageReferenceDeclaration packageReference in metadata.PackageReferences)
+                {
+                    StableKey packageStableKey = CreatePackageStableKey(packageReference);
+                    StableKey packageEvidenceStableKey = CreatePackageReferenceEvidenceStableKey(snapshotStableKey, packageReference);
+
+                    if (contributedPackageNodeKeys.Add(packageStableKey.Value))
+                    {
+                        context.Accumulation.AddNode(CreatePackageNode(snapshotStableKey, packageStableKey, packageReference, packageEvidenceStableKey));
+                    }
+
+                    context.Accumulation.AddEvidence(CreatePackageReferenceEvidence(snapshotStableKey, packageEvidenceStableKey, packageReference));
+
+                    ArchitectureEdge packageUseEdge = CreatePackageUseEdge(snapshotStableKey, sourceProjectStableKey, packageStableKey, packageEvidenceStableKey, packageReference);
+
+                    if (contributedPackageEdgeKeys.Add(packageUseEdge.StableKey.Value))
+                    {
+                        context.Accumulation.AddEdge(packageUseEdge);
+                    }
                 }
             }
         }
@@ -283,6 +323,41 @@ namespace Archon.Extractors.Projects.Solutions
                 primaryEvidenceStableKey,
                 graphMetadata,
                 FingerprintGenerator.ForNode(NodeKind.Project, metadata.ProjectName, metadata.RelativeProjectPath, metadata.RelativeProjectPath, KnowledgeKind.Fact, graphMetadata));
+        }
+
+        /// <summary>
+        /// Creates a package architecture node from one package reference declaration.
+        /// </summary>
+        /// <param name="snapshotStableKey">The snapshot stable key that scopes the node.</param>
+        /// <param name="packageStableKey">The normalized stable key for the package identity and version state.</param>
+        /// <param name="packageReference">The package reference that supports the node.</param>
+        /// <param name="primaryEvidenceStableKey">The evidence stable key that explains the package node.</param>
+        /// <returns>An architecture node representing one NuGet package dependency identity.</returns>
+        private static ArchitectureNode CreatePackageNode(StableKey snapshotStableKey, StableKey packageStableKey, PackageReferenceDeclaration packageReference, StableKey primaryEvidenceStableKey)
+        {
+            // Package nodes represent external NuGet dependencies and keep project-specific asset metadata on USES_PACKAGE edges.
+            GraphMetadata metadata = packageReference.ToPackageNodeMetadata();
+            string displayName = string.IsNullOrWhiteSpace(packageReference.ResolvedVersion)
+                ? packageReference.PackageId
+                : string.Concat(packageReference.PackageId, " ", packageReference.ResolvedVersion);
+            return new ArchitectureNode(
+                snapshotStableKey,
+                packageStableKey,
+                NodeKind.Package,
+                displayName,
+                qualifiedName: packageReference.NormalizedPackageId,
+                searchName: packageReference.NormalizedPackageId,
+                language: null,
+                projectStableKey: null,
+                parentNodeStableKey: null,
+                KnowledgeKind.Fact,
+                ownership: null,
+                externalCategory: "NuGet",
+                Confidence.Certain,
+                UnknownState.Known,
+                primaryEvidenceStableKey,
+                metadata,
+                FingerprintGenerator.ForNode(NodeKind.Package, displayName, packageReference.NormalizedPackageId, packageReference.NormalizedPackageId, KnowledgeKind.Fact, metadata));
         }
 
         /// <summary>
@@ -411,6 +486,35 @@ namespace Archon.Extractors.Projects.Solutions
         }
 
         /// <summary>
+        /// Creates a project-to-package use edge from one package reference declaration.
+        /// </summary>
+        /// <param name="snapshotStableKey">The snapshot stable key that scopes the edge.</param>
+        /// <param name="sourceProjectStableKey">The stable key of the project declaring the package reference.</param>
+        /// <param name="packageStableKey">The stable key of the package node used by the project.</param>
+        /// <param name="primaryEvidenceStableKey">The evidence stable key for the source package reference item.</param>
+        /// <param name="packageReference">The extracted package reference declaration.</param>
+        /// <returns>An architecture edge representing a direct package dependency.</returns>
+        private static ArchitectureEdge CreatePackageUseEdge(StableKey snapshotStableKey, StableKey sourceProjectStableKey, StableKey packageStableKey, StableKey primaryEvidenceStableKey, PackageReferenceDeclaration packageReference)
+        {
+            // USES_PACKAGE edges preserve version source and asset metadata because those details vary per project dependency.
+            GraphMetadata metadata = packageReference.ToUseMetadata();
+            StableKey edgeStableKey = new($"edge://{snapshotStableKey.Value}/uses-package/{sourceProjectStableKey.Value}/{packageStableKey.Value}");
+            return new ArchitectureEdge(
+                snapshotStableKey,
+                edgeStableKey,
+                EdgeKind.UsesPackage,
+                sourceProjectStableKey,
+                packageStableKey,
+                isDirect: true,
+                KnowledgeKind.Fact,
+                Confidence.Certain,
+                UnknownState.Known,
+                primaryEvidenceStableKey,
+                metadata,
+                FingerprintGenerator.ForEdge(EdgeKind.UsesPackage, sourceProjectStableKey, packageStableKey, isDirect: true, KnowledgeKind.Fact, metadata));
+        }
+
+        /// <summary>
         /// Creates source evidence for a `ProjectReference` declaration in a project file.
         /// </summary>
         /// <param name="snapshotStableKey">The snapshot stable key that scopes the evidence.</param>
@@ -438,6 +542,36 @@ namespace Archon.Extractors.Projects.Solutions
                 UnknownState.Known,
                 metadata,
                 FingerprintGenerator.ForEvidence(EvidenceKind.ProjectFile, reference.DeclaringProjectRelativePath, lineNumber, lineNumber, reference.ResolvedRelativePath, KnowledgeKind.Fact, metadata));
+        }
+
+        /// <summary>
+        /// Creates source evidence for a package reference declaration in a project or imported build file.
+        /// </summary>
+        /// <param name="snapshotStableKey">The snapshot stable key that scopes the evidence.</param>
+        /// <param name="evidenceStableKey">The stable key for this evidence record.</param>
+        /// <param name="packageReference">The extracted package reference declaration.</param>
+        /// <returns>An evidence record representing the source package reference item.</returns>
+        private static EvidenceRecord CreatePackageReferenceEvidence(StableKey snapshotStableKey, StableKey evidenceStableKey, PackageReferenceDeclaration packageReference)
+        {
+            // Package evidence points to the file that actually declared the PackageReference, including imported props or targets files.
+            int? lineNumber = packageReference.LineNumber;
+            GraphMetadata metadata = packageReference.ToUseMetadata();
+            return new EvidenceRecord(
+                snapshotStableKey,
+                evidenceStableKey,
+                EvidenceKind.ProjectFile,
+                RepositoryRelativePath.Parse(packageReference.EvidenceRelativePath),
+                lineNumber,
+                lineNumber,
+                symbolName: packageReference.PackageId,
+                containingSymbol: packageReference.DeclaringProjectRelativePath,
+                snippetHash: null,
+                snippetPreview: packageReference.PackageId,
+                KnowledgeKind.Fact,
+                Confidence.Certain,
+                UnknownState.Known,
+                metadata,
+                FingerprintGenerator.ForEvidence(EvidenceKind.ProjectFile, packageReference.EvidenceRelativePath, lineNumber, lineNumber, packageReference.PackageId, KnowledgeKind.Fact, metadata));
         }
 
         /// <summary>
@@ -705,6 +839,19 @@ namespace Archon.Extractors.Projects.Solutions
         }
 
         /// <summary>
+        /// Creates a deterministic evidence stable key for a package-reference declaration.
+        /// </summary>
+        /// <param name="snapshotStableKey">The snapshot stable key that scopes evidence identity.</param>
+        /// <param name="packageReference">The package-reference declaration that requires evidence.</param>
+        /// <returns>A stable evidence key for the declaration.</returns>
+        private static StableKey CreatePackageReferenceEvidenceStableKey(StableKey snapshotStableKey, PackageReferenceDeclaration packageReference)
+        {
+            // Include the declaring project and evidence path so imported references and direct references remain traceable.
+            string lineSegment = packageReference.LineNumber?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "file";
+            return CreateEvidenceStableKey(snapshotStableKey, "package-reference", string.Concat(packageReference.DeclaringProjectRelativePath, ":", packageReference.EvidenceRelativePath, ":", packageReference.NormalizedPackageId, ":", lineSegment));
+        }
+
+        /// <summary>
         /// Creates the deterministic project stable key for a repository-relative project path.
         /// </summary>
         /// <param name="relativeProjectPath">The repository-relative project path normalized with forward slashes.</param>
@@ -713,6 +860,20 @@ namespace Archon.Extractors.Projects.Solutions
         {
             // Project identity must be path-based so duplicate declarations across submitted solutions collapse into one node.
             return new StableKey($"project://{relativeProjectPath}");
+        }
+
+        /// <summary>
+        /// Creates a deterministic package stable key from normalized package identity and version state.
+        /// </summary>
+        /// <param name="packageReference">The package reference that identifies the package node.</param>
+        /// <returns>The stable key used for package nodes and package-use edges.</returns>
+        private static StableKey CreatePackageStableKey(PackageReferenceDeclaration packageReference)
+        {
+            // Include the resolved version when known so different package versions remain distinct queryable dependencies.
+            string versionSegment = string.IsNullOrWhiteSpace(packageReference.ResolvedVersion)
+                ? string.Concat("version-source/", packageReference.VersionSource.ToString().ToLowerInvariant())
+                : string.Concat("version/", packageReference.ResolvedVersion.Trim().ToLowerInvariant());
+            return StableKeyGenerator.ForPackage(string.Concat(packageReference.NormalizedPackageId, "/", versionSegment));
         }
 
         /// <summary>
