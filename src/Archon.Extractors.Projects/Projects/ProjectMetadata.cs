@@ -22,6 +22,7 @@ namespace Archon.Extractors.Projects.Projects
     /// <param name="ImplicitUsings">The implicit using directives setting declared by the project, when present.</param>
     /// <param name="ProjectReferences">The project-reference declarations discovered in the project file.</param>
     /// <param name="PackageReferences">The package-reference declarations discovered in the project file and safe imported build files.</param>
+    /// <param name="PackageDiagnostics">The controlled package extraction diagnostics produced by package-adjacent artifacts.</param>
     /// <param name="LineCount">The number of lines read from the project file for evidence fallback spans.</param>
     internal sealed record ProjectMetadata(
         string ProjectName,
@@ -40,6 +41,7 @@ namespace Archon.Extractors.Projects.Projects
         string? ImplicitUsings,
         IReadOnlyList<ProjectReferenceDeclaration> ProjectReferences,
         IReadOnlyList<PackageReferenceDeclaration> PackageReferences,
+        IReadOnlyList<PackageExtractionDiagnostic> PackageDiagnostics,
         int LineCount)
     {
         /// <summary>

@@ -614,6 +614,103 @@ namespace Archon.Extractors.Projects.Tests.Projects
         }
 
         /// <summary>
+        /// Verifies old-style projects with an associated `packages.config` file contribute package nodes, package-use edges, target framework metadata, and line evidence.
+        /// </summary>
+        /// <returns>A task that completes after legacy package graph assertions have run.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenOldStyleProjectHasPackagesConfig_ShouldExtractLegacyPackageDependencies()
+        {
+            // Legacy .NET Framework estates commonly store NuGet dependencies beside the project file in packages.config rather than PackageReference items.
+            string repositoryRoot = CreateRepositoryRoot();
+            string solutionPath = CreateSolutionFile(repositoryRoot, "LegacyPackageSuite.sln", [ProjectDeclaration.CSharp("Legacy.Library", "src/Legacy.Library/Legacy.Library.csproj")]);
+            CreateProjectFile(repositoryRoot, "src/Legacy.Library/Legacy.Library.csproj", """
+                <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+                  <PropertyGroup>
+                    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+                    <OutputType>Library</OutputType>
+                  </PropertyGroup>
+                </Project>
+                """);
+            CreateProjectFile(repositoryRoot, "src/Legacy.Library/packages.config", """
+                <?xml version="1.0" encoding="utf-8"?>
+                <packages>
+                  <package id="Newtonsoft.Json" version="13.0.3" targetFramework="net472" />
+                  <package id="Castle.Core" version="5.1.1" targetFramework="net472" />
+                </packages>
+                """);
+
+            ExtractedArchitectureSnapshot snapshot = await ExecuteStageAsync(repositoryRoot, [solutionPath]);
+
+            Assert.Contains(snapshot.Nodes, node => node.NodeKind == NodeKind.Package && node.StableKey.Value == "package://newtonsoft.json/version/13.0.3");
+            Assert.Contains(snapshot.Nodes, node => node.NodeKind == NodeKind.Package && node.StableKey.Value == "package://castle.core/version/5.1.1");
+            Assert.Equal(2, snapshot.Edges.Count(edge => edge.EdgeKind == EdgeKind.UsesPackage));
+            var newtonsoftEdge = Assert.Single(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.UsesPackage && edge.TargetNodeStableKey.Value == "package://newtonsoft.json/version/13.0.3");
+            Assert.Contains("\"packageReference.sourceType\":\"packages.config\"", newtonsoftEdge.Metadata.ToCanonicalJson(), StringComparison.Ordinal);
+            Assert.Contains("\"packageReference.targetFramework\":\"net472\"", newtonsoftEdge.Metadata.ToCanonicalJson(), StringComparison.Ordinal);
+            Assert.Contains(snapshot.Evidence, evidence => evidence.FilePath.Value == "src/Legacy.Library/packages.config" && evidence.SymbolName == "Newtonsoft.Json" && evidence.StartLine == 3);
+            Assert.Empty(snapshot.Errors);
+        }
+
+        /// <summary>
+        /// Verifies old-style projects without an associated `packages.config` file continue extracting project metadata without package warnings.
+        /// </summary>
+        /// <returns>A task that completes after missing legacy package file behavior has been asserted.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenOldStyleProjectHasNoPackagesConfig_ShouldNotWarnOrCreateLegacyPackages()
+        {
+            // A non-SDK-style project does not prove that packages.config is expected, so absence alone should not become a noisy warning.
+            string repositoryRoot = CreateRepositoryRoot();
+            string solutionPath = CreateSolutionFile(repositoryRoot, "LegacyNoPackageSuite.sln", [ProjectDeclaration.CSharp("Legacy.Library", "src/Legacy.Library/Legacy.Library.csproj")]);
+            CreateProjectFile(repositoryRoot, "src/Legacy.Library/Legacy.Library.csproj", """
+                <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+                  <PropertyGroup>
+                    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+                  </PropertyGroup>
+                </Project>
+                """);
+
+            ExtractedArchitectureSnapshot snapshot = await ExecuteStageAsync(repositoryRoot, [solutionPath]);
+
+            Assert.Single(snapshot.Nodes, node => node.NodeKind == NodeKind.Project);
+            Assert.DoesNotContain(snapshot.Nodes, node => node.NodeKind == NodeKind.Package);
+            Assert.DoesNotContain(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.UsesPackage);
+            Assert.DoesNotContain(snapshot.Warnings, warning => warning.Contains("packages.config", StringComparison.OrdinalIgnoreCase));
+            Assert.Empty(snapshot.Errors);
+        }
+
+        /// <summary>
+        /// Verifies malformed `packages.config` files produce safe warnings and file evidence instead of blocking extraction with raw XML exceptions.
+        /// </summary>
+        /// <returns>A task that completes after malformed legacy package handling has been asserted.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenPackagesConfigIsMalformed_ShouldWarnAndPreserveFileEvidence()
+        {
+            // Malformed legacy package files should remain actionable diagnostics without exposing parser exception types or local absolute paths.
+            string repositoryRoot = CreateRepositoryRoot();
+            string solutionPath = CreateSolutionFile(repositoryRoot, "MalformedLegacyPackageSuite.sln", [ProjectDeclaration.CSharp("Legacy.Library", "src/Legacy.Library/Legacy.Library.csproj")]);
+            CreateProjectFile(repositoryRoot, "src/Legacy.Library/Legacy.Library.csproj", """
+                <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+                  <PropertyGroup>
+                    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+                  </PropertyGroup>
+                </Project>
+                """);
+            CreateProjectFile(repositoryRoot, "src/Legacy.Library/packages.config", """
+                <packages>
+                  <package id="Broken.Package" version="1.0.0">
+                </packages>
+                """);
+
+            ExtractedArchitectureSnapshot snapshot = await ExecuteStageAsync(repositoryRoot, [solutionPath]);
+
+            Assert.Single(snapshot.Nodes, node => node.NodeKind == NodeKind.Project);
+            Assert.DoesNotContain(snapshot.Nodes, node => node.NodeKind == NodeKind.Package);
+            Assert.Contains(snapshot.Warnings, warning => warning.Contains("packages.config", StringComparison.OrdinalIgnoreCase) && !warning.Contains(repositoryRoot, StringComparison.OrdinalIgnoreCase) && !warning.Contains("XmlException", StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(snapshot.Evidence, evidence => evidence.FilePath.Value == "src/Legacy.Library/packages.config" && evidence.SnippetPreview == "Malformed packages.config file could not be parsed.");
+            Assert.Empty(snapshot.Errors);
+        }
+
+        /// <summary>
         /// Executes the production stage against accepted input and returns the accumulated snapshot.
         /// </summary>
         /// <param name="repositoryRoot">The temporary repository root to submit.</param>

@@ -14,12 +14,18 @@ namespace Archon.Extractors.Projects.Projects
         private readonly PackageReferenceExtractor _packageReferenceExtractor;
 
         /// <summary>
+        /// Stores the deterministic legacy packages.config extractor used for old-style package metadata.
+        /// </summary>
+        private readonly LegacyPackageConfigExtractor _legacyPackageConfigExtractor;
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="ProjectMetadataExtractor" /> class.
         /// </summary>
         internal ProjectMetadataExtractor()
         {
             // Package extraction is isolated in its own collaborator so project metadata parsing stays focused on project-level XML fields.
             _packageReferenceExtractor = new PackageReferenceExtractor();
+            _legacyPackageConfigExtractor = new LegacyPackageConfigExtractor();
         }
 
         /// <summary>
@@ -57,7 +63,16 @@ namespace Archon.Extractors.Projects.Projects
             string? nullable = GetFirstPropertyValue(document, "Nullable");
             string? implicitUsings = GetFirstPropertyValue(document, "ImplicitUsings");
             IReadOnlyList<ProjectReferenceDeclaration> projectReferences = GetProjectReferences(document, projectPath, repositoryRootDirectory, relativeProjectPath);
-            IReadOnlyList<PackageReferenceDeclaration> packageReferences = await _packageReferenceExtractor.ExtractAsync(document, projectPath, repositoryRootDirectory, relativeProjectPath, cancellationToken).ConfigureAwait(false);
+            List<PackageReferenceDeclaration> packageReferences = [.. await _packageReferenceExtractor.ExtractAsync(document, projectPath, repositoryRootDirectory, relativeProjectPath, cancellationToken).ConfigureAwait(false)];
+            List<PackageExtractionDiagnostic> packageDiagnostics = [];
+
+            if (!isSdkStyle)
+            {
+                LegacyPackageConfigExtractionResult legacyPackageResult = await _legacyPackageConfigExtractor.ExtractAsync(projectPath, repositoryRootDirectory, relativeProjectPath, cancellationToken).ConfigureAwait(false);
+                packageReferences.AddRange(legacyPackageResult.PackageReferences);
+                packageDiagnostics.AddRange(legacyPackageResult.Diagnostics);
+            }
+
             int lineCount = CountLines(projectXml);
 
             return new ProjectMetadata(
@@ -77,6 +92,7 @@ namespace Archon.Extractors.Projects.Projects
                 implicitUsings,
                 projectReferences,
                 packageReferences,
+                packageDiagnostics,
                 lineCount);
         }
 

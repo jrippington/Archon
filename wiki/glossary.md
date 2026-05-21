@@ -150,6 +150,10 @@ A package node is an architecture node representing a NuGet package dependency e
 
 A `PackageReference` is an MSBuild item that declares a NuGet package dependency for an SDK-style project. Archon reads direct package IDs, versions, asset metadata, aliases, and safe repository-contained imported declarations without running restore or contacting package feeds.
 
+## packages.config
+
+A `packages.config` file is the legacy NuGet package manifest commonly found beside old-style .NET Framework project files. Archon reads valid package entries from a sibling repository-contained file as static XML, preserves package ID, version, target framework, and evidence line information, and represents those dependencies through the same package node and `USES_PACKAGE` relationship model used by SDK-style package references.
+
 ## Central Package Management
 
 Central Package Management is the NuGet/MSBuild pattern where project files omit package versions and a `Directory.Packages.props` file supplies `PackageVersion` declarations. Archon resolves local deterministic central versions from repository-contained files only.
@@ -164,7 +168,7 @@ A `REFERENCES` edge is an architecture relationship showing that one graph node 
 
 ## USES_PACKAGE edge
 
-A `USES_PACKAGE` edge is an architecture relationship showing that a project directly uses a NuGet package. In the current WP005 project extraction stage, this edge comes from an SDK-style `PackageReference` declaration and carries version-source and asset metadata.
+A `USES_PACKAGE` edge is an architecture relationship showing that a project directly uses a NuGet package. In the current WP005 project extraction stage, this edge can come from an SDK-style `PackageReference` declaration or a legacy `packages.config` entry and carries source-type, version-source, target framework, and asset metadata when those values are available.
 
 ## SDK-style project
 

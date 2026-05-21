@@ -339,7 +339,7 @@ The term project extraction slice means the WP005 pipeline stage that reads subm
 
 ## Slice 5 - Legacy `packages.config` Extraction
 
-- [ ] Work Item 5: Extract legacy `packages.config` dependencies
+- [x] Work Item 5: Extract legacy `packages.config` dependencies - Completed
   - **Purpose**: Support legacy .NET Framework estates by extracting NuGet dependencies from `packages.config` files associated with old-style projects and contributing them to the same package graph model used for SDK-style projects.
   - **Acceptance Criteria**:
 	- `packages.config` files associated with old-style projects are detected.
@@ -357,25 +357,28 @@ The term project extraction slice means the WP005 pipeline stage that reads subm
 	- No standalone implementation notes or `wiki/home.md` detail dumping are created.
 	- Can execute end-to-end through fixture extraction tests that inspect package nodes and `USES_PACKAGE` edges for legacy projects.
 	- Executor must not stop mid-Work Item except for full completion, explicit user interruption, or a true blocker.
-  - [ ] Task 1: Detect associated `packages.config` files
-	- [ ] Determine association rules for old-style projects using project directory and project metadata.
-	- [ ] Represent missing associated files as warnings only when a project explicitly expects one.
-  - [ ] Task 2: Parse package entries
-	- [ ] Extract package ID, version, target framework, and supported metadata.
-	- [ ] Convert malformed XML or invalid entries into controlled diagnostics.
-	- [ ] Preserve line spans and snippet data where available.
-  - [ ] Task 3: Contribute package graph facts
-	- [ ] Reuse package node identity and `USES_PACKAGE` relationship behavior from Work Item 4.
-	- [ ] Mark source type as `packages.config` or equivalent metadata.
-	- [ ] Preserve confidence and unknown state for incomplete entries.
-  - [ ] Task 4: Add tests and validation
-	- [ ] Add old-style project fixtures with valid and malformed `packages.config` files.
-	- [ ] Add tests for target framework extraction and source-type distinction.
-	- [ ] Run targeted builds and focused tests only.
-  - [ ] Task 5: Perform documentation and wiki review for the slice
-	- [ ] Apply documentation-pass comments to all changed code.
-	- [ ] Update legacy package extraction wiki guidance if needed.
-	- [ ] Record wiki review result and page-structure decision.
+	- [x] Task 1: Detect associated `packages.config` files - Completed
+	- [x] Determine association rules for old-style projects using project directory and project metadata.
+	- [x] Represent missing associated files as warnings only when a project explicitly expects one.
+  - [x] Task 2: Parse package entries - Completed
+	- [x] Extract package ID, version, target framework, and supported metadata.
+	- [x] Convert malformed XML or invalid entries into controlled diagnostics.
+	- [x] Preserve line spans and snippet data where available.
+  - [x] Task 3: Contribute package graph facts - Completed
+	- [x] Reuse package node identity and `USES_PACKAGE` relationship behavior from Work Item 4.
+	- [x] Mark source type as `packages.config` or equivalent metadata.
+	- [x] Preserve confidence and unknown state for incomplete entries.
+  - [x] Task 4: Add tests and validation - Completed
+	- [x] Add old-style project fixtures with valid and malformed `packages.config` files.
+	- [x] Add tests for target framework extraction and source-type distinction.
+	- [x] Run targeted builds and focused tests only.
+  - [x] Task 5: Perform documentation and wiki review for the slice - Completed
+	- [x] Apply documentation-pass comments to all changed code.
+	- [x] Update legacy package extraction wiki guidance if needed.
+	- [x] Record wiki review result and page-structure decision.
+  - **Completion Summary**: Implemented legacy `packages.config` extraction for old-style C# and VB.NET projects through `src/Archon.Extractors.Projects/Packages/LegacyPackageConfigExtractor.cs`, `LegacyPackageConfigExtractionResult.cs`, and `PackageExtractionDiagnostic.cs`. The project metadata extractor now checks for a sibling repository-contained `packages.config` only for non-SDK-style projects, extracts package ID, version, target framework, line evidence, and source-type metadata, and reuses the existing package node and direct `USES_PACKAGE` relationship contribution path. Missing sibling files do not warn because old-style format alone does not prove a manifest was expected. Malformed or inaccessible sibling files produce controlled credential-safe warnings plus file evidence without raw parser exception details, absolute paths, stack traces, secrets, or file contents.
+	- **Validation Summary**: Passed `dotnet build D:\Dev\Archon\src\Archon.Extractors.Projects\Archon.Extractors.Projects.csproj`, `dotnet build D:\Dev\Archon\test\Archon.Extractors.Projects.Tests\Archon.Extractors.Projects.Tests.csproj`, `dotnet test D:\Dev\Archon\test\Archon.Extractors.Projects.Tests\Archon.Extractors.Projects.Tests.csproj --no-build --filter FullyQualifiedName~ProjectMetadataExtractionStageTests` (19/19), `dotnet test D:\Dev\Archon\test\Archon.Extractors.Projects.Tests\Archon.Extractors.Projects.Tests.csproj --no-build` (23/23), and full workspace `run_build`. The Aspire AppHost was not started.
+  - **Wiki Review Result / Impact Matrix**: Affected concepts were legacy NuGet `packages.config` extraction, old-style project dependency manifests, package source type metadata, package target-framework metadata, malformed legacy package diagnostics, no-restore/no-feed policy, package nodes, and `USES_PACKAGE` edges. Reviewed `wiki/api-extraction-workflow.md`, `wiki/graph-domain-model.md`, `wiki/validation-and-test-workflows.md`, `wiki/glossary.md`, and `wiki/home.md`; updated the first four and intentionally left `wiki/home.md` unchanged because no new reader path or topic page was needed. No new wiki page was created because legacy package extraction extends the existing project extraction workflow, graph model, validation workflow, and terminology pages. Detailed contributor-facing guidance remains on topic pages, not in `home.md` or standalone implementation notes.
   - **Files**:
 	- `src/Archon.Extractors.Projects/Packages/*`: Legacy package extraction.
 	- `test/Archon.Extractors.Projects.Tests/Packages/*`: `packages.config` tests and fixtures.

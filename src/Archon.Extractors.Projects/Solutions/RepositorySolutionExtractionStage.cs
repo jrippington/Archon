@@ -159,9 +159,30 @@ namespace Archon.Extractors.Projects.Solutions
             }
 
             ContributeProjectReferenceFacts(context, snapshotStableKey, extractedProjectsByPath.Values.Select(project => project.Metadata));
+            ContributePackageDiagnostics(context, snapshotStableKey, extractedProjectsByPath.Values.Select(project => project.Metadata));
             ContributePackageReferenceFacts(context, snapshotStableKey, extractedProjectsByPath.Values.Select(project => project.Metadata));
 
             return ExtractionStageResult.Success();
+        }
+
+        /// <summary>
+        /// Contributes controlled package extraction diagnostics and diagnostic evidence for extracted projects.
+        /// </summary>
+        /// <param name="context">The stage context containing shared accumulation state.</param>
+        /// <param name="snapshotStableKey">The snapshot stable key that scopes contributed evidence.</param>
+        /// <param name="projectMetadata">The extracted project metadata values to inspect for package diagnostics.</param>
+        private static void ContributePackageDiagnostics(ExtractionStageContext context, StableKey snapshotStableKey, IEnumerable<ProjectMetadata> projectMetadata)
+        {
+            // Package diagnostics are non-blocking warnings because a malformed packages.config should not hide valid project metadata.
+            foreach (ProjectMetadata metadata in projectMetadata)
+            {
+                foreach (PackageExtractionDiagnostic diagnostic in metadata.PackageDiagnostics)
+                {
+                    context.Accumulation.AddWarning(diagnostic.Message);
+                    StableKey evidenceStableKey = CreatePackageDiagnosticEvidenceStableKey(snapshotStableKey, metadata.RelativeProjectPath, diagnostic);
+                    context.Accumulation.AddEvidence(CreatePackageDiagnosticEvidence(snapshotStableKey, evidenceStableKey, metadata.RelativeProjectPath, diagnostic));
+                }
+            }
         }
 
         /// <summary>
@@ -575,6 +596,36 @@ namespace Archon.Extractors.Projects.Solutions
         }
 
         /// <summary>
+        /// Creates source evidence for a controlled package extraction diagnostic.
+        /// </summary>
+        /// <param name="snapshotStableKey">The snapshot stable key that scopes the evidence.</param>
+        /// <param name="evidenceStableKey">The stable key for this evidence record.</param>
+        /// <param name="declaringProjectRelativePath">The repository-relative project path associated with the diagnostic.</param>
+        /// <param name="diagnostic">The controlled package extraction diagnostic to represent.</param>
+        /// <returns>An evidence record representing the source artifact that produced the diagnostic.</returns>
+        private static EvidenceRecord CreatePackageDiagnosticEvidence(StableKey snapshotStableKey, StableKey evidenceStableKey, string declaringProjectRelativePath, PackageExtractionDiagnostic diagnostic)
+        {
+            // Diagnostic evidence uses a file-level fallback so malformed XML still leaves a traceable source artifact without storing file contents.
+            GraphMetadata metadata = diagnostic.ToGraphMetadata();
+            return new EvidenceRecord(
+                snapshotStableKey,
+                evidenceStableKey,
+                EvidenceKind.ProjectFile,
+                RepositoryRelativePath.Parse(diagnostic.EvidenceRelativePath),
+                diagnostic.LineNumber,
+                diagnostic.LineNumber,
+                symbolName: null,
+                containingSymbol: declaringProjectRelativePath,
+                snippetHash: null,
+                snippetPreview: diagnostic.SnippetPreview,
+                KnowledgeKind.Fact,
+                Confidence.Certain,
+                UnknownState.Known,
+                metadata,
+                FingerprintGenerator.ForEvidence(EvidenceKind.ProjectFile, diagnostic.EvidenceRelativePath, diagnostic.LineNumber, diagnostic.LineNumber, null, KnowledgeKind.Fact, metadata));
+        }
+
+        /// <summary>
         /// Creates the solution architecture node contributed by this stage.
         /// </summary>
         /// <param name="snapshotStableKey">The snapshot stable key that scopes the node.</param>
@@ -849,6 +900,20 @@ namespace Archon.Extractors.Projects.Solutions
             // Include the declaring project and evidence path so imported references and direct references remain traceable.
             string lineSegment = packageReference.LineNumber?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "file";
             return CreateEvidenceStableKey(snapshotStableKey, "package-reference", string.Concat(packageReference.DeclaringProjectRelativePath, ":", packageReference.EvidenceRelativePath, ":", packageReference.NormalizedPackageId, ":", lineSegment));
+        }
+
+        /// <summary>
+        /// Creates a deterministic evidence stable key for a package extraction diagnostic.
+        /// </summary>
+        /// <param name="snapshotStableKey">The snapshot stable key that scopes evidence identity.</param>
+        /// <param name="declaringProjectRelativePath">The repository-relative project path associated with the diagnostic.</param>
+        /// <param name="diagnostic">The package extraction diagnostic that requires evidence.</param>
+        /// <returns>A stable evidence key for the diagnostic.</returns>
+        private static StableKey CreatePackageDiagnosticEvidenceStableKey(StableKey snapshotStableKey, string declaringProjectRelativePath, PackageExtractionDiagnostic diagnostic)
+        {
+            // Include the project path and diagnostic evidence path so repeated malformed files in different projects remain distinct.
+            string lineSegment = diagnostic.LineNumber?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "file";
+            return CreateEvidenceStableKey(snapshotStableKey, "package-diagnostic", string.Concat(declaringProjectRelativePath, ":", diagnostic.EvidenceRelativePath, ":", lineSegment));
         }
 
         /// <summary>
