@@ -64,7 +64,23 @@ A Roslyn semantic model is the compiler object that answers symbol and type ques
 
 ## Semantic declaration fact
 
-A semantic declaration fact is the Roslyn layer's graph-ready intermediate representation of a source declaration such as a namespace, type, constructor, method, property, or field. It carries source language, declaration kind, symbol identity, stable key, project context, parent declaration identity, and semantic evidence.
+A semantic declaration fact is the Roslyn layer's graph-ready intermediate representation of a source declaration such as a namespace, type, constructor, method, property, or field. VB.NET modules, structures, interfaces, enums, delegates, default properties, events, and constants are projected into this shared declaration vocabulary. A semantic declaration fact carries source language, declaration kind, symbol identity, stable key, project context, parent declaration identity, and semantic evidence.
+
+## Visual Basic default property
+
+A Visual Basic default property is a property that can be accessed through an indexed object expression without writing the property name. Archon projects default properties as `Property` declaration facts and records property-access dependencies when Roslyn resolves the property symbol.
+
+## Visual Basic module
+
+A Visual Basic module is a compiler-backed type whose members are shared by default. Archon projects modules as `Type` declaration facts so module members participate in the same graph vocabulary as C# static classes and other source-declared types.
+
+## Visual Basic root namespace
+
+A Visual Basic root namespace is project-level namespace text that the Visual Basic compiler composes with namespaces declared in source files. When Roslyn exposes the composed namespace in semantic symbols, Archon uses that fully qualified namespace in declaration and relationship facts.
+
+## Visual Basic shared member
+
+A Visual Basic shared member is a member accessed on a type rather than on a particular instance. Archon records calls and dependencies for shared members through the same `CALLS` and `DEPENDS_ON` relationship vocabulary used for C# static members.
 
 ## Semantic evidence
 

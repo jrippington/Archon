@@ -201,7 +201,7 @@ The plan assumes WP001 through WP005 have already provided the solution skeleton
 
 ## 3. VB.NET Semantic Extraction Slice
 
-- [ ] Work Item 3: Deliver VB.NET declaration and relationship extraction parity
+- [x] Work Item 3: Deliver VB.NET declaration and relationship extraction parity - Completed
   - **Purpose**: Make VB.NET a first-class semantic extraction target by projecting VB.NET declarations and relationships into the same graph vocabulary and evidence model as C#.
   - **Acceptance Criteria**:
 	- A VB.NET fixture or test project containing namespaces, modules, classes, structures, interfaces, constructors, methods, properties, fields, events, inheritance, implementations, and method calls can be extracted through the WP006 semantic extraction entry point.
@@ -215,25 +215,25 @@ The plan assumes WP001 through WP005 have already provided the solution skeleton
 	- Wiki review is performed for VB.NET parity and terminology; relevant pages are updated or an explicit no-change result is recorded.
 	- Can execute end to end via targeted VB.NET Roslyn tests.
 	- Executor must not stop mid-work-item unless the work item is complete, the user explicitly interrupts, or a true blocker prevents further autonomous progress.
-  - [ ] Task 1: Implement VB.NET declaration extraction
-	- [ ] Extract namespaces and project-root namespace effects where available.
-	- [ ] Extract classes, structures, interfaces, enums, delegates, modules, nested types, generic types, and partial types.
-	- [ ] Extract constructors, shared constructors, methods, properties, default properties, fields, events, constants, parameters, and return types.
-	- [ ] Project VB.NET facts into the shared declaration graph model.
-  - [ ] Task 2: Implement VB.NET relationship extraction
-	- [ ] Extract method calls, shared/static calls, object creation, property access, member access, and extension-method calls where Roslyn supports resolution.
-	- [ ] Extract inheritance, interface implementation, constructor dependencies, attributes, generic relationships, and relevant member dependencies.
-	- [ ] Assign confidence and evidence using shared helpers.
-  - [ ] Task 3: Add VB.NET tests
-	- [ ] Create VB.NET fixture source or test project covering the required declaration forms.
-	- [ ] Create relationship tests covering calls, inheritance, implementation, attributes, and constructor dependencies.
-	- [ ] Assert that VB.NET and C# project into compatible graph vocabulary and metadata fields.
-  - [ ] Task 4: Review language parity and edge cases
-	- [ ] Compare C# and VB.NET extraction results for analogous fixture code.
-	- [ ] Record unsupported or language-specific differences as explicit metadata, confidence reductions, or unknowns rather than hiding them.
-  - [ ] Task 5: Perform documentation and wiki review for VB.NET parity
-	- [ ] Review whether wiki guidance explains why VB.NET support is first-class.
-	- [ ] Update glossary or Roslyn extraction guidance for terms such as module, default property, shared member, and root namespace where needed.
+	- [x] Task 1: Implement VB.NET declaration extraction - Completed
+	- [x] Extract namespaces and project-root namespace effects where available.
+	- [x] Extract classes, structures, interfaces, enums, delegates, modules, nested types, generic types, and partial types.
+	- [x] Extract constructors, shared constructors, methods, properties, default properties, fields, events, constants, parameters, and return types.
+	- [x] Project VB.NET facts into the shared declaration graph model.
+  - [x] Task 2: Implement VB.NET relationship extraction - Completed
+	- [x] Extract method calls, shared/static calls, object creation, property access, member access, and extension-method calls where Roslyn supports resolution.
+	- [x] Extract inheritance, interface implementation, constructor dependencies, attributes, generic relationships, and relevant member dependencies.
+	- [x] Assign confidence and evidence using shared helpers.
+  - [x] Task 3: Add VB.NET tests - Completed
+	- [x] Create VB.NET fixture source or test project covering the required declaration forms.
+	- [x] Create relationship tests covering calls, inheritance, implementation, attributes, and constructor dependencies.
+	- [x] Assert that VB.NET and C# project into compatible graph vocabulary and metadata fields.
+  - [x] Task 4: Review language parity and edge cases - Completed
+	- [x] Compare C# and VB.NET extraction results for analogous fixture code.
+	- [x] Record unsupported or language-specific differences as explicit metadata, confidence reductions, or unknowns rather than hiding them.
+  - [x] Task 5: Perform documentation and wiki review for VB.NET parity - Completed
+	- [x] Review whether wiki guidance explains why VB.NET support is first-class.
+	- [x] Update glossary or Roslyn extraction guidance for terms such as module, default property, shared member, and root namespace where needed.
   - **Files**:
 	- `src/Archon.Roslyn.VisualBasic/**`: VB.NET semantic extraction implementation.
 	- `src/Archon.Roslyn/**`: Shared helpers extended for VB.NET if needed.
@@ -247,6 +247,14 @@ The plan assumes WP001 through WP005 have already provided the solution skeleton
 	- `dotnet build .\Archon.slnx --no-restore`
   - **User Instructions**:
 	- None expected.
+
+  - **Completion Summary**:
+	- Added `VisualBasicSemanticDocumentExtractor` in `src/Archon.Roslyn.VisualBasic/**` to project VB.NET declarations and relationships into the same shared semantic fact model as C# with `SourceLanguage.VisualBasic`, deterministic stable keys, semantic evidence, confidence, endpoint symbol identities, relationship metadata, and de-duplication.
+	- Implemented VB.NET declaration extraction for namespaces including determinable root namespace composition, modules, classes, structures, interfaces, enums, delegates, constructors, methods, properties, default properties, fields, constants, and events. VB.NET-specific forms project into the shared `Namespace`, `Type`, `Method`, `Property`, and `Field` vocabulary rather than creating language-only node kinds.
+	- Implemented VB.NET relationship extraction for `CONTAINS`, `CALLS`, `IMPLEMENTS`, `INHERITS`, `INJECTS`, and `DEPENDS_ON`, covering method/shared/static calls, object creation, extension calls, property/default property access, inheritance, interface implementation, constructor injection, attributes including assembly attributes, parameter and return types, field/event/property types, and generic constraints where Roslyn resolves symbols.
+	- Added targeted tests in `test/Archon.Roslyn.VisualBasic.Tests/**` covering declaration shapes, relationship shapes, root namespace effects, modules, shared members, default properties, constructor injection, attributes, generic constraints, evidence, confidence, endpoint identities, graph vocabulary parity, and deterministic de-duplication.
+	- Validation performed: `dotnet test .\test\Archon.Roslyn.VisualBasic.Tests\Archon.Roslyn.VisualBasic.Tests.csproj --no-restore` passed with 5 tests; `dotnet test .\test\Archon.Roslyn.Tests\Archon.Roslyn.Tests.csproj --no-restore` passed with 12 tests; `dotnet build .\Archon.slnx --no-restore` passed.
+	- Wiki review result and impact matrix: affected concepts were VB.NET semantic extraction parity, Visual Basic modules, default properties, shared members, root namespace effects, VB.NET declaration projection, VB.NET relationship projection, and validation workflow. Reviewed `wiki/home.md`, `wiki/roslyn-semantic-extraction.md`, `wiki/graph-domain-model.md`, `wiki/validation-and-test-workflows.md`, `wiki/glossary.md`, and `wiki/api-extraction-workflow.md`. Updated `wiki/home.md`, `wiki/roslyn-semantic-extraction.md`, `wiki/graph-domain-model.md`, `wiki/validation-and-test-workflows.md`, and `wiki/glossary.md`. Created no new wiki pages because the existing dedicated Roslyn semantic extraction page is the correct home for C# and VB.NET semantic extraction guidance. Intentionally left `wiki/api-extraction-workflow.md` unchanged because Work Item 3 remains validated through direct Roslyn tests and is not yet composed into API extraction orchestration. Page-structure decision: `wiki/roslyn-semantic-extraction.md` remains the detailed topic page for language semantic extraction; `wiki/home.md` remains a concise landing page with updated orientation only; graph vocabulary and glossary entries were updated in their existing topic pages rather than creating a parallel implementation note.
 
 ## 4. Diagnostics, Unknowns, Generated Code, Partial Types, and Metadata Symbols
 
