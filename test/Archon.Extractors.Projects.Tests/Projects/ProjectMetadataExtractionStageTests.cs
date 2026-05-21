@@ -743,6 +743,35 @@ namespace Archon.Extractors.Projects.Tests.Projects
         }
 
         /// <summary>
+        /// Verifies repository-contained analyzer declarations that point to missing files produce safe warnings while preserving source evidence.
+        /// </summary>
+        /// <returns>A task that completes after missing analyzer diagnostics have been asserted.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenRepositoryContainedAnalyzerFileIsMissing_ShouldWarnAndPreserveEvidence()
+        {
+            // Missing analyzer binaries should be visible diagnostics without blocking otherwise useful project extraction.
+            string repositoryRoot = CreateRepositoryRoot();
+            string solutionPath = CreateSolutionFile(repositoryRoot, "MissingAnalyzerSuite.sln", [ProjectDeclaration.CSharp("Customer.Api", "src/Customer.Api/Customer.Api.csproj")]);
+            CreateProjectFile(repositoryRoot, "src/Customer.Api/Customer.Api.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <ItemGroup>
+                    <Analyzer Include="..\..\analyzers\Missing.Analyzers.dll" />
+                  </ItemGroup>
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                </Project>
+                """);
+
+            ExtractedArchitectureSnapshot snapshot = await ExecuteStageAsync(repositoryRoot, [solutionPath]);
+
+            Assert.Contains(snapshot.Warnings, warning => warning.Contains("Missing.Analyzers.dll", StringComparison.OrdinalIgnoreCase) && warning.Contains("does not exist", StringComparison.OrdinalIgnoreCase) && !warning.Contains(repositoryRoot, StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(snapshot.Evidence, evidence => evidence.FilePath.Value == "src/Customer.Api/Customer.Api.csproj" && evidence.SymbolName == "analyzers/Missing.Analyzers.dll");
+            Assert.Contains(snapshot.Nodes, node => node.NodeKind == NodeKind.FilePath && node.StableKey.Value == "file://analyzers/Missing.Analyzers.dll");
+            Assert.Empty(snapshot.Errors);
+        }
+
+        /// <summary>
         /// Verifies relevant source artifacts are represented as deterministic `FilePath` nodes when they support extracted facts.
         /// </summary>
         /// <returns>A task that completes after file-path node assertions have run.</returns>
@@ -863,6 +892,146 @@ namespace Archon.Extractors.Projects.Tests.Projects
             Assert.StartsWith("sha256:", packageEvidence.SnippetHash, StringComparison.Ordinal);
             Assert.Contains("PackageReference", packageEvidence.SnippetPreview, StringComparison.Ordinal);
             Assert.Contains("Serilog", packageEvidence.SnippetPreview, StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// Verifies a representative WP005 repository produces the complete project extraction snapshot shape in one coherent run.
+        /// </summary>
+        /// <returns>A task that completes after all representative graph sections, diagnostics, metadata, and evidence have been asserted.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenRepresentativeWp005RepositoryIsSubmitted_ShouldProduceCompleteProjectExtractionSnapshot()
+        {
+            // This all-up fixture combines the acceptance areas that earlier tests cover individually so regressions in cross-slice composition are visible.
+            string repositoryRoot = CreateRepositoryRoot();
+            string customerSolutionPath = CreateSolutionFile(
+                repositoryRoot,
+                "CustomerSuite.sln",
+                [
+                    ProjectDeclaration.CSharp("Customer.Api", "src/Customer.Api/Customer.Api.csproj"),
+                    ProjectDeclaration.CSharp("Customer.Core", "src/Customer.Core/Customer.Core.csproj"),
+                    ProjectDeclaration.VisualBasic("Customer.Legacy", "src/Customer.Legacy/Customer.Legacy.vbproj"),
+                    ProjectDeclaration.Unsupported("Customer.Setup", "setup/Customer.Setup.wixproj")
+                ]);
+            string toolsSolutionPath = CreateSolutionFile(
+                repositoryRoot,
+                "tools/ToolsSuite.sln",
+                [
+                    ProjectDeclaration.CSharp("Customer.Tools", "Customer.Tools/Customer.Tools.csproj"),
+                    ProjectDeclaration.CSharp("Customer.Core", "../src/Customer.Core/Customer.Core.csproj")
+                ]);
+            CreateProjectFile(repositoryRoot, "Directory.Packages.props", """
+                <Project>
+                  <ItemGroup>
+                    <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.0" />
+                  </ItemGroup>
+                </Project>
+                """);
+            CreateProjectFile(repositoryRoot, "Directory.Build.props", """
+                <Project>
+                  <PropertyGroup>
+                    <RepositoryBuild>true</RepositoryBuild>
+                  </PropertyGroup>
+                </Project>
+                """);
+            CreateProjectFile(repositoryRoot, "build/Packages.targets", """
+                <Project>
+                  <ItemGroup>
+                    <PackageReference Include="Polly" Version="8.0.0" />
+                  </ItemGroup>
+                </Project>
+                """);
+            CreateProjectFile(repositoryRoot, "src/Customer.Api/Customer.Api.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk.Web">
+                  <Import Project="..\..\build\Packages.targets" />
+                  <ItemGroup>
+                    <ProjectReference Include="..\Customer.Core\Customer.Core.csproj" />
+                    <Analyzer Include="..\..\analyzers\Customer.Analyzers.dll" />
+                    <PackageReference Include="Serilog" Version="4.0.0" />
+                    <PackageReference Include="Microsoft.Extensions.Logging" />
+                  </ItemGroup>
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <OutputType>Exe</OutputType>
+                  </PropertyGroup>
+                </Project>
+                """);
+            CreateProjectFile(repositoryRoot, "src/Customer.Core/Customer.Core.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFrameworks>net10.0;net8.0</TargetFrameworks>
+                    <OutputType>Library</OutputType>
+                  </PropertyGroup>
+                </Project>
+                """);
+            CreateProjectFile(repositoryRoot, "src/Customer.Legacy/Customer.Legacy.vbproj", """
+                <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+                  <PropertyGroup>
+                    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+                    <OutputType>Library</OutputType>
+                    <RootNamespace>Customer.Legacy</RootNamespace>
+                  </PropertyGroup>
+                </Project>
+                """);
+            CreateProjectFile(repositoryRoot, "src/Customer.Legacy/packages.config", """
+                <?xml version="1.0" encoding="utf-8"?>
+                <packages>
+                  <package id="Newtonsoft.Json" version="13.0.3" targetFramework="net48" />
+                </packages>
+                """);
+            CreateProjectFile(repositoryRoot, "tools/Customer.Tools/Customer.Tools.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <ItemGroup>
+                    <ProjectReference Include="..\..\src\Customer.Core\Customer.Core.csproj" />
+                    <ProjectReference Include="..\..\missing\Missing.csproj" />
+                    <Analyzer Include="..\..\external\External.Analyzer.dll" />
+                    <PackageReference Include="Dapper" />
+                  </ItemGroup>
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                </Project>
+                """);
+            CreateProjectFile(repositoryRoot, "analyzers/Customer.Analyzers.dll", string.Empty);
+
+            ExtractedArchitectureSnapshot snapshot = await ExecuteStageAsync(repositoryRoot, [customerSolutionPath, toolsSolutionPath]);
+
+            Assert.Single(snapshot.Repositories);
+            Assert.Equal(2, snapshot.Solutions.Count);
+            Assert.Contains(snapshot.Nodes, node => node.NodeKind == NodeKind.Repository);
+            Assert.Equal(2, snapshot.Nodes.Count(node => node.NodeKind == NodeKind.Solution));
+            Assert.Equal(4, snapshot.Nodes.Count(node => node.NodeKind == NodeKind.Project));
+            Assert.Equal(5, snapshot.Nodes.Count(node => node.NodeKind == NodeKind.Package));
+            Assert.Contains(snapshot.Nodes, node => node.NodeKind == NodeKind.FilePath && node.StableKey.Value == "file://Directory.Packages.props");
+            Assert.Contains(snapshot.Nodes, node => node.NodeKind == NodeKind.FilePath && node.StableKey.Value == "file://build/Packages.targets");
+            Assert.Contains(snapshot.Nodes, node => node.NodeKind == NodeKind.FilePath && node.StableKey.Value == "file://analyzers/Customer.Analyzers.dll");
+            Assert.Equal(2, snapshot.Edges.Count(edge => edge.EdgeKind == EdgeKind.Contains && edge.TargetNodeStableKey.Value.StartsWith("solution://", StringComparison.Ordinal)));
+            Assert.Equal(5, snapshot.Edges.Count(edge => edge.EdgeKind == EdgeKind.Contains && edge.TargetNodeStableKey.Value.StartsWith("project://", StringComparison.Ordinal)));
+            Assert.Equal(2, snapshot.Edges.Count(edge => edge.EdgeKind == EdgeKind.References));
+            Assert.Equal(5, snapshot.Edges.Count(edge => edge.EdgeKind == EdgeKind.UsesPackage));
+            Assert.Contains(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.References && edge.SourceNodeStableKey.Value == "project://src/Customer.Api/Customer.Api.csproj" && edge.TargetNodeStableKey.Value == "project://src/Customer.Core/Customer.Core.csproj");
+            Assert.Contains(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.UsesPackage && edge.TargetNodeStableKey.Value == "package://microsoft.extensions.logging/version/10.0.0" && edge.Metadata.ToCanonicalJson().Contains("\"packageReference.versionSource\":\"Central\"", StringComparison.Ordinal));
+            Assert.Contains(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.UsesPackage && edge.TargetNodeStableKey.Value == "package://newtonsoft.json/version/13.0.3" && edge.Metadata.ToCanonicalJson().Contains("\"packageReference.sourceType\":\"packages.config\"", StringComparison.Ordinal));
+            Assert.Contains(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.UsesPackage && edge.TargetNodeStableKey.Value == "package://dapper/version-source/inherited" && edge.Metadata.ToCanonicalJson().Contains("\"packageReference.versionSource\":\"Inherited\"", StringComparison.Ordinal));
+
+            string apiMetadata = snapshot.Nodes.Single(node => node.StableKey.Value == "project://src/Customer.Api/Customer.Api.csproj").Metadata.ToCanonicalJson();
+            string coreMetadata = snapshot.Nodes.Single(node => node.StableKey.Value == "project://src/Customer.Core/Customer.Core.csproj").Metadata.ToCanonicalJson();
+            string toolsMetadata = snapshot.Nodes.Single(node => node.StableKey.Value == "project://tools/Customer.Tools/Customer.Tools.csproj").Metadata.ToCanonicalJson();
+            Assert.Contains("\"project.applicationType\":\"AspNetCoreWebApp\"", apiMetadata, StringComparison.Ordinal);
+            Assert.Contains("\"project.analyzerReferenceCount\":1", apiMetadata, StringComparison.Ordinal);
+            Assert.Contains("\"project.targetFrameworks\":[\"net10.0\",\"net8.0\"]", coreMetadata, StringComparison.Ordinal);
+            Assert.Contains("\"project.applicationType\":\"ClassLibrary\"", coreMetadata, StringComparison.Ordinal);
+            Assert.Contains("\"project.applicationType\":\"ToolingProject\"", toolsMetadata, StringComparison.Ordinal);
+            Assert.Contains("\"project.applicationTypeConfidence\":\"Low\"", toolsMetadata, StringComparison.Ordinal);
+
+            Assert.Contains(snapshot.Evidence, evidence => evidence.FilePath.Value == "CustomerSuite.sln" && evidence.SymbolName == "Customer.Setup");
+            Assert.Contains(snapshot.Evidence, evidence => evidence.FilePath.Value == "src/Customer.Api/Customer.Api.csproj" && evidence.SymbolName == "Serilog" && evidence.SnippetHash is not null && evidence.SnippetHash.StartsWith("sha256:", StringComparison.Ordinal));
+            Assert.Contains(snapshot.Evidence, evidence => evidence.FilePath.Value == "src/Customer.Legacy/packages.config" && evidence.SymbolName == "Newtonsoft.Json" && evidence.StartLine == 3);
+            Assert.Contains(snapshot.Evidence, evidence => evidence.FilePath.Value == "src/Customer.Api/Customer.Api.csproj" && evidence.SymbolName == "analyzers/Customer.Analyzers.dll");
+            Assert.Contains(snapshot.Warnings, warning => warning.Contains("unsupported project", StringComparison.OrdinalIgnoreCase) && warning.Contains(".wixproj", StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(snapshot.Warnings, warning => warning.Contains("Missing.csproj", StringComparison.OrdinalIgnoreCase) && warning.Contains("does not exist", StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(snapshot.Warnings, warning => warning.Contains("External.Analyzer.dll", StringComparison.OrdinalIgnoreCase) && warning.Contains("does not exist", StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(snapshot.Warnings, warning => warning.Contains(repositoryRoot, StringComparison.OrdinalIgnoreCase));
+            Assert.Empty(snapshot.Errors);
         }
 
         /// <summary>

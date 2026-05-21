@@ -507,7 +507,7 @@ The term project extraction slice means the WP005 pipeline stage that reads subm
 
 ## Slice 8 - End-to-End WP005 Validation, Hardening, and Documentation Pass
 
-- [ ] Work Item 8: Validate and harden the complete WP005 extraction slice
+- [x] Work Item 8: Validate and harden the complete WP005 extraction slice - Completed
   - **Purpose**: Prove that WP005 functions as one coherent runnable feature through the existing extraction path, with repository, solution, project, package, reference, analyzer, file-path, evidence, warning, and classification facts flowing into the generalized snapshot contract.
   - **Acceptance Criteria**:
 	- A representative fixture extraction produces repository, solution, project, package, and file-path nodes.
@@ -526,34 +526,36 @@ The term project extraction slice means the WP005 pipeline stage that reads subm
 	- Contributor-facing design rationale and walkthrough material are in `./wiki`, not standalone implementation notes or `wiki/home.md` detail sections.
 	- Can execute end-to-end through focused extraction tests and snapshot assertions.
 	- Executor must not stop mid-Work Item except for full completion, explicit user interruption, or a true blocker.
-  - [ ] Task 1: Add representative end-to-end fixtures
-	- [ ] Create or align test fixtures for multi-solution, mixed-language, SDK-style, old-style, direct packages, central packages, `packages.config`, project references, analyzer references, and classification cases.
-	- [ ] Keep fixtures under appropriate test fixture directories, not the repository root.
-  - [ ] Task 2: Add end-to-end snapshot assertions
-	- [ ] Assert node collections include repository, solution, project, package, and file-path nodes.
-	- [ ] Assert edge collections include `CONTAINS`, `REFERENCES`, and `USES_PACKAGE` relationships.
-	- [ ] Assert evidence, warning, unknown, confidence, and metadata behavior.
-	- [ ] Assert persistence handoff receives the generalized snapshot.
-  - [ ] Task 3: Harden deterministic behavior
-	- [ ] Review stable-key generation inputs for repository-relative identity and database-ID avoidance.
-	- [ ] Review ordering and deduplication for multi-solution, project-reference, and package-reference cases.
-	- [ ] Review metadata serialization for deterministic assertions.
-  - [ ] Task 4: Harden diagnostics and logging
-	- [ ] Ensure unsupported project, malformed package, unresolved reference, unresolved analyzer, and unresolved version diagnostics are controlled and user-actionable.
-	- [ ] Ensure logs do not expose secrets, raw stack traces, unsafe metadata values, or unnecessary absolute paths.
-  - [ ] Task 5: Perform final documentation-pass review for changed code
-	- [ ] Inspect all hand-maintained changed C# files in the WP005 scope.
-	- [ ] Ensure every class, method, constructor, public parameter, relevant property, test fixture, and test method meets `.github/instructions/documentation-pass.instructions.md`.
-	- [ ] Improve weak or inconsistent comments directly in source where needed.
-  - [ ] Task 6: Run targeted validation
-	- [ ] Run changed production project builds.
-	- [ ] Run changed test project builds.
-	- [ ] Run focused WP005 unit and integration tests.
-	- [ ] Record validation commands and outcomes in the Work Item completion record without duplicating contributor-facing guidance that belongs in the wiki.
-  - [ ] Task 7: Perform package-level documentation and wiki review
-	- [ ] Review all wiki pages affected by WP005 behavior and validation.
-	- [ ] Update pages needing current-state guidance and examples.
-	- [ ] Record pages reviewed, updated, created, intentionally unchanged, and page-structure decision.
+	- [x] Task 1: Add representative end-to-end fixtures - Completed
+	- [x] Created a representative temporary-repository fixture for multi-solution, mixed-language, SDK-style, old-style, direct package, central package, inherited package, `packages.config`, project-reference, analyzer-reference, unsupported-project, and classification cases in `ProjectMetadataExtractionStageTests`.
+	- [x] Kept all fixture files under per-test temporary repository roots rather than writing fixtures or temporary files to the repository root.
+  - [x] Task 2: Add end-to-end snapshot assertions - Completed
+	- [x] Asserted repository, solution, project, package, and file-path node collections.
+	- [x] Asserted `CONTAINS`, `REFERENCES`, and `USES_PACKAGE` relationships.
+	- [x] Asserted evidence, warnings, confidence metadata, application type metadata, central/inherited/legacy package metadata, and safe diagnostic behavior.
+	- [x] Existing orchestration and persistence-handoff tests continue to prove the generalized snapshot reaches the application-layer writer without direct Neo4j writes from project extraction.
+  - [x] Task 3: Harden deterministic behavior - Completed
+	- [x] Reviewed stable-key generation inputs for repository-relative identity and database-ID avoidance.
+	- [x] Reviewed ordering and deduplication for multi-solution, project-reference, package-reference, and FilePath cases.
+	- [x] Reviewed metadata serialization through canonical metadata assertions in focused and representative tests.
+  - [x] Task 4: Harden diagnostics and logging - Completed
+	- [x] Hardened analyzer diagnostics so repository-contained analyzer declarations that point to missing files produce controlled evidence-backed warnings.
+	- [x] Verified warnings remain credential-safe and do not expose the temporary repository root, raw stack traces, unsafe metadata values, or unnecessary absolute paths.
+  - [x] Task 5: Perform final documentation-pass review for changed code - Completed
+	- [x] Inspected changed hand-maintained C# regions in `RepositorySolutionExtractionStage` and `ProjectMetadataExtractionStageTests` against `.github/instructions/documentation-pass.instructions.md`.
+	- [x] Confirmed class, method, test scenario, and local rationale comments in the changed scope meet the repository documentation-pass standard.
+	- [x] No comment-only changes were required after review.
+  - [x] Task 6: Run targeted validation - Completed
+	- [x] Ran changed test project build.
+	- [x] Ran focused WP005 project metadata extraction tests.
+	- [x] Ran the full `Archon.Extractors.Projects.Tests` project without starting the Aspire AppHost or the repository-wide full test suite.
+  - [x] Task 7: Perform package-level documentation and wiki review - Completed
+	- [x] Reviewed wiki pages affected by WP005 behavior and validation.
+	- [x] Updated current-state guidance for missing repository-contained analyzer diagnostics, evidence preservation, and FilePath behavior.
+	- [x] Recorded pages reviewed, updated, intentionally unchanged, and page-structure decision in the completion record below.
+  - **Completion Summary**: Added a representative all-up WP005 fixture in `test/Archon.Extractors.Projects.Tests/Projects/ProjectMetadataExtractionStageTests.cs` that exercises one coherent extraction run across repository, two submitted solutions, mixed C#/VB.NET projects, SDK-style and old-style projects, project references, direct packages, central package versions, inherited package version state, legacy `packages.config`, analyzer references, unsupported declarations, FilePath nodes, evidence, warnings, and application type classification metadata. Hardened `RepositorySolutionExtractionStage` so analyzer references that resolve inside the submitted repository but point to missing analyzer files now produce controlled evidence-backed warnings, matching the existing unresolved project-reference diagnostic pattern while keeping source evidence and FilePath identity visible.
+  - **Validation Summary**: Build passed for `dotnet build D:\Dev\Archon\test\Archon.Extractors.Projects.Tests\Archon.Extractors.Projects.Tests.csproj`. Targeted diagnostic and representative tests passed with `dotnet test D:\Dev\Archon\test\Archon.Extractors.Projects.Tests\Archon.Extractors.Projects.Tests.csproj --no-build --filter "FullyQualifiedName~RepositoryContainedAnalyzerFileIsMissing|FullyQualifiedName~RepresentativeWp005"` (2/2). Focused WP005 tests passed with `dotnet test D:\Dev\Archon\test\Archon.Extractors.Projects.Tests\Archon.Extractors.Projects.Tests.csproj --no-build --filter FullyQualifiedName~ProjectMetadataExtractionStageTests` (40/40). The full project extractor test project passed with `dotnet test D:\Dev\Archon\test\Archon.Extractors.Projects.Tests\Archon.Extractors.Projects.Tests.csproj --no-build` (44/44). One earlier targeted test command failed only because the PowerShell filter pipe was unquoted; the quoted command succeeded. The Aspire AppHost was not started and the repository-wide full test suite was not run.
+  - **Wiki Review Result / Impact Matrix**: Affected concepts were complete WP005 snapshot composition, representative extraction validation, analyzer diagnostics, evidence preservation, FilePath nodes, and targeted validation workflow. Reviewed `wiki/api-extraction-workflow.md`, `wiki/graph-domain-model.md`, `wiki/validation-and-test-workflows.md`, `.github/instructions/wiki.instructions.md`, and the existing WP005 plan. Updated `wiki/api-extraction-workflow.md`, `wiki/graph-domain-model.md`, and `wiki/validation-and-test-workflows.md` to describe missing repository-contained analyzer warnings and their evidence/FilePath behavior. No wiki pages were created, split, renamed, or retired. `wiki/home.md` and `wiki/glossary.md` were intentionally left unchanged because the existing topic-page reader path and analyzer-reference terminology already covered the concept; the change clarified behavior on existing workflow/model/validation pages. Page-structure decision: keep WP005 guidance on existing extraction workflow, graph domain model, and validation pages for this hardening slice because the update clarifies current behavior inside established topics and does not introduce a new standalone contributor journey.
   - **Files**:
 	- `src/Archon.Extractors.Projects/*`: Cross-slice hardening.
 	- `src/Archon.Application/Extraction/*`: Orchestration integration adjustments if needed.

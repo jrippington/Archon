@@ -202,6 +202,17 @@ namespace Archon.Extractors.Projects.Solutions
                     if (!analyzerReference.IsRepositoryContained)
                     {
                         context.Accumulation.AddWarning($"Analyzer reference '{analyzerReference.DeclaredInclude}' declared by '{analyzerReference.DeclaringProjectRelativePath}' could not be resolved inside the submitted repository.");
+                        continue;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(analyzerReference.ResolvedRelativePath))
+                    {
+                        string absoluteAnalyzerPath = Path.GetFullPath(Path.Combine(context.ResolvedInput.RepositoryRootDirectory, analyzerReference.ResolvedRelativePath.Replace('/', Path.DirectorySeparatorChar)));
+
+                        if (!File.Exists(absoluteAnalyzerPath))
+                        {
+                            context.Accumulation.AddWarning($"Analyzer reference '{analyzerReference.DeclaredInclude}' declared by '{analyzerReference.DeclaringProjectRelativePath}' points to a repository-contained analyzer file that does not exist.");
+                        }
                     }
                 }
             }
