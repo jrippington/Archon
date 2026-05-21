@@ -77,6 +77,36 @@ namespace Archon.Infrastructure.Neo4j.Tests.Persistence
         }
 
         /// <summary>
+        /// Confirms semantic declaration node mapping preserves snapshot scope, symbol confidence, unknown state, evidence, and deterministic metadata.
+        /// </summary>
+        [Fact]
+        public void MapsSemanticDeclarationNodeProperties()
+        {
+            // Semantic declaration facts flow through the same generic node contract, so Neo4j mapping must not need Roslyn-specific types.
+            Neo4jSnapshotPersistenceMapper mapper = new();
+            ArchitectureNode node = CreateSemanticDeclarationNode(
+                new StableKey("snapshot://semantic"),
+                new StableKey("semantic://declaration/type/customer-service"),
+                new StableKey("project://Customer.Api.csproj"),
+                new StableKey("evidence://semantic/type/customer-service"));
+
+            IReadOnlyDictionary<string, object?> parameters = mapper.MapNode(node);
+
+            Assert.Equal("snapshot://semantic", parameters["snapshotStableKey"]);
+            Assert.Equal("semantic://declaration/type/customer-service", parameters["stableKey"]);
+            Assert.Equal("Type", parameters["nodeKind"]);
+            Assert.Equal("CustomerService", parameters["displayName"]);
+            Assert.Equal("Customer.Api.CustomerService", parameters["qualifiedName"]);
+            Assert.Equal("C#", parameters["language"]);
+            Assert.Equal("project://Customer.Api.csproj", parameters["projectStableKey"]);
+            Assert.Equal(0.90m, parameters["confidence"]);
+            Assert.Equal(false, parameters["hasUnknownData"]);
+            Assert.Equal("evidence://semantic/type/customer-service", parameters["primaryEvidenceStableKey"]);
+            Assert.Equal("sha256:semantic-node", parameters["fingerprint"]);
+            Assert.Equal("{\"semantic.confidenceCategory\":\"CompilerResolved\",\"semantic.declarationKind\":\"Type\",\"semantic.projectContext\":\"Customer.Api.csproj\",\"semantic.sourceLanguage\":\"CSharp\"}", parameters["metadataJson"]);
+        }
+
+        /// <summary>
         /// Confirms evidence mapping and deduplication identity are deterministic and snapshot-scoped.
         /// </summary>
         [Fact]
@@ -98,6 +128,32 @@ namespace Archon.Infrastructure.Neo4j.Tests.Persistence
             Assert.Equal("sha256:evidence", parameters["fingerprint"]);
             Assert.Equal(firstKey, duplicateKey);
             Assert.NotEqual(firstKey, otherSnapshotKey);
+        }
+
+        /// <summary>
+        /// Confirms semantic evidence mapping persists source spans, symbol context, snippet data, and diagnostic metadata as generic evidence properties.
+        /// </summary>
+        [Fact]
+        public void MapsSemanticEvidenceProperties()
+        {
+            // Evidence produced by semantic extraction must remain snapshot-scoped and source-addressable after infrastructure mapping.
+            Neo4jSnapshotPersistenceMapper mapper = new();
+            EvidenceRecord evidence = CreateSemanticEvidence(new StableKey("snapshot://semantic"), new StableKey("evidence://semantic/type/customer-service"));
+
+            IReadOnlyDictionary<string, object?> parameters = mapper.MapEvidence(evidence);
+
+            Assert.Equal("snapshot://semantic", parameters["snapshotStableKey"]);
+            Assert.Equal("evidence://semantic/type/customer-service", parameters["stableKey"]);
+            Assert.Equal("CompilerSymbol", parameters["evidenceKind"]);
+            Assert.Equal("src/Customer.Api/CustomerService.cs", parameters["filePath"]);
+            Assert.Equal(3, parameters["startLine"]);
+            Assert.Equal(18, parameters["endLine"]);
+            Assert.Equal("CustomerService", parameters["symbolName"]);
+            Assert.Equal("Customer.Api", parameters["containingSymbol"]);
+            Assert.Equal("semantic-snippet-hash", parameters["snippetHash"]);
+            Assert.Equal("public sealed class CustomerService", parameters["snippetPreview"]);
+            Assert.Equal("sha256:semantic-evidence", parameters["fingerprint"]);
+            Assert.Equal("{\"semantic.sourceLanguage\":\"CSharp\"}", parameters["metadataJson"]);
         }
 
         /// <summary>
@@ -123,6 +179,38 @@ namespace Archon.Infrastructure.Neo4j.Tests.Persistence
             Assert.Equal(1.00m, parameters["confidence"]);
             Assert.Equal("evidence://project", parameters["primaryEvidenceStableKey"]);
             Assert.Equal("sha256:edge", parameters["fingerprint"]);
+        }
+
+        /// <summary>
+        /// Confirms semantic relationship mapping preserves the graph vocabulary, endpoint keys, confidence, unknown reason, evidence, and metadata.
+        /// </summary>
+        [Fact]
+        public void MapsSemanticRelationshipProperties()
+        {
+            // Semantic relationships are persisted through the same edge shape, including degraded unknown state when Roslyn could only partially resolve a target.
+            Neo4jSnapshotPersistenceMapper mapper = new();
+            ArchitectureEdge edge = CreateSemanticRelationship(
+                new StableKey("snapshot://semantic"),
+                new StableKey("semantic://relationship/calls/get-name/name"),
+                new StableKey("semantic://declaration/method/get-name"),
+                new StableKey("semantic://declaration/property/name"),
+                new StableKey("evidence://semantic/relationship/get-name"));
+
+            IReadOnlyDictionary<string, object?> parameters = mapper.MapRelationship(edge);
+
+            Assert.Equal("snapshot://semantic", parameters["snapshotStableKey"]);
+            Assert.Equal("semantic://relationship/calls/get-name/name", parameters["stableKey"]);
+            Assert.Equal("CALLS", parameters["edgeKind"]);
+            Assert.Equal("semantic://declaration/method/get-name", parameters["sourceNodeStableKey"]);
+            Assert.Equal("semantic://declaration/property/name", parameters["targetNodeStableKey"]);
+            Assert.Equal(true, parameters["isDirect"]);
+            Assert.Equal("Fact", parameters["knowledgeKind"]);
+            Assert.Equal(0.5m, parameters["confidence"]);
+            Assert.Equal(true, parameters["hasUnknownData"]);
+            Assert.Equal("PartiallyResolved", parameters["unknownReason"]);
+            Assert.Equal("evidence://semantic/relationship/get-name", parameters["primaryEvidenceStableKey"]);
+            Assert.Equal("sha256:semantic-edge", parameters["fingerprint"]);
+            Assert.Equal("{\"semantic.confidenceCategory\":\"PartiallyResolved\",\"semantic.relationshipKind\":\"Calls\"}", parameters["metadataJson"]);
         }
 
         /// <summary>
@@ -312,6 +400,44 @@ namespace Archon.Infrastructure.Neo4j.Tests.Persistence
         }
 
         /// <summary>
+        /// Creates a semantic declaration node using the generic architecture-node contract.
+        /// </summary>
+        /// <param name="snapshotStableKey">The snapshot stable key that scopes the node.</param>
+        /// <param name="nodeStableKey">The stable key of the semantic declaration node.</param>
+        /// <param name="projectStableKey">The stable key of the project that owns the declaration.</param>
+        /// <param name="evidenceStableKey">The stable key of the declaration's primary semantic evidence.</param>
+        /// <returns>An architecture node shaped like a projected Roslyn declaration.</returns>
+        private static ArchitectureNode CreateSemanticDeclarationNode(StableKey snapshotStableKey, StableKey nodeStableKey, StableKey projectStableKey, StableKey evidenceStableKey)
+        {
+            // Semantic declarations remain generic graph nodes after projection; metadata carries Roslyn-specific classification details.
+            GraphMetadata metadata = GraphMetadata.From(new Dictionary<string, object?>
+            {
+                ["semantic.confidenceCategory"] = "CompilerResolved",
+                ["semantic.declarationKind"] = "Type",
+                ["semantic.projectContext"] = "Customer.Api.csproj",
+                ["semantic.sourceLanguage"] = "CSharp"
+            });
+            return new ArchitectureNode(
+                snapshotStableKey,
+                nodeStableKey,
+                NodeKind.Type,
+                "CustomerService",
+                "Customer.Api.CustomerService",
+                "customer api customerservice",
+                "C#",
+                projectStableKey,
+                null,
+                KnowledgeKind.Fact,
+                null,
+                null,
+                Confidence.High,
+                UnknownState.Known,
+                evidenceStableKey,
+                metadata,
+                new Fingerprint("sha256:semantic-node"));
+        }
+
+        /// <summary>
         /// Creates representative evidence for mapping and deduplication tests.
         /// </summary>
         /// <param name="snapshotStableKey">The snapshot stable key that scopes the evidence.</param>
@@ -339,6 +465,33 @@ namespace Archon.Infrastructure.Neo4j.Tests.Persistence
         }
 
         /// <summary>
+        /// Creates source evidence shaped like a Roslyn compiler-symbol evidence record.
+        /// </summary>
+        /// <param name="snapshotStableKey">The snapshot stable key that scopes the evidence.</param>
+        /// <param name="evidenceStableKey">The stable key of the semantic evidence record.</param>
+        /// <returns>An evidence record containing semantic source span and symbol data.</returns>
+        private static EvidenceRecord CreateSemanticEvidence(StableKey snapshotStableKey, StableKey evidenceStableKey)
+        {
+            // The metadata is intentionally semantic-prefixed so infrastructure remains a generic mapper rather than a Roslyn-aware adapter.
+            return new EvidenceRecord(
+                snapshotStableKey,
+                evidenceStableKey,
+                EvidenceKind.CompilerSymbol,
+                RepositoryRelativePath.Parse("src/Customer.Api/CustomerService.cs"),
+                3,
+                18,
+                "CustomerService",
+                "Customer.Api",
+                "semantic-snippet-hash",
+                "public sealed class CustomerService",
+                KnowledgeKind.Fact,
+                Confidence.High,
+                UnknownState.Known,
+                GraphMetadata.From(new Dictionary<string, object?> { ["semantic.sourceLanguage"] = "CSharp" }),
+                new Fingerprint("sha256:semantic-evidence"));
+        }
+
+        /// <summary>
         /// Creates a representative architecture edge for mapping tests.
         /// </summary>
         /// <param name="snapshotStableKey">The snapshot stable key that scopes the edge.</param>
@@ -363,6 +516,38 @@ namespace Archon.Infrastructure.Neo4j.Tests.Persistence
                 evidenceStableKey,
                 GraphMetadata.Empty,
                 new Fingerprint("sha256:edge"));
+        }
+
+        /// <summary>
+        /// Creates a semantic relationship using the generic architecture-edge contract.
+        /// </summary>
+        /// <param name="snapshotStableKey">The snapshot stable key that scopes the edge.</param>
+        /// <param name="edgeStableKey">The stable key of the semantic edge.</param>
+        /// <param name="sourceNodeStableKey">The stable key of the source semantic node.</param>
+        /// <param name="targetNodeStableKey">The stable key of the target semantic node.</param>
+        /// <param name="evidenceStableKey">The stable key of the edge's primary semantic evidence.</param>
+        /// <returns>An architecture edge shaped like a projected Roslyn relationship.</returns>
+        private static ArchitectureEdge CreateSemanticRelationship(StableKey snapshotStableKey, StableKey edgeStableKey, StableKey sourceNodeStableKey, StableKey targetNodeStableKey, StableKey evidenceStableKey)
+        {
+            // A partially resolved edge proves unknown-state fields are first-class even when the relationship still reaches persistence.
+            GraphMetadata metadata = GraphMetadata.From(new Dictionary<string, object?>
+            {
+                ["semantic.confidenceCategory"] = "PartiallyResolved",
+                ["semantic.relationshipKind"] = "Calls"
+            });
+            return new ArchitectureEdge(
+                snapshotStableKey,
+                edgeStableKey,
+                EdgeKind.Calls,
+                sourceNodeStableKey,
+                targetNodeStableKey,
+                true,
+                KnowledgeKind.Fact,
+                Confidence.Medium,
+                UnknownState.Unknown("PartiallyResolved"),
+                evidenceStableKey,
+                metadata,
+                new Fingerprint("sha256:semantic-edge"));
         }
 
         /// <summary>

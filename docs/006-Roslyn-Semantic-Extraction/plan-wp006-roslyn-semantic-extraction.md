@@ -334,7 +334,7 @@ The plan assumes WP001 through WP005 have already provided the solution skeleton
 
 ## 5. Snapshot Persistence Integration and API Extraction Orchestration Slice
 
-- [ ] Work Item 5: Connect semantic extraction to snapshot-scoped graph persistence seams
+- [x] Work Item 5: Connect semantic extraction to snapshot-scoped graph persistence seams - Completed
   - **Purpose**: Make WP006 facts flow through the same application extraction orchestration and graph persistence seams as earlier work packages so semantic facts are snapshot-scoped and usable by later API and MCP query work.
   - **Acceptance Criteria**:
 	- Semantic extraction can be invoked from the shared API extraction orchestration path using repository root and explicit solution path inputs.
@@ -350,28 +350,35 @@ The plan assumes WP001 through WP005 have already provided the solution skeleton
 	- Wiki review is performed for the extraction workflow and persistence flow; relevant pages are updated or an explicit no-change result is recorded.
 	- Can execute end to end via targeted API extraction and persistence-seam tests.
 	- Executor must not stop mid-work-item unless the work item is complete, the user explicitly interrupts, or a true blocker prevents further autonomous progress.
-  - [ ] Task 1: Wire semantic extraction into orchestration
-	- [ ] Identify the existing extraction workflow sequence from WP004/WP005.
-	- [ ] Add semantic extraction invocation after solution/project context is available.
-	- [ ] Ensure repository root and explicit solution path list remain the entry contract.
-  - [ ] Task 2: Extend accumulation-to-persistence mapping
-	- [ ] Map semantic declaration facts to graph node persistence contracts.
-	- [ ] Map semantic relationship facts to graph relationship persistence contracts.
-	- [ ] Map evidence, diagnostics, confidence, and unknowns to snapshot-scoped persistence data.
-	- [ ] Keep Neo4j-specific details inside infrastructure adapters only.
-  - [ ] Task 3: Add orchestration and persistence seam tests
-	- [ ] Test extraction orchestration invokes semantic extraction for C# and VB.NET projects.
-	- [ ] Test graph-ready semantic facts are passed to the persistence seam with the correct snapshot association.
-	- [ ] Test deterministic output across repeated extraction of unchanged inputs.
-	- [ ] Test ordinary semantic failures do not prevent persistence of resolvable facts.
-  - [ ] Task 4: Add logging and error handling
-	- [ ] Log extraction start, completion, and degraded semantic conditions through `ILogger` abstractions.
-	- [ ] Avoid custom logging callbacks.
-	- [ ] Ensure exceptions that should become extraction failures are clearly distinguished from unknowns or diagnostics.
-  - [ ] Task 5: Perform documentation and wiki review for workflow integration
-	- [ ] Review `wiki/api-extraction-workflow.md` for semantic extraction sequence impact.
-	- [ ] Review `wiki/neo4j-persistence-foundation.md` and `wiki/graph-domain-model.md` for semantic fact persistence impact.
-	- [ ] Update topic pages or cross-links as needed, avoiding `wiki/home.md` as a detail dump.
+	- [x] Task 1: Wire semantic extraction into orchestration - Completed
+	- [x] Identify the existing extraction workflow sequence from WP004/WP005.
+	- [x] Add semantic extraction invocation after solution/project context is available.
+	- [x] Ensure repository root and explicit solution path list remain the entry contract.
+  - [x] Task 2: Extend accumulation-to-persistence mapping - Completed
+	- [x] Map semantic declaration facts to graph node persistence contracts.
+	- [x] Map semantic relationship facts to graph relationship persistence contracts.
+	- [x] Map evidence, diagnostics, confidence, and unknowns to snapshot-scoped persistence data.
+	- [x] Keep Neo4j-specific details inside infrastructure adapters only.
+  - [x] Task 3: Add orchestration and persistence seam tests - Completed
+	- [x] Test extraction orchestration invokes semantic extraction for C# and VB.NET projects.
+	- [x] Test graph-ready semantic facts are passed to the persistence seam with the correct snapshot association.
+	- [x] Test deterministic output across repeated extraction of unchanged inputs.
+	- [x] Test ordinary semantic failures do not prevent persistence of resolvable facts.
+  - [x] Task 4: Add logging and error handling - Completed
+	- [x] Log extraction start, completion, and degraded semantic conditions through `ILogger` abstractions.
+	- [x] Avoid custom logging callbacks.
+	- [x] Ensure exceptions that should become extraction failures are clearly distinguished from unknowns or diagnostics.
+  - [x] Task 5: Perform documentation and wiki review for workflow integration - Completed
+	- [x] Review `wiki/api-extraction-workflow.md` for semantic extraction sequence impact.
+	- [x] Review `wiki/neo4j-persistence-foundation.md` and `wiki/graph-domain-model.md` for semantic fact persistence impact.
+	- [x] Update topic pages or cross-links as needed, avoiding `wiki/home.md` as a detail dump.
+  - **Completion Summary**:
+	- Added `src/Archon.Infrastructure.Roslyn/Extraction/RoslynSemanticExtractionStage.cs` and `SemanticGraphProjection.cs` to load explicitly submitted C# and VB.NET projects from solution files, create Roslyn compilations without Aspire/AppHost startup, invoke language-specific semantic extractors, and project semantic declarations, relationships, evidence, diagnostics, unknowns, confidence, and evidence contributions into existing snapshot-scoped `ArchitectureNode`, `ArchitectureEdge`, and `EvidenceRecord` contracts.
+	- Wired `RoslynSemanticExtractionStage` into `src/Archon.Api.Extraction/ExtractionApiServiceCollectionExtensions.cs` immediately after `RepositorySolutionExtractionStage`, added logging service registration for focused composition tests, and added the required `Archon.Infrastructure.Roslyn` project reference from the API extraction module. Neo4j-specific behavior remains in `Archon.Infrastructure.Neo4j`; Roslyn projects do not reference Neo4j.
+	- Added API and infrastructure tests in `test/Archon.Api.Extraction.Tests/ExtractionEndpointTests.cs` and `test/Archon.Infrastructure.Roslyn.Tests/RoslynSemanticExtractionStageTests.cs` proving semantic extraction runs through the shared API path, mixed C#/VB.NET projects are extracted, semantic facts reach the snapshot writer seam with snapshot association, repeated unchanged input produces deterministic stable keys, and degraded compiler diagnostics preserve resolvable facts. Extended `test/Archon.Infrastructure.Neo4j.Tests/Persistence/Neo4jSnapshotPersistenceMapperTests.cs` to prove semantic nodes, relationships, and evidence persist through generic mapper contracts.
+	- Added `ILogger<RoslynSemanticExtractionStage>` start, completion, project-skip, diagnostic, unknown, and degraded-condition logging. Controlled solution loading failures become blocking stage errors, project-level semantic model failures become non-blocking warnings, and compiler diagnostics/semantic unknowns remain degraded outcomes rather than raw exceptions.
+	- Validation performed: `dotnet test .\test\Archon.Infrastructure.Roslyn.Tests\Archon.Infrastructure.Roslyn.Tests.csproj --no-restore` passed with 4 tests; `dotnet test .\test\Archon.Api.Extraction.Tests\Archon.Api.Extraction.Tests.csproj --no-restore` passed with 13 tests after adding logging registration; `dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj --no-restore --filter FullyQualifiedName~Neo4jSnapshotPersistenceMapperTests` passed with 12 tests.
+	- Wiki review result and impact matrix: affected concepts were API extraction sequencing, semantic stage orchestration, snapshot-scoped semantic graph projection, compiler-symbol and compiler-diagnostic evidence, semantic unknown warning behavior, generic Neo4j persistence of semantic facts, and validation commands. Reviewed `wiki/home.md`, `wiki/api-extraction-workflow.md`, `wiki/roslyn-semantic-extraction.md`, `wiki/graph-domain-model.md`, `wiki/neo4j-persistence-foundation.md`, and `wiki/validation-and-test-workflows.md`. Updated all reviewed pages. Created no new wiki pages because `wiki/roslyn-semantic-extraction.md` remains the correct detailed semantic topic page, `wiki/api-extraction-workflow.md` is the correct orchestration page, `wiki/graph-domain-model.md` is the correct graph projection page, and `wiki/neo4j-persistence-foundation.md` is the correct persistence page. Page-structure decision: `wiki/home.md` remained a concise landing page and was updated only for orientation; detailed workflow, projection, persistence, and validation guidance stayed on topic pages with book-like explanatory prose.
   - **Files**:
 	- `src/Archon.Api.Extraction/**`: Semantic extraction orchestration.
 	- `src/Archon.Application/**`: Accumulation and persistence contracts if needed.
@@ -392,7 +399,7 @@ The plan assumes WP001 through WP005 have already provided the solution skeleton
 
 ## 6. WP006 Validation, Documentation Pass, and Wiki Completion Gate
 
-- [ ] Work Item 6: Complete final WP006 validation, documentation pass, and wiki impact record
+- [x] Work Item 6: Complete final WP006 validation, documentation pass, and wiki impact record
   - **Purpose**: Close the work package by validating all WP006 slices together, enforcing source-code documentation requirements, updating contributor-facing wiki guidance, and recording the mandatory wiki impact matrix.
   - **Acceptance Criteria**:
 	- All targeted WP006 tests pass.
@@ -410,38 +417,52 @@ The plan assumes WP001 through WP005 have already provided the solution skeleton
 	- `wiki/home.md` remains a concise landing page and does not contain detailed Roslyn extraction guidance.
 	- No standalone implementation notes, implementation ledgers, architecture notes, or substitute contributor-facing markdown artifacts are created.
 	- Executor must not stop mid-work-item unless the work item is complete, the user explicitly interrupts, or a true blocker prevents further autonomous progress.
-  - [ ] Task 1: Run targeted WP006 validation
-	- [ ] Run `Archon.Roslyn.Tests`.
-	- [ ] Run `Archon.Roslyn.CSharp.Tests`.
-	- [ ] Run `Archon.Roslyn.VisualBasic.Tests`.
-	- [ ] Run `Archon.Roslyn.Legacy.Tests`.
-	- [ ] Run `Archon.Api.Extraction.Tests`.
-	- [ ] Run `Archon.Infrastructure.Roslyn.Tests`.
-	- [ ] Run `Archon.Infrastructure.Neo4j.Tests` if semantic persistence adapter code was changed.
-  - [ ] Task 2: Run final build validation
-	- [ ] Run `dotnet build .\Archon.slnx --no-restore` after targeted tests are passing.
-	- [ ] Fix ordinary build failures caused by WP006 changes and rerun validation.
-  - [ ] Task 3: Perform final documentation-pass audit
-	- [ ] Inspect every hand-maintained `.cs` file touched by WP006.
-	- [ ] Confirm every public API surface has local XML documentation with parameter and type-parameter documentation where applicable.
-	- [ ] Confirm internal and non-public types, constructors, and methods have developer-level comments.
-	- [ ] Confirm method comments explain purpose, logical flow, and non-obvious algorithms.
-	- [ ] Confirm test code comments explain scenario, setup, action, assertion intent, and behavioral significance.
-  - [ ] Task 4: Perform final wiki information-architecture review
-	- [ ] Identify affected concepts: Roslyn semantic extraction, semantic model, symbol identity, stable keys, evidence spans, confidence, unknowns, diagnostics, generated code, partial types, metadata symbols, and validation workflow.
-	- [ ] Review existing wiki pages: `wiki/home.md`, `wiki/solution-architecture.md`, `wiki/api-extraction-workflow.md`, `wiki/graph-domain-model.md`, `wiki/neo4j-persistence-foundation.md`, `wiki/validation-and-test-workflows.md`, and `wiki/glossary.md`.
-	- [ ] Decide whether a new `wiki/roslyn-semantic-extraction.md` topic page is needed to keep the wiki readable.
-	- [ ] Ensure detailed content is not placed in `wiki/home.md`.
-	- [ ] Add or update cross-links and glossary entries where needed.
-  - [ ] Task 5: Update wiki guidance or record no-change decision
-	- [ ] Write current-state contributor guidance into the selected topic pages if updates are needed.
-	- [ ] Use long-form narrative prose for foundational semantic extraction concepts.
-	- [ ] Include examples or walkthrough fragments for extraction flow, evidence interpretation, and degraded-compilation behavior where useful.
-	- [ ] If no wiki update is needed, record the pages reviewed and the reason existing guidance remains sufficient.
-  - [ ] Task 6: Record final WP006 plan outcome
-	- [ ] Update this plan with concise completion summaries and validation outcomes.
-	- [ ] Add the final wiki impact matrix covering affected concepts, pages reviewed, pages updated, pages created, pages intentionally unchanged, and page-structure decision.
-	- [ ] Link to wiki guidance instead of duplicating contributor-facing explanations in this plan.
+	- [x] Task 1: Run targeted WP006 validation
+	- [x] Run `Archon.Roslyn.Tests`.
+	- [x] Run `Archon.Roslyn.CSharp.Tests`.
+	- [x] Run `Archon.Roslyn.VisualBasic.Tests`.
+	- [x] Run `Archon.Roslyn.Legacy.Tests`.
+	- [x] Run `Archon.Api.Extraction.Tests`.
+	- [x] Run `Archon.Infrastructure.Roslyn.Tests`.
+	- [x] Run `Archon.Infrastructure.Neo4j.Tests` if semantic persistence adapter code was changed.
+  - [x] Task 2: Run final build validation
+	- [x] Run `dotnet build .\Archon.slnx --no-restore` after targeted tests are passing.
+	- [x] Fix ordinary build failures caused by WP006 changes and rerun validation.
+  - [x] Task 3: Perform final documentation-pass audit
+	- [x] Inspect every hand-maintained `.cs` file touched by WP006.
+	- [x] Confirm every public API surface has local XML documentation with parameter and type-parameter documentation where applicable.
+	- [x] Confirm internal and non-public types, constructors, and methods have developer-level comments.
+	- [x] Confirm method comments explain purpose, logical flow, and non-obvious algorithms.
+	- [x] Confirm test code comments explain scenario, setup, action, assertion intent, and behavioral significance.
+  - [x] Task 4: Perform final wiki information-architecture review
+	- [x] Identify affected concepts: Roslyn semantic extraction, semantic model, symbol identity, stable keys, evidence spans, confidence, unknowns, diagnostics, generated code, partial types, metadata symbols, and validation workflow.
+	- [x] Review existing wiki pages: `wiki/home.md`, `wiki/solution-architecture.md`, `wiki/api-extraction-workflow.md`, `wiki/graph-domain-model.md`, `wiki/neo4j-persistence-foundation.md`, `wiki/validation-and-test-workflows.md`, and `wiki/glossary.md`.
+	- [x] Decide whether a new `wiki/roslyn-semantic-extraction.md` topic page is needed to keep the wiki readable.
+	- [x] Ensure detailed content is not placed in `wiki/home.md`.
+	- [x] Add or update cross-links and glossary entries where needed.
+  - [x] Task 5: Update wiki guidance or record no-change decision
+	- [x] Write current-state contributor guidance into the selected topic pages if updates are needed.
+	- [x] Use long-form narrative prose for foundational semantic extraction concepts.
+	- [x] Include examples or walkthrough fragments for extraction flow, evidence interpretation, and degraded-compilation behavior where useful.
+	- [x] If no wiki update is needed, record the pages reviewed and the reason existing guidance remains sufficient.
+  - [x] Task 6: Record final WP006 plan outcome
+	- [x] Update this plan with concise completion summaries and validation outcomes.
+	- [x] Add the final wiki impact matrix covering affected concepts, pages reviewed, pages updated, pages created, pages intentionally unchanged, and page-structure decision.
+	- [x] Link to wiki guidance instead of duplicating contributor-facing explanations in this plan.
+  - **Completion Summary**:
+	- Final targeted WP006 validation passed for shared Roslyn helpers, C# extraction, VB.NET extraction, legacy generated-code handling, API orchestration, infrastructure Roslyn loading/projection, and Neo4j semantic mapper coverage. The first `Archon.Infrastructure.Roslyn.Tests` command was cancelled by the user and was rerun successfully before completion was recorded.
+	- Final integrated solution build succeeded with `dotnet build .\Archon.slnx --no-restore`.
+	- Documentation-pass audit reviewed WP006-touched source and test files, including semantic extraction stage/projection code, API composition, API semantic orchestration tests, infrastructure Roslyn tests, and Neo4j semantic mapper tests. Existing XML and developer-level comments already met `./.github/instructions/documentation-pass.instructions.md`; no comment-only edits were required.
+	- Final wiki review confirmed current-state contributor guidance is already present in the selected topic pages, with detailed semantic extraction guidance in `wiki/roslyn-semantic-extraction.md` rather than `wiki/home.md`.
+  - **Validation Outcomes**:
+	- `dotnet test .\test\Archon.Roslyn.Tests\Archon.Roslyn.Tests.csproj --no-restore` passed: 16 total, 0 failed.
+	- `dotnet test .\test\Archon.Roslyn.CSharp.Tests\Archon.Roslyn.CSharp.Tests.csproj --no-restore` passed: 10 total, 0 failed.
+	- `dotnet test .\test\Archon.Roslyn.VisualBasic.Tests\Archon.Roslyn.VisualBasic.Tests.csproj --no-restore` passed: 8 total, 0 failed.
+	- `dotnet test .\test\Archon.Roslyn.Legacy.Tests\Archon.Roslyn.Legacy.Tests.csproj --no-restore` passed: 4 total, 0 failed.
+	- `dotnet test .\test\Archon.Api.Extraction.Tests\Archon.Api.Extraction.Tests.csproj --no-restore` passed: 13 total, 0 failed.
+	- `dotnet test .\test\Archon.Infrastructure.Roslyn.Tests\Archon.Infrastructure.Roslyn.Tests.csproj --no-restore` passed after rerun: 4 total, 0 failed.
+	- `dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj --no-restore` passed: 33 total, 0 failed.
+	- `dotnet build .\Archon.slnx --no-restore` passed.
   - **Files**:
 	- `docs/006-Roslyn-Semantic-Extraction/plan-wp006-roslyn-semantic-extraction.md`: Final validation and wiki impact record.
 	- `wiki/**`: Wiki pages updated, created, or reviewed by the final gate.
@@ -466,14 +487,14 @@ The executor must complete this matrix in Work Item 6 before WP006 is considered
 
 | Area | Result |
 | --- | --- |
-| Affected concepts | To be completed during Work Item 6. |
-| Pages reviewed | To be completed during Work Item 6. |
-| Pages updated | To be completed during Work Item 6. |
-| Pages created | To be completed during Work Item 6. |
-| Pages retired or split | To be completed during Work Item 6. |
-| Pages intentionally unchanged | To be completed during Work Item 6. |
-| Page-structure decision | To be completed during Work Item 6, including why `wiki/home.md` remains concise and why selected topic pages are the right home for detailed guidance. |
-| Glossary and cross-link decision | To be completed during Work Item 6. |
+| Affected concepts | Roslyn semantic extraction, semantic model usage, symbol identity, semantic stable keys, source evidence spans, confidence, unknowns, diagnostics, generated code, partial declarations, metadata-only symbols, API orchestration, snapshot projection, Neo4j semantic mapping, and WP006 validation workflow. |
+| Pages reviewed | `wiki/home.md`, `wiki/solution-architecture.md`, `wiki/api-extraction-workflow.md`, `wiki/graph-domain-model.md`, `wiki/neo4j-persistence-foundation.md`, `wiki/validation-and-test-workflows.md`, `wiki/glossary.md`, and `wiki/roslyn-semantic-extraction.md`. |
+| Pages updated | None during Work Item 6. Work Items 1 through 5 already placed current-state WP006 guidance in the appropriate topic pages, and the final review found those pages sufficient. |
+| Pages created | None during Work Item 6. The dedicated `wiki/roslyn-semantic-extraction.md` topic page already exists and remains the correct home for semantic extraction guidance. |
+| Pages retired or split | None. No implementation-note-style substitute artifact was found or created, and no existing wiki page mixed concerns enough to require splitting during the final gate. |
+| Pages intentionally unchanged | `wiki/home.md` remains a concise landing page; `wiki/solution-architecture.md`, `wiki/api-extraction-workflow.md`, `wiki/graph-domain-model.md`, `wiki/neo4j-persistence-foundation.md`, `wiki/validation-and-test-workflows.md`, `wiki/glossary.md`, and `wiki/roslyn-semantic-extraction.md` already describe the current WP006 behavior and validation path. |
+| Page-structure decision | Existing information architecture is sufficient. Detailed Roslyn semantic concepts remain in `wiki/roslyn-semantic-extraction.md`; graph vocabulary and projection behavior remain in `wiki/graph-domain-model.md`; API execution flow remains in `wiki/api-extraction-workflow.md`; Neo4j persistence mapping remains in `wiki/neo4j-persistence-foundation.md`; validation commands remain in `wiki/validation-and-test-workflows.md`; `wiki/home.md` only orients and links readers. |
+| Glossary and cross-link decision | Existing glossary entries and cross-links are sufficient for WP006 completion. Reviewed semantic model, semantic declaration/evidence/relationship/stable-key, confidence, unknown, generated source, metadata-only symbol, partial declaration, and validation navigation coverage; no additional glossary or cross-link edits were required. |
 
 ## Appendix A - Architecture
 

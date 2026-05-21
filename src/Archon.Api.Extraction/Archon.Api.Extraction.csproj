@@ -7,6 +7,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Archon.Application\Archon.Application.csproj" />
     <ProjectReference Include="..\Archon.Extractors.Projects\Archon.Extractors.Projects.csproj" />
+    <ProjectReference Include="..\Archon.Infrastructure.Roslyn\Archon.Infrastructure.Roslyn.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

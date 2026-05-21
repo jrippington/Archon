@@ -7,7 +7,9 @@ using Archon.Application.Extraction.Snapshots;
 using Archon.Application.Extraction.Validation;
 using Archon.Application.Graph.Persistence;
 using Archon.Extractors.Projects.Solutions;
+using Archon.Infrastructure.Roslyn.Extraction;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Archon.Api.Extraction
 {
@@ -27,9 +29,11 @@ namespace Archon.Api.Extraction
             // ports, such as snapshot persistence, by adding concrete adapters after this module is registered.
             ArgumentNullException.ThrowIfNull(services);
 
+            services.AddLogging();
             services.AddSingleton<StartExtractionRequestValidator>();
             services.AddSingleton<IExtractionRunHistory, InMemoryExtractionRunHistory>();
             services.AddSingleton<IExtractionStage, RepositorySolutionExtractionStage>();
+            services.AddSingleton<IExtractionStage, RoslynSemanticExtractionStage>();
             services.AddSingleton<ExtractionPipelineRunner>();
             services.AddSingleton<ExtractionSnapshotAssembler>();
             services.AddSingleton<IArchitectureSnapshotWriter, InMemoryArchitectureSnapshotWriter>();

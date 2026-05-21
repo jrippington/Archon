@@ -52,6 +52,8 @@ The writer preserves the distinction between normalized graph properties and met
 
 For example, a project node's `nodeKind` is stored as a Neo4j property because later queries may filter all `Project` nodes. Extractor-specific details that are not part of the shared graph contract remain in `metadataJson`.
 
+Semantic extraction uses the same rule. A compiler-backed C# type declaration is persisted as an `ArchonNode` whose first-class properties include the snapshot stable key, semantic declaration stable key, `Type` node kind, display name, qualified name, language, owning project stable key, confidence, unknown-state fields, evidence key, and fingerprint. Roslyn-specific details such as semantic declaration kind, source language enum value, metadata name, project context, relationship discovery source, and confidence category remain in deterministic metadata JSON. A semantic `CALLS` or `DEPENDS_ON` relationship is persisted as an `ArchonRelationship` node with the shared edge kind and endpoint stable keys rather than as a Roslyn-specific Neo4j label. This keeps the Neo4j adapter generic: it maps supplied graph contracts and does not load Roslyn, inspect syntax trees, or decide semantic meaning.
+
 ## Evidence deduplication
 
 Evidence persistence is snapshot-scoped and deduplicated. **Evidence deduplication** means equivalent evidence payloads submitted more than once in the same snapshot collapse to one canonical `ArchonEvidence` node. The canonical identity includes the snapshot stable key and evidence content fields but intentionally excludes the evidence stable key itself.
@@ -65,6 +67,8 @@ Architecture relationships are persisted through the `ArchonRelationship` label.
 Archon uses a **relationship-node pattern**. Direct Neo4j relationships are useful for simple traversal, but Archon relationships are evidence-backed records with their own stable identity. Neo4j does not let a relationship have outgoing relationships to evidence nodes in the same way a node can. Archon therefore stores each edge as an `ArchonRelationship` node, connects it to the source architecture node with `RELATIONSHIP_SOURCE`, connects it to the target architecture node with `RELATIONSHIP_TARGET`, and connects it to primary evidence with `SUPPORTED_BY_EVIDENCE` when evidence is supplied.
 
 For example, a project-to-package dependency is stored as an `ArchonRelationship` node whose `edgeKind` might be `REFERENCES` or `USES_PACKAGE`. The relationship node points to the project through `RELATIONSHIP_SOURCE`, points to the package through `RELATIONSHIP_TARGET`, and points to project-file evidence through `SUPPORTED_BY_EVIDENCE`. Multiple facts can connect the same source and target because merge identity is the relationship stable key within the snapshot, not the endpoint pair.
+
+The same relationship-node pattern is used for semantic relationships. A method call discovered by Roslyn becomes an `ArchonRelationship` node with `edgeKind` `CALLS`, a source stable key for the calling method declaration, a target stable key for the called method or symbol reference, and a `SUPPORTED_BY_EVIDENCE` link to compiler-symbol source evidence. When semantic extraction can only partially resolve the endpoint, the relationship still carries first-class confidence and unknown-state properties. This allows later queries to distinguish high-confidence compiler-resolved calls from partially resolved or metadata-only relationships without parsing metadata JSON.
 
 ## Rules and findings
 

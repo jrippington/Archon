@@ -3,7 +3,9 @@ using Archon.Api.Extraction.Contracts;
 using Archon.Application.Extraction.Contracts;
 using Archon.Application.Extraction.Pipeline;
 using Archon.Application.Graph.Persistence;
+using Archon.Domain.Graph.ControlledValues;
 using Archon.Extractors.Projects.Solutions;
+using Archon.Infrastructure.Roslyn.Extraction;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
@@ -70,20 +72,30 @@ namespace Archon.Api.Extraction.Tests
         }
 
         /// <summary>
-        /// Verifies extraction API service registration composes the WP005 project extraction stage instead of the WP004 placeholder stage.
+        /// Verifies extraction API service registration composes the WP005 project extraction stage and WP006 semantic extraction stage instead of the WP004 placeholder stage.
         /// </summary>
         [Fact]
-        public void AddArchonExtractionApi_WhenServicesAreBuilt_ShouldRegisterRepositorySolutionExtractionStage()
+        public void AddArchonExtractionApi_WhenServicesAreBuilt_ShouldRegisterProjectAndSemanticExtractionStages()
         {
-            // The API module is the existing composition boundary for the extraction pipeline, so this test guards the stage registration path.
+            // The API module is the existing composition boundary for the extraction pipeline, so this test guards the ordered stage registration path.
             ServiceCollection services = new();
 
             services.AddArchonExtractionApi();
             using ServiceProvider serviceProvider = services.BuildServiceProvider();
 
-            IExtractionStage stage = Assert.Single(serviceProvider.GetServices<IExtractionStage>());
-            Assert.IsType<RepositorySolutionExtractionStage>(stage);
-            Assert.Equal("project-repository-solution", stage.StageId);
+            IExtractionStage[] stages = serviceProvider.GetServices<IExtractionStage>().ToArray();
+            Assert.Collection(
+                stages,
+                stage =>
+                {
+                    Assert.IsType<RepositorySolutionExtractionStage>(stage);
+                    Assert.Equal("project-repository-solution", stage.StageId);
+                },
+                stage =>
+                {
+                    Assert.IsType<RoslynSemanticExtractionStage>(stage);
+                    Assert.Equal("roslyn-semantic", stage.StageId);
+                });
         }
 
         /// <summary>
@@ -116,6 +128,43 @@ namespace Archon.Api.Extraction.Tests
             Assert.False(string.IsNullOrWhiteSpace(body.RootElement.GetProperty("runId").GetString()));
             Assert.Equal("Queued", body.RootElement.GetProperty("status").GetString());
             Assert.Equal(1, body.RootElement.GetProperty("submittedRequest").GetProperty("solutionPaths").GetArrayLength());
+        }
+
+        /// <summary>
+        /// Verifies the API-triggered extraction path persists Roslyn semantic facts through the snapshot writer seam.
+        /// </summary>
+        /// <returns>A task that completes after the completed run and recorded snapshot have been asserted.</returns>
+        [Fact]
+        public async Task GetExtractionStatus_WhenSemanticExtractionRuns_ShouldPersistSemanticFactsThroughSnapshotWriter()
+        {
+            // This test exercises the shared API orchestration path without Aspire or Neo4j by replacing only the application persistence port.
+            string repositoryRoot = CreateRepositoryRoot();
+            CreateSolutionFile(repositoryRoot, "CustomerSuite.sln", "Customer.Api", "Customer.Api.csproj");
+            CreateProjectFile(repositoryRoot, "Customer.Api.csproj", "Customer.Api.CustomerService.cs");
+            CreateCSharpSourceFile(repositoryRoot, "Customer.Api.CustomerService.cs");
+            RecordingSnapshotWriter writer = new("snapshot://semantic-api-test");
+            await using WebApplication app = await CreateApplicationAsync(services => services.AddSingleton<IArchitectureSnapshotWriter>(writer));
+            using HttpClient client = app.GetTestClient();
+
+            HttpResponseMessage startResponse = await client.PostAsJsonAsync(
+                "/extractions",
+                new StartExtractionApiRequest(repositoryRoot, ["CustomerSuite.sln"], null, null, null, null));
+            using JsonDocument startBody = await JsonDocument.ParseAsync(await startResponse.Content.ReadAsStreamAsync());
+            string runId = startBody.RootElement.GetProperty("runId").GetString()!;
+
+            JsonDocument statusBody = await PollForTerminalStatusAsync(client, runId);
+
+            using (statusBody)
+            {
+                Assert.Equal("Completed", statusBody.RootElement.GetProperty("status").GetString());
+                Assert.NotNull(writer.WrittenSnapshot);
+                ExtractedArchitectureSnapshot snapshot = writer.WrittenSnapshot;
+                Assert.Contains(snapshot.Nodes, node => node.NodeKind == NodeKind.Type && node.DisplayName == "CustomerService" && node.ProjectStableKey?.Value == "project://Customer.Api.csproj");
+                Assert.Contains(snapshot.Nodes, node => node.NodeKind == NodeKind.Method && node.DisplayName == "GetName");
+                Assert.Contains(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.Contains && edge.SourceNodeStableKey.Value.Contains("type://", StringComparison.Ordinal));
+                Assert.Contains(snapshot.Evidence, evidence => evidence.FilePath.Value == "Customer.Api.CustomerService.cs" && evidence.SymbolName == "CustomerService");
+                Assert.Empty(snapshot.Errors);
+            }
         }
 
         /// <summary>
@@ -466,6 +515,161 @@ namespace Archon.Api.Extraction.Tests
                         "EndGlobal"
                     ]));
             return solutionPath;
+        }
+
+        /// <summary>
+        /// Creates a minimal Visual Studio solution file containing one supported project declaration.
+        /// </summary>
+        /// <param name="repositoryRoot">The repository root that should contain the solution file.</param>
+        /// <param name="relativeSolutionPath">The repository-relative solution file path to write.</param>
+        /// <param name="projectName">The project name declared by the solution file.</param>
+        /// <param name="projectPath">The project path declared by the solution file.</param>
+        /// <returns>The absolute path to the created solution file.</returns>
+        private static string CreateSolutionFile(string repositoryRoot, string relativeSolutionPath, string projectName, string projectPath)
+        {
+            // Semantic API tests need a real project declaration so the project and semantic stages see the same submitted project context.
+            string solutionPath = Path.Combine(repositoryRoot, relativeSolutionPath);
+            Directory.CreateDirectory(Path.GetDirectoryName(solutionPath)!);
+            File.WriteAllText(
+                solutionPath,
+                string.Join(
+                    Environment.NewLine,
+                    [
+                        "Microsoft Visual Studio Solution File, Format Version 12.00",
+                        "# Visual Studio Version 17",
+                        $"Project(\"{{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}}\") = \"{projectName}\", \"{projectPath}\", \"{{33333333-3333-3333-3333-333333333333}}\"",
+                        "EndProject",
+                        "Global",
+                        "EndGlobal"
+                    ]));
+            return solutionPath;
+        }
+
+        /// <summary>
+        /// Creates a minimal C# SDK-style project file that includes one compile item.
+        /// </summary>
+        /// <param name="repositoryRoot">The repository root that contains the project file.</param>
+        /// <param name="relativeProjectPath">The repository-relative project path to write.</param>
+        /// <param name="sourceInclude">The source file include path written into the project file.</param>
+        private static void CreateProjectFile(string repositoryRoot, string relativeProjectPath, string sourceInclude)
+        {
+            // The semantic stage reads project files directly in tests, so the fixture declares the exact source file it should compile.
+            string projectPath = Path.Combine(repositoryRoot, relativeProjectPath);
+            Directory.CreateDirectory(Path.GetDirectoryName(projectPath)!);
+            File.WriteAllText(
+                projectPath,
+                string.Join(
+                    Environment.NewLine,
+                    [
+                        "<Project Sdk=\"Microsoft.NET.Sdk\">",
+                        "  <PropertyGroup>",
+                        "    <TargetFramework>net10.0</TargetFramework>",
+                        "    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>",
+                        "  </PropertyGroup>",
+                        "  <ItemGroup>",
+                        $"    <Compile Include=\"{sourceInclude}\" />",
+                        "  </ItemGroup>",
+                        "</Project>"
+                    ]));
+        }
+
+        /// <summary>
+        /// Creates a small C# source file containing declarations that should flow through semantic extraction.
+        /// </summary>
+        /// <param name="repositoryRoot">The repository root that contains the source file.</param>
+        /// <param name="relativeSourcePath">The repository-relative source path to write.</param>
+        private static void CreateCSharpSourceFile(string repositoryRoot, string relativeSourcePath)
+        {
+            // The source intentionally includes a namespace, type, constructor, method, property, and field so semantic graph projection is visible.
+            string sourcePath = Path.Combine(repositoryRoot, relativeSourcePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
+            File.WriteAllText(
+                sourcePath,
+                string.Join(
+                    Environment.NewLine,
+                    [
+                        "namespace Customer.Api;",
+                        "",
+                        "public sealed class CustomerService",
+                        "{",
+                        "    private readonly string _name;",
+                        "",
+                        "    public CustomerService()",
+                        "    {",
+                        "        _name = \"Ada\";",
+                        "    }",
+                        "",
+                        "    public string Name => _name;",
+                        "",
+                        "    public string GetName()",
+                        "    {",
+                        "        return Name;",
+                        "    }",
+                        "}"
+                    ]));
+        }
+
+        /// <summary>
+        /// Records the snapshot supplied by completed API orchestration while returning a deterministic persistence success.
+        /// </summary>
+        private sealed class RecordingSnapshotWriter : IArchitectureSnapshotWriter
+        {
+            /// <summary>
+            /// Stores the stable snapshot identity returned to orchestration after the write.
+            /// </summary>
+            private readonly string _snapshotStableKey;
+
+            /// <summary>
+            /// Initializes a new instance of the <see cref="RecordingSnapshotWriter" /> class.
+            /// </summary>
+            /// <param name="snapshotStableKey">The stable snapshot identity returned by the test writer.</param>
+            public RecordingSnapshotWriter(string snapshotStableKey)
+            {
+                // The writer uses a caller-supplied identity so endpoint assertions can focus on graph content rather than generated ids.
+                _snapshotStableKey = snapshotStableKey;
+            }
+
+            /// <summary>
+            /// Gets the snapshot most recently supplied to the writer.
+            /// </summary>
+            public ExtractedArchitectureSnapshot? WrittenSnapshot { get; private set; }
+
+            /// <summary>
+            /// Records the assembled snapshot and returns successful counts for API orchestration.
+            /// </summary>
+            /// <param name="snapshot">The assembled snapshot supplied by orchestration.</param>
+            /// <param name="cancellationToken">The cancellation token for the simulated write.</param>
+            /// <returns>A successful persistence result with section counts from the recorded snapshot.</returns>
+            public Task<SnapshotPersistenceResult> WriteSnapshotAsync(ExtractedArchitectureSnapshot snapshot, CancellationToken cancellationToken = default)
+            {
+                // The test double intentionally records the application contract before persistence adapters can translate it.
+                ArgumentNullException.ThrowIfNull(snapshot);
+                cancellationToken.ThrowIfCancellationRequested();
+                WrittenSnapshot = snapshot;
+                SnapshotPersistenceCounts counts = new(
+                    snapshot.Repositories.Count,
+                    snapshot.Solutions.Count,
+                    snapshot.SnapshotHeader is null ? 0 : 1,
+                    snapshot.Nodes.Count,
+                    snapshot.Evidence.Count,
+                    snapshot.Edges.Count,
+                    snapshot.Solutions.Count,
+                    0,
+                    snapshot.Edges.Count * 2,
+                    0,
+                    snapshot.Rules.Count,
+                    snapshot.Findings.Count,
+                    0,
+                    0,
+                    0,
+                    snapshot.Metrics.Count,
+                    0,
+                    0,
+                    snapshot.GeneratedSummaries.Count,
+                    snapshot.GeneratedSummaries.Count,
+                    0);
+                return Task.FromResult(SnapshotPersistenceResult.Success(_snapshotStableKey, counts));
+            }
         }
 
         /// <summary>
