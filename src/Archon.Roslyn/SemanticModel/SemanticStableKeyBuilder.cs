@@ -105,6 +105,37 @@ namespace Archon.Roslyn.SemanticModel
         }
 
         /// <summary>
+        /// Builds a stable key for a compiler diagnostic fact.
+        /// </summary>
+        /// <param name="diagnosticId">The compiler diagnostic identifier such as CS0246 or BC30002.</param>
+        /// <param name="evidence">The evidence span associated with the diagnostic.</param>
+        /// <returns>A deterministic stable key for the diagnostic fact.</returns>
+        public static string ForDiagnostic(string diagnosticId, SemanticEvidence evidence)
+        {
+            // Diagnostic keys include source location and compiler ID so repeated degraded compilations produce stable diagnostic identities.
+            ArgumentNullException.ThrowIfNull(evidence);
+            string payload = JoinPayload(diagnosticId, evidence.RepositoryRelativeFilePath, evidence.StartLine.ToString(), evidence.StartColumn.ToString(), evidence.EndLine.ToString(), evidence.EndColumn.ToString());
+            return $"semantic-diagnostic://{HashPayload(payload)}";
+        }
+
+        /// <summary>
+        /// Builds a stable key for an unknown semantic fact.
+        /// </summary>
+        /// <param name="sourceLanguage">The source language that produced the unknown.</param>
+        /// <param name="projectContext">The logical project context supplied by the extraction caller.</param>
+        /// <param name="reason">The reason the semantic fact could not be fully resolved.</param>
+        /// <param name="evidence">The evidence span associated with the unknown.</param>
+        /// <param name="description">The deterministic description of the unknown condition.</param>
+        /// <returns>A deterministic stable key for the unknown fact.</returns>
+        public static string ForUnknown(SourceLanguage sourceLanguage, string projectContext, SemanticUnknownReason reason, SemanticEvidence evidence, string description)
+        {
+            // Unknown keys are scoped by language, project, reason, evidence, and description so distinct semantic gaps remain queryable.
+            ArgumentNullException.ThrowIfNull(evidence);
+            string payload = JoinPayload(sourceLanguage.ToString(), projectContext, reason.ToString(), evidence.RepositoryRelativeFilePath, evidence.StartLine.ToString(), evidence.StartColumn.ToString(), description);
+            return $"semantic-unknown://{HashPayload(payload)}";
+        }
+
+        /// <summary>
         /// Joins stable-key payload segments with explicit length prefixes before hashing.
         /// </summary>
         /// <param name="segments">The payload segments to join.</param>

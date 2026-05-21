@@ -69,6 +69,26 @@ namespace Archon.Roslyn.VisualBasic
             private readonly Dictionary<string, SemanticDeclarationFact> _declarationsBySymbolKey = new(StringComparer.Ordinal);
 
             /// <summary>
+            /// Stores compiler diagnostics that describe degraded semantic model quality for this document.
+            /// </summary>
+            private readonly List<SemanticDiagnosticFact> _diagnostics = [];
+
+            /// <summary>
+            /// Stores unknown semantic outcomes by stable key so repeated unresolved syntax sites de-duplicate deterministically.
+            /// </summary>
+            private readonly Dictionary<string, SemanticUnknownFact> _unknowns = new(StringComparer.Ordinal);
+
+            /// <summary>
+            /// Stores additional source evidence spans that contributed to merged declarations, partial symbols, or generated facts.
+            /// </summary>
+            private readonly List<SemanticEvidenceContribution> _evidenceContributions = [];
+
+            /// <summary>
+            /// Stores whether the current syntax tree is classified as generated source.
+            /// </summary>
+            private readonly bool _isGenerated;
+
+            /// <summary>
             /// Stores the current declaration ancestry while the syntax walker descends.
             /// </summary>
             private readonly Stack<SemanticDeclarationFact> _parentFacts = new();
@@ -84,6 +104,7 @@ namespace Archon.Roslyn.VisualBasic
                 // The collector is intentionally stateful and per-document so parent stacks and duplicate dictionaries never leak between extraction requests.
                 _request = request;
                 _cancellationToken = cancellationToken;
+                _isGenerated = SemanticGeneratedCodeDetector.IsGenerated(request.SyntaxTree, cancellationToken);
             }
 
             /// <summary>
@@ -259,11 +280,16 @@ namespace Archon.Roslyn.VisualBasic
                 {
                     RecordRelationshipFromCurrentMember(node, SemanticRelationshipKind.Calls, targetMethod.ReducedFrom ?? targetMethod, "Invocation");
                     RecordDependencyFromCurrentMember(node, targetMethod.ContainingType, "InvocationTargetType");
+                    RecordReflectionUnknownIfNeeded(node, targetMethod);
                 }
                 else if (targetSymbol is IPropertySymbol propertySymbol)
                 {
                     RecordRelationshipFromCurrentMember(node, SemanticRelationshipKind.DependsOn, propertySymbol, "PropertyAccess");
                     RecordDependencyFromCurrentMember(node, propertySymbol.Type, "PropertyType");
+                }
+                else
+                {
+                    RecordUnknownForUnresolvedSymbolInfo(node, symbolInfo, "Invocation", IsLateBoundInvocation(node) ? SemanticUnknownReason.LateBoundCall : null);
                 }
 
                 base.VisitInvocationExpression(node);
@@ -277,11 +303,16 @@ namespace Archon.Roslyn.VisualBasic
             {
                 // Object creation produces a CALLS relationship to the constructor and a DEPENDS_ON relationship to the constructed type.
                 _cancellationToken.ThrowIfCancellationRequested();
-                IMethodSymbol? constructor = _request.SemanticModel.GetSymbolInfo(node, _cancellationToken).Symbol as IMethodSymbol;
+                SymbolInfo symbolInfo = _request.SemanticModel.GetSymbolInfo(node, _cancellationToken);
+                IMethodSymbol? constructor = symbolInfo.Symbol as IMethodSymbol;
                 if (constructor is not null)
                 {
                     RecordRelationshipFromCurrentMember(node, SemanticRelationshipKind.Calls, constructor, "ObjectCreationConstructor");
                     RecordDependencyFromCurrentMember(node, constructor.ContainingType, "ObjectCreation");
+                }
+                else
+                {
+                    RecordUnknownForUnresolvedSymbolInfo(node, symbolInfo, "ObjectCreation", preferredReason: null);
                 }
 
                 base.VisitObjectCreationExpression(node);
@@ -295,11 +326,16 @@ namespace Archon.Roslyn.VisualBasic
             {
                 // Property access can indicate architecture coupling even when the syntax is not an invocation.
                 _cancellationToken.ThrowIfCancellationRequested();
-                ISymbol? symbol = _request.SemanticModel.GetSymbolInfo(node, _cancellationToken).Symbol;
+                SymbolInfo symbolInfo = _request.SemanticModel.GetSymbolInfo(node, _cancellationToken);
+                ISymbol? symbol = symbolInfo.Symbol;
                 if (symbol is IPropertySymbol propertySymbol)
                 {
                     RecordRelationshipFromCurrentMember(node, SemanticRelationshipKind.DependsOn, propertySymbol, "PropertyAccess");
                     RecordDependencyFromCurrentMember(node, propertySymbol.Type, "PropertyType");
+                }
+                else if (symbol is null && node.Parent is not InvocationExpressionSyntax)
+                {
+                    RecordUnknownForUnresolvedSymbolInfo(node, symbolInfo, "MemberAccess", preferredReason: null);
                 }
 
                 base.VisitMemberAccessExpression(node);
@@ -377,11 +413,32 @@ namespace Archon.Roslyn.VisualBasic
             public SemanticExtractionResult ToResult()
             {
                 // Stable-key ordering keeps test assertions and future accumulation deterministic independent of Roslyn traversal details.
+                CaptureDiagnostics();
                 return new SemanticExtractionResult(
                     _declarations.Values.OrderBy(declaration => declaration.StableKey, StringComparer.Ordinal),
                     _relationships.Values.OrderBy(relationship => relationship.StableKey, StringComparer.Ordinal),
                     _warnings,
-                    errors: null);
+                    errors: null,
+                    _diagnostics.OrderBy(diagnostic => SemanticStableKeyBuilder.ForDiagnostic(diagnostic.DiagnosticId, diagnostic.Evidence), StringComparer.Ordinal),
+                    _unknowns.Values.OrderBy(unknown => unknown.StableKey, StringComparer.Ordinal),
+                    _evidenceContributions.OrderBy(contribution => contribution.FactStableKey, StringComparer.Ordinal).ThenBy(contribution => contribution.Evidence.StartLine));
+            }
+
+            /// <summary>
+            /// Captures compiler diagnostics for the current syntax tree without blocking partial semantic extraction.
+            /// </summary>
+            private void CaptureDiagnostics()
+            {
+                // Diagnostics are captured at result time so declarations and relationships remain available even when the compilation is degraded.
+                if (_diagnostics.Count > 0)
+                {
+                    return;
+                }
+
+                foreach (Diagnostic diagnostic in _request.SemanticModel.Compilation.GetDiagnostics(_cancellationToken).Where(diagnostic => diagnostic.Location == Location.None || diagnostic.Location.SourceTree == _request.SyntaxTree))
+                {
+                    _diagnostics.Add(SemanticDiagnosticMapper.FromDiagnostic(diagnostic, _request, "VisualBasic", _cancellationToken));
+                }
             }
 
             /// <summary>
@@ -490,9 +547,16 @@ namespace Archon.Roslyn.VisualBasic
                 string stableKey = SemanticStableKeyBuilder.ForDeclaration(declarationKind, SourceLanguage.VisualBasic, _request.ProjectContext, symbolIdentity);
                 string? parentStableKey = _parentFacts.Count == 0 ? null : _parentFacts.Peek().StableKey;
                 SemanticEvidence evidence = CreateEvidence(node, symbolIdentity);
-                SemanticDeclarationFact fact = new(stableKey, declarationKind, SourceLanguage.VisualBasic, symbolIdentity, _request.ProjectContext, parentStableKey, evidence);
+                Dictionary<string, string> metadata = new(StringComparer.Ordinal)
+                {
+                    ["generated"] = _isGenerated ? "true" : "false",
+                    ["sourceOrigin"] = _isGenerated ? "Generated" : "Source"
+                };
+                SemanticFactConfidence confidence = _isGenerated ? SemanticFactConfidence.Generated : SemanticFactConfidence.CompilerResolved;
+                SemanticDeclarationFact fact = new(stableKey, declarationKind, SourceLanguage.VisualBasic, symbolIdentity, _request.ProjectContext, parentStableKey, evidence, confidence, metadata);
                 _declarations[stableKey] = fact;
                 _declarationsBySymbolKey[GetSymbolKey(symbol)] = fact;
+                RecordEvidenceContribution(stableKey, evidence, symbol);
 
                 if (parentStableKey is not null)
                 {
@@ -758,9 +822,16 @@ namespace Archon.Roslyn.VisualBasic
             /// <param name="dependencySource">The deterministic metadata value describing how the dependency was found.</param>
             private void RecordDependency(SemanticDeclarationFact sourceFact, SyntaxNode node, ISymbol? targetSymbol, string dependencySource)
             {
-                // The dependency helper skips void, null, type parameters, and error symbols because they do not create useful resolved endpoints in this slice.
-                if (targetSymbol is null || IsUnsupportedDependencyTarget(targetSymbol))
+                // The dependency helper turns unresolved targets into unknowns and skips placeholders that cannot become concrete graph endpoints.
+                if (targetSymbol is null)
                 {
+                    RecordUnknown(sourceFact, node, SemanticUnknownReason.UnresolvedSymbol, dependencySource, "Dependency target could not be resolved.");
+                    return;
+                }
+
+                if (IsUnsupportedDependencyTarget(targetSymbol))
+                {
+                    RecordUnknown(sourceFact, node, SemanticSymbolClassifier.IsUnresolved(targetSymbol) ? SemanticUnknownReason.MissingReference : SemanticUnknownReason.UnsupportedSemanticForm, dependencySource, $"Dependency target '{targetSymbol.Name}' could not be emitted as a resolved endpoint.");
                     return;
                 }
 
@@ -804,9 +875,10 @@ namespace Archon.Roslyn.VisualBasic
                 SemanticEvidence evidence = CreateEvidence(node, sourceIdentity);
                 Dictionary<string, string> metadata = new(StringComparer.Ordinal)
                 {
-                    ["dependencySource"] = relationshipSource,
-                    ["targetKind"] = targetSymbol.Kind.ToString()
+                    ["dependencySource"] = relationshipSource
                 };
+                SemanticSymbolClassifier.AddSymbolMetadata(metadata, targetSymbol, _isGenerated);
+                SemanticFactConfidence confidence = SemanticSymbolClassifier.ClassifyResolvedConfidence(targetSymbol, _isGenerated);
 
                 _relationships[stableKey] = new SemanticRelationshipFact(
                     stableKey,
@@ -814,7 +886,7 @@ namespace Archon.Roslyn.VisualBasic
                     sourceStableKey,
                     targetStableKey,
                     evidence,
-                    SemanticFactConfidence.CompilerResolved,
+                    confidence,
                     sourceIdentity,
                     targetIdentity,
                     metadata,
@@ -839,14 +911,134 @@ namespace Archon.Roslyn.VisualBasic
             /// <returns><see langword="true" /> when the target is not useful as a graph dependency in this slice.</returns>
             private static bool IsUnsupportedDependencyTarget(ISymbol symbol)
             {
-                // Void, error, and type-parameter targets do not represent concrete architecture dependencies for Work Item 3.
-                return symbol switch
+                // Shared classification ensures C# and Visual Basic skip the same unsupported resolved endpoint shapes.
+                return SemanticSymbolClassifier.IsUnsupportedDependencyTarget(symbol);
+            }
+
+            /// <summary>
+            /// Records an additional evidence contribution for a declaration, including each partial declaration syntax reference when Roslyn exposes them.
+            /// </summary>
+            /// <param name="stableKey">The stable key of the declaration fact receiving evidence.</param>
+            /// <param name="evidence">The evidence span produced by the current syntax node.</param>
+            /// <param name="symbol">The symbol whose declaring syntax references should be inspected.</param>
+            private void RecordEvidenceContribution(string stableKey, SemanticEvidence evidence, ISymbol symbol)
+            {
+                // Partial declarations share one stable symbol identity, so each syntax reference is recorded as evidence rather than producing duplicate nodes.
+                _evidenceContributions.Add(new SemanticEvidenceContribution(stableKey, evidence, _isGenerated, symbol.DeclaringSyntaxReferences.Length > 1 ? "PartialDeclaration" : "PrimaryDeclaration"));
+                foreach (SyntaxReference syntaxReference in symbol.DeclaringSyntaxReferences)
                 {
-                    ITypeSymbol { SpecialType: SpecialType.System_Void } => true,
-                    IErrorTypeSymbol => true,
-                    ITypeParameterSymbol => true,
-                    _ => false
+                    SyntaxNode declarationNode = syntaxReference.GetSyntax(_cancellationToken);
+                    if (declarationNode.SyntaxTree != _request.SyntaxTree)
+                    {
+                        continue;
+                    }
+
+                    _evidenceContributions.Add(new SemanticEvidenceContribution(stableKey, CreateEvidence(declarationNode, CreateSymbolIdentity(symbol, GetDeclarationKindForSymbol(symbol))), _isGenerated, "PartialDeclaration"));
+                }
+            }
+
+            /// <summary>
+            /// Records an unknown for unresolved symbol info returned by Roslyn binding APIs.
+            /// </summary>
+            /// <param name="node">The syntax node that produced the unresolved binding.</param>
+            /// <param name="symbolInfo">The Roslyn symbol info that describes candidates and failure reason.</param>
+            /// <param name="operation">The deterministic operation label for metadata.</param>
+            /// <param name="preferredReason">The preferred unknown reason when syntax gives a stronger signal than Roslyn candidate reason.</param>
+            private void RecordUnknownForUnresolvedSymbolInfo(SyntaxNode node, SymbolInfo symbolInfo, string operation, SemanticUnknownReason? preferredReason)
+            {
+                // CandidateReason is preserved as metadata while the normalized reason gives graph consumers a stable query vocabulary.
+                SemanticDeclarationFact? sourceFact = GetCurrentSourceFact();
+                if (sourceFact is null)
+                {
+                    return;
+                }
+
+                SemanticUnknownReason reason = preferredReason ?? MapCandidateReason(symbolInfo.CandidateReason);
+                string description = symbolInfo.CandidateSymbols.Length == 0
+                    ? $"{operation} could not be resolved."
+                    : $"{operation} could not be resolved uniquely.";
+                RecordUnknown(sourceFact, node, reason, operation, description, symbolInfo.CandidateReason.ToString());
+            }
+
+            /// <summary>
+            /// Records a reflection unknown for calls that take string-based type or member names.
+            /// </summary>
+            /// <param name="node">The invocation syntax that may represent reflection.</param>
+            /// <param name="targetMethod">The resolved method symbol for the invocation.</param>
+            private void RecordReflectionUnknownIfNeeded(InvocationExpressionSyntax node, IMethodSymbol targetMethod)
+            {
+                // Type.GetType and similar reflection APIs are resolved calls, but their string targets are not deterministic source symbols.
+                if (targetMethod.ContainingType.ToDisplayString(SymbolDisplayFormat.VisualBasicErrorMessageFormat) == "System.Type" && targetMethod.Name == "GetType")
+                {
+                    SemanticDeclarationFact? sourceFact = GetCurrentSourceFact();
+                    if (sourceFact is not null)
+                    {
+                        RecordUnknown(sourceFact, node, SemanticUnknownReason.ReflectionTarget, "Reflection", "Reflection target is string-based and cannot be resolved statically.");
+                    }
+                }
+            }
+
+            /// <summary>
+            /// Records an unknown fact for a source declaration and evidence node.
+            /// </summary>
+            /// <param name="sourceFact">The source declaration fact that owns the unknown.</param>
+            /// <param name="node">The syntax node that provides unknown evidence.</param>
+            /// <param name="reason">The normalized unknown reason.</param>
+            /// <param name="operation">The deterministic operation label for metadata.</param>
+            /// <param name="description">The human-readable unknown description.</param>
+            /// <param name="candidateReason">The optional Roslyn candidate reason text.</param>
+            private void RecordUnknown(SemanticDeclarationFact sourceFact, SyntaxNode node, SemanticUnknownReason reason, string operation, string description, string? candidateReason = null)
+            {
+                // Unknowns are keyed by evidence and reason so repeated syntax visits collapse without hiding distinct degraded patterns.
+                SemanticEvidence evidence = CreateEvidence(node, sourceFact.SymbolIdentity);
+                string stableKey = SemanticStableKeyBuilder.ForUnknown(SourceLanguage.VisualBasic, _request.ProjectContext, reason, evidence, description);
+                Dictionary<string, string> metadata = new(StringComparer.Ordinal)
+                {
+                    ["operation"] = operation,
+                    ["generated"] = _isGenerated ? "true" : "false"
                 };
+                if (!string.IsNullOrWhiteSpace(candidateReason))
+                {
+                    metadata["candidateReason"] = candidateReason;
+                }
+
+                _unknowns[stableKey] = new SemanticUnknownFact(stableKey, reason, SourceLanguage.VisualBasic, _request.ProjectContext, sourceFact.SymbolIdentity, description, evidence, SemanticFactConfidence.Unresolved, metadata);
+            }
+
+            /// <summary>
+            /// Maps Roslyn candidate reasons into shared unknown reason categories.
+            /// </summary>
+            /// <param name="candidateReason">The Roslyn candidate reason to normalize.</param>
+            /// <returns>The shared unknown reason closest to the Roslyn binding failure.</returns>
+            private static SemanticUnknownReason MapCandidateReason(CandidateReason candidateReason)
+            {
+                // Roslyn exposes language-specific binding details; the shared enum is the graph query contract.
+                return candidateReason switch
+                {
+                    CandidateReason.OverloadResolutionFailure => SemanticUnknownReason.AmbiguousOverload,
+                    CandidateReason.Ambiguous => SemanticUnknownReason.AmbiguousOverload,
+                    CandidateReason.NotATypeOrNamespace => SemanticUnknownReason.MissingReference,
+                    CandidateReason.LateBound => SemanticUnknownReason.LateBoundCall,
+                    CandidateReason.None => SemanticUnknownReason.UnresolvedSymbol,
+                    _ => SemanticUnknownReason.UnsupportedSemanticForm
+                };
+            }
+
+            /// <summary>
+            /// Determines whether an invocation is made through a Visual Basic late-bound receiver.
+            /// </summary>
+            /// <param name="node">The invocation syntax to inspect.</param>
+            /// <returns><see langword="true" /> when the invocation receiver is typed as Object and cannot bind statically.</returns>
+            private bool IsLateBoundInvocation(InvocationExpressionSyntax node)
+            {
+                // Late-bound calls are a Visual Basic degraded semantic shape that should be explicit rather than omitted.
+                if (node.Expression is MemberAccessExpressionSyntax memberAccess)
+                {
+                    TypeInfo receiverType = _request.SemanticModel.GetTypeInfo(memberAccess.Expression, _cancellationToken);
+                    return receiverType.Type?.SpecialType == SpecialType.System_Object;
+                }
+
+                return false;
             }
 
             /// <summary>

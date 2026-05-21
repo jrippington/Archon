@@ -36,7 +36,7 @@ A composition root wires runtime resources and services together. Archon's Aspir
 
 ## Confidence
 
-Confidence is a deterministic value that describes how certain Archon is about a graph fact. The persisted domain model uses decimal confidence, while the current Roslyn intermediate model uses categories such as `CompilerResolved` to preserve whether a relationship came from compiler binding or from a weaker future inference path.
+Confidence is a deterministic value that describes how certain Archon is about a graph fact. The persisted domain model uses decimal confidence, while the current Roslyn intermediate model uses categories such as `CompilerResolved`, `MetadataOnly`, `Generated`, `PartiallyResolved`, `Inferred`, and `Unresolved` to preserve whether a fact came from compiler binding, external metadata, generated source, deterministic inference, or an explicit semantic gap.
 
 ## Constructor injection
 
@@ -53,6 +53,10 @@ A controlled value is a domain-owned string identity that behaves like a smart e
 ## Evidence-first
 
 Evidence-first means graph facts are designed to carry or link to the explanation that caused Archon to believe them. Evidence can be a project file, source symbol, configuration artifact, compiler diagnostic, inference, or manual annotation.
+
+## Dynamic dispatch
+
+Dynamic dispatch is a C# runtime-binding pattern where a `dynamic` receiver chooses the member target at runtime rather than through compile-time symbol binding. Archon records dynamic dispatch as a semantic unknown instead of inventing a resolved `CALLS` relationship.
 
 ## Evidence span
 
@@ -114,6 +118,10 @@ A fingerprint is a deterministic hash of diff-relevant graph content. A stable k
 
 A generated summary is durable narrative or report-ready content associated with a snapshot or graph target. Summary generation behavior remains later work, but persistence can store supplied generated summaries.
 
+## Generated source
+
+Generated source is code produced by tools, designers, source generators, or build steps rather than directly maintained by contributors. Archon detects deterministic generated-code signals such as `.g.cs`, `.g.vb`, `.Designer.cs`, `.Designer.vb`, generated folders, `obj` paths, and auto-generated headers, then marks semantic facts from that source instead of discarding them.
+
 ## Graph fact
 
 A graph fact is a domain object that states something Archon knows about an architecture snapshot, such as a repository, solution, node, edge, evidence record, finding, metric, or generated summary.
@@ -145,6 +153,10 @@ Liveness answers whether a process is responsive. Archon exposes liveness throug
 ## Metadata
 
 Metadata is deterministic extension data for extractor-specific details that do not belong in normalized graph properties. Metadata must not hide fields that the platform expects to query, compare, or validate directly.
+
+## Metadata-only symbol
+
+A metadata-only symbol is a Roslyn symbol resolved from a referenced assembly or package without a source declaration inside the analyzed repository. Archon represents dependencies on metadata-only symbols with deterministic symbol-reference stable keys and `MetadataOnly` confidence rather than inventing repository source nodes.
 
 ## Metric
 
@@ -225,6 +237,10 @@ Central Package Management is the NuGet/MSBuild pattern where project files omit
 ## ProjectReference
 
 A `ProjectReference` is an MSBuild item in a C# or VB.NET project file that declares a direct dependency on another project file. Archon records the raw include path as evidence, resolves repository-contained targets to project nodes when possible, and represents resolved dependencies as `REFERENCES` edges.
+
+## Partial declaration
+
+A partial declaration is one source declaration that contributes to a compiler symbol assembled from multiple source spans, such as a C# or VB.NET partial class. Archon merges partial declarations by Roslyn symbol identity and records additional evidence contributions so the graph does not double-count the type while still preserving each contributing source span.
 
 ## REFERENCES edge
 

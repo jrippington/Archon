@@ -26,6 +26,33 @@ namespace Archon.Roslyn.SemanticModel
             string projectContext,
             string? parentStableKey,
             SemanticEvidence evidence)
+            : this(stableKey, declarationKind, sourceLanguage, symbolIdentity, projectContext, parentStableKey, evidence, SemanticFactConfidence.CompilerResolved, metadata: null)
+        {
+            // This overload preserves the original Work Item 1 declaration creation path while assigning compiler-resolved confidence.
+        }
+
+        /// <summary>
+        /// Initializes a new semantic declaration fact with confidence and metadata.
+        /// </summary>
+        /// <param name="stableKey">The deterministic stable key for the declaration node.</param>
+        /// <param name="declarationKind">The declaration category projected into the graph vocabulary.</param>
+        /// <param name="sourceLanguage">The source language that produced the fact.</param>
+        /// <param name="symbolIdentity">The deterministic symbol identity for the declaration.</param>
+        /// <param name="projectContext">The logical project context supplied by the extraction caller.</param>
+        /// <param name="parentStableKey">The stable key of the containing declaration, or <see langword="null" /> for root declarations.</param>
+        /// <param name="evidence">The source evidence that explains the declaration.</param>
+        /// <param name="confidence">The confidence category assigned to the declaration.</param>
+        /// <param name="metadata">Supplemental deterministic declaration metadata.</param>
+        public SemanticDeclarationFact(
+            string stableKey,
+            SemanticDeclarationKind declarationKind,
+            SourceLanguage sourceLanguage,
+            SemanticSymbolIdentity symbolIdentity,
+            string projectContext,
+            string? parentStableKey,
+            SemanticEvidence evidence,
+            SemanticFactConfidence confidence,
+            IReadOnlyDictionary<string, string>? metadata)
         {
             // The fact captures graph identity, symbol identity, ownership, and evidence in one immutable unit for deterministic accumulation.
             StableKey = RequireText(stableKey, nameof(stableKey));
@@ -35,6 +62,8 @@ namespace Archon.Roslyn.SemanticModel
             ProjectContext = RequireText(projectContext, nameof(projectContext));
             ParentStableKey = NormalizeOptionalText(parentStableKey);
             Evidence = evidence ?? throw new ArgumentNullException(nameof(evidence));
+            Confidence = confidence;
+            Metadata = CopyMetadata(metadata);
         }
 
         /// <summary>
@@ -71,6 +100,35 @@ namespace Archon.Roslyn.SemanticModel
         /// Gets the source evidence that explains the declaration.
         /// </summary>
         public SemanticEvidence Evidence { get; }
+
+        /// <summary>
+        /// Gets the confidence category assigned to the declaration.
+        /// </summary>
+        public SemanticFactConfidence Confidence { get; }
+
+        /// <summary>
+        /// Gets supplemental deterministic declaration metadata.
+        /// </summary>
+        public IReadOnlyDictionary<string, string> Metadata { get; }
+
+        /// <summary>
+        /// Copies declaration metadata into a deterministic read-only dictionary.
+        /// </summary>
+        /// <param name="metadata">The metadata supplied by extraction logic.</param>
+        /// <returns>A read-only metadata dictionary ordered by key.</returns>
+        private static IReadOnlyDictionary<string, string> CopyMetadata(IReadOnlyDictionary<string, string>? metadata)
+        {
+            // Declaration metadata identifies generated and partial source facts, so keys are ordered and blank entries are removed.
+            if (metadata is null || metadata.Count == 0)
+            {
+                return new Dictionary<string, string>(StringComparer.Ordinal);
+            }
+
+            return metadata
+                .Where(pair => !string.IsNullOrWhiteSpace(pair.Key) && !string.IsNullOrWhiteSpace(pair.Value))
+                .OrderBy(pair => pair.Key, StringComparer.Ordinal)
+                .ToDictionary(pair => pair.Key.Trim(), pair => pair.Value.Trim(), StringComparer.Ordinal);
+        }
 
         /// <summary>
         /// Requires non-empty declaration fact text.

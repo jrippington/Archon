@@ -258,7 +258,7 @@ The plan assumes WP001 through WP005 have already provided the solution skeleton
 
 ## 4. Diagnostics, Unknowns, Generated Code, Partial Types, and Metadata Symbols
 
-- [ ] Work Item 4: Complete degraded and advanced semantic extraction handling
+- [x] Work Item 4: Complete degraded and advanced semantic extraction handling - Completed
   - **Purpose**: Make semantic extraction robust for real-world modern and legacy repositories by handling compiler diagnostics, unresolved symbols, generated code, partial types, metadata-only symbols, dynamic dispatch, reflection, and missing references without losing deterministic output.
   - **Acceptance Criteria**:
 	- Compiler diagnostics are collected and represented as evidence or extraction metadata linked to project, document, span, or symbol context where available.
@@ -274,36 +274,36 @@ The plan assumes WP001 through WP005 have already provided the solution skeleton
 	- Wiki review is performed for diagnostics, unknowns, generated-code, partial-type, and metadata-symbol concepts; relevant pages are updated or an explicit no-change result is recorded.
 	- Can execute end to end via targeted degraded-compilation tests.
 	- Executor must not stop mid-work-item unless the work item is complete, the user explicitly interrupts, or a true blocker prevents further autonomous progress.
-  - [ ] Task 1: Implement diagnostics capture
-	- [ ] Collect diagnostics from C# and VB.NET compilations.
-	- [ ] Normalize diagnostic ID, severity, message, file path, line span, and compiler source where available.
-	- [ ] Link diagnostics to evidence or extraction metadata without blocking partial extraction.
-  - [ ] Task 2: Implement unknown and confidence classification
-	- [ ] Add explicit unknown records for unresolved symbols, ambiguous overloads, dynamic dispatch, reflection, missing references, and unsupported semantic forms.
-	- [ ] Add confidence values and unknown reasons to affected nodes and relationships.
-	- [ ] Ensure unknowns are queryable through the graph-ready accumulation model.
-  - [ ] Task 3: Implement generated-code handling
-	- [ ] Detect generated files using filename patterns, generated headers, generator metadata, and project conventions.
-	- [ ] Mark generated facts in metadata.
-	- [ ] Prevent generated facts from being double-counted when paired with hand-maintained partial declarations.
-  - [ ] Task 4: Implement partial-type and partial-member merging
-	- [ ] Use Roslyn symbol identity to merge partial type declarations into stable graph identities.
-	- [ ] Preserve evidence for each contributing declaration.
-	- [ ] Merge partial methods and partial members where Roslyn identity supports it.
-  - [ ] Task 5: Implement metadata-symbol handling
-	- [ ] Identify dependencies on referenced assemblies and packages where source declarations are unavailable.
-	- [ ] Preserve metadata identity for later rules and external dependency analysis.
-	- [ ] Prevent creation of false repository source nodes for metadata-only symbols.
-  - [ ] Task 6: Add advanced handling tests
-	- [ ] Test degraded C# and VB.NET compilations with missing references.
-	- [ ] Test dynamic and reflection patterns produce unknowns.
-	- [ ] Test generated-code detection and metadata flags.
-	- [ ] Test partial type evidence aggregation and relationship de-duplication.
-	- [ ] Test metadata-symbol dependencies and confidence values.
-  - [ ] Task 7: Perform documentation and wiki review for degraded extraction concepts
-	- [ ] Update or create wiki guidance explaining diagnostics, unknowns, confidence, generated-code handling, partial declarations, and metadata symbols in narrative form.
-	- [ ] Define technical terms at first use or link to `wiki/glossary.md`.
-	- [ ] Add examples or walkthroughs where they improve understanding of degraded extraction behavior.
+	- [x] Task 1: Implement diagnostics capture - Completed
+	- [x] Collect diagnostics from C# and VB.NET compilations.
+	- [x] Normalize diagnostic ID, severity, message, file path, line span, and compiler source where available.
+	- [x] Link diagnostics to evidence or extraction metadata without blocking partial extraction.
+  - [x] Task 2: Implement unknown and confidence classification - Completed
+	- [x] Add explicit unknown records for unresolved symbols, ambiguous overloads, dynamic dispatch, reflection, missing references, and unsupported semantic forms.
+	- [x] Add confidence values and unknown reasons to affected nodes and relationships.
+	- [x] Ensure unknowns are queryable through the graph-ready accumulation model.
+  - [x] Task 3: Implement generated-code handling - Completed
+	- [x] Detect generated files using filename patterns, generated headers, generator metadata, and project conventions.
+	- [x] Mark generated facts in metadata.
+	- [x] Prevent generated facts from being double-counted when paired with hand-maintained partial declarations.
+  - [x] Task 4: Implement partial-type and partial-member merging - Completed
+	- [x] Use Roslyn symbol identity to merge partial type declarations into stable graph identities.
+	- [x] Preserve evidence for each contributing declaration.
+	- [x] Merge partial methods and partial members where Roslyn identity supports it.
+  - [x] Task 5: Implement metadata-symbol handling - Completed
+	- [x] Identify dependencies on referenced assemblies and packages where source declarations are unavailable.
+	- [x] Preserve metadata identity for later rules and external dependency analysis.
+	- [x] Prevent creation of false repository source nodes for metadata-only symbols.
+  - [x] Task 6: Add advanced handling tests - Completed
+	- [x] Test degraded C# and VB.NET compilations with missing references.
+	- [x] Test dynamic and reflection patterns produce unknowns.
+	- [x] Test generated-code detection and metadata flags.
+	- [x] Test partial type evidence aggregation and relationship de-duplication.
+	- [x] Test metadata-symbol dependencies and confidence values.
+  - [x] Task 7: Perform documentation and wiki review for degraded extraction concepts - Completed
+	- [x] Update or create wiki guidance explaining diagnostics, unknowns, confidence, generated-code handling, partial declarations, and metadata symbols in narrative form.
+	- [x] Define technical terms at first use or link to `wiki/glossary.md`.
+	- [x] Add examples or walkthroughs where they improve understanding of degraded extraction behavior.
   - **Files**:
 	- `src/Archon.Roslyn/**`: Diagnostics, unknown, confidence, generated-code, partial-type, and metadata-symbol contracts/helpers.
 	- `src/Archon.Roslyn.CSharp/**`: C# advanced handling integration.
@@ -323,6 +323,14 @@ The plan assumes WP001 through WP005 have already provided the solution skeleton
 	- `dotnet build .\Archon.slnx --no-restore`
   - **User Instructions**:
 	- None expected.
+
+  - **Completion Summary**:
+	- Added shared degraded semantic contracts and helpers in `src/Archon.Roslyn/**`, including `SemanticDiagnosticFact`, `SemanticUnknownFact`, `SemanticEvidenceContribution`, diagnostic severity and unknown-reason enums, diagnostic and unknown stable-key builders, generated-code detection, diagnostic mapping, symbol classification, result collections for diagnostics/unknowns/evidence contributions, and declaration confidence/metadata.
+	- Integrated degraded handling into `src/Archon.Roslyn.CSharp/**` and `src/Archon.Roslyn.VisualBasic/**`: extraction now captures compiler diagnostics without blocking partial extraction, emits explicit unknown facts for unresolved symbols, missing references, ambiguous overloads, unsupported forms, C# dynamic dispatch, VB.NET late-bound calls, and reflection targets, marks generated source facts, records partial declaration evidence contributions, classifies metadata-only symbol endpoints, and avoids inventing repository source nodes for external metadata symbols.
+	- Added `LegacyGeneratedCodeClassifier` in `src/Archon.Roslyn.Legacy/**` for deterministic generated filename/header classification and metadata used by legacy/generated-source tests.
+	- Added advanced handling tests in `test/Archon.Roslyn.Tests/**`, `test/Archon.Roslyn.CSharp.Tests/**`, `test/Archon.Roslyn.VisualBasic.Tests/**`, and `test/Archon.Roslyn.Legacy.Tests/**` for degraded compilations, diagnostics, unknowns, generated-code metadata, partial evidence contributions, metadata-only dependencies, confidence values, dynamic dispatch, VB.NET late binding, reflection, and generated-code helper behavior.
+	- Validation performed: `dotnet test .\test\Archon.Roslyn.Tests\Archon.Roslyn.Tests.csproj --no-restore` passed with 16 tests; `dotnet test .\test\Archon.Roslyn.CSharp.Tests\Archon.Roslyn.CSharp.Tests.csproj --no-restore` passed with 10 tests; `dotnet test .\test\Archon.Roslyn.VisualBasic.Tests\Archon.Roslyn.VisualBasic.Tests.csproj --no-restore` passed with 8 tests; `dotnet test .\test\Archon.Roslyn.Legacy.Tests\Archon.Roslyn.Legacy.Tests.csproj --no-restore` passed with 4 tests; `dotnet build .\Archon.slnx --no-restore` passed.
+	- Wiki review result and impact matrix: affected concepts were compiler diagnostics, semantic unknowns, confidence categories, generated source, partial declarations, metadata-only symbols, C# dynamic dispatch, VB.NET late-bound calls, reflection targets, degraded extraction validation, and legacy generated-code classification. Reviewed `wiki/home.md`, `wiki/roslyn-semantic-extraction.md`, `wiki/graph-domain-model.md`, `wiki/validation-and-test-workflows.md`, `wiki/glossary.md`, and `wiki/api-extraction-workflow.md`. Updated `wiki/home.md`, `wiki/roslyn-semantic-extraction.md`, `wiki/graph-domain-model.md`, `wiki/validation-and-test-workflows.md`, and `wiki/glossary.md`. Created no new wiki pages because `wiki/roslyn-semantic-extraction.md` remains the correct detailed home for Roslyn degraded extraction behavior and related concepts. Intentionally left `wiki/api-extraction-workflow.md` unchanged because Work Item 4 remains validated through direct Roslyn tests and has not yet connected semantic extraction into API orchestration. Page-structure decision: `wiki/roslyn-semantic-extraction.md` carries the book-like degraded extraction guidance; `wiki/graph-domain-model.md` explains graph vocabulary impacts; `wiki/validation-and-test-workflows.md` carries commands; `wiki/glossary.md` defines new terms; `wiki/home.md` remains a concise landing page and was only updated for orientation.
 
 ## 5. Snapshot Persistence Integration and API Extraction Orchestration Slice
 

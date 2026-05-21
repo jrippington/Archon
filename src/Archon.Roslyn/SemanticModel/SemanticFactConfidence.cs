@@ -19,6 +19,16 @@ namespace Archon.Roslyn.SemanticModel
         Inferred,
 
         /// <summary>
+        /// Indicates that the fact came from generated source and should be distinguished from hand-maintained source facts.
+        /// </summary>
+        Generated,
+
+        /// <summary>
+        /// Indicates that the fact targets a compiler metadata symbol without a source declaration in the analyzed repository.
+        /// </summary>
+        MetadataOnly,
+
+        /// <summary>
         /// Indicates that the fact was only partially resolved because one or more symbol details were unavailable.
         /// </summary>
         PartiallyResolved,

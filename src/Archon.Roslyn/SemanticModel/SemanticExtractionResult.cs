@@ -20,12 +20,38 @@ namespace Archon.Roslyn.SemanticModel
             IEnumerable<SemanticRelationshipFact>? relationships,
             IEnumerable<string>? warnings,
             IEnumerable<string>? errors)
+            : this(declarations, relationships, warnings, errors, diagnostics: null, unknowns: null, evidenceContributions: null)
+        {
+            // This overload preserves the original extraction result shape for callers that have not yet adopted degraded semantic facts.
+        }
+
+        /// <summary>
+        /// Initializes a new semantic extraction result with degraded semantic facts.
+        /// </summary>
+        /// <param name="declarations">The declaration facts extracted from the document.</param>
+        /// <param name="relationships">The relationship facts extracted from the document.</param>
+        /// <param name="warnings">The non-fatal extraction warnings produced during extraction.</param>
+        /// <param name="errors">The fatal extraction errors produced during extraction.</param>
+        /// <param name="diagnostics">The compiler diagnostics captured during extraction.</param>
+        /// <param name="unknowns">The explicit unknown facts captured during extraction.</param>
+        /// <param name="evidenceContributions">The additional evidence contributions captured for merged or generated facts.</param>
+        public SemanticExtractionResult(
+            IEnumerable<SemanticDeclarationFact>? declarations,
+            IEnumerable<SemanticRelationshipFact>? relationships,
+            IEnumerable<string>? warnings,
+            IEnumerable<string>? errors,
+            IEnumerable<SemanticDiagnosticFact>? diagnostics,
+            IEnumerable<SemanticUnknownFact>? unknowns,
+            IEnumerable<SemanticEvidenceContribution>? evidenceContributions)
         {
             // The constructor copies all sequences to prevent later caller mutation from changing extraction output.
             Declarations = CopyFacts(declarations);
             Relationships = CopyFacts(relationships);
             Warnings = CopyDiagnostics(warnings);
             Errors = CopyDiagnostics(errors);
+            Diagnostics = CopyFacts(diagnostics);
+            Unknowns = CopyFacts(unknowns);
+            EvidenceContributions = CopyFacts(evidenceContributions);
         }
 
         /// <summary>
@@ -47,6 +73,21 @@ namespace Archon.Roslyn.SemanticModel
         /// Gets the fatal extraction errors produced during extraction.
         /// </summary>
         public IReadOnlyList<string> Errors { get; }
+
+        /// <summary>
+        /// Gets the compiler diagnostics captured during extraction.
+        /// </summary>
+        public IReadOnlyList<SemanticDiagnosticFact> Diagnostics { get; }
+
+        /// <summary>
+        /// Gets the explicit unknown facts captured during extraction.
+        /// </summary>
+        public IReadOnlyList<SemanticUnknownFact> Unknowns { get; }
+
+        /// <summary>
+        /// Gets additional evidence spans that contributed to merged or generated facts.
+        /// </summary>
+        public IReadOnlyList<SemanticEvidenceContribution> EvidenceContributions { get; }
 
         /// <summary>
         /// Copies a nullable fact sequence into a read-only array.
