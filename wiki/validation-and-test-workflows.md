@@ -112,6 +112,36 @@ dotnet build .\Archon.slnx --no-restore
 
 These commands are intentionally narrower than a full test-suite run. They validate the shared semantic helper layer, the C# declaration and relationship extractor, the VB.NET declaration and relationship extractor, legacy generated-code classification, infrastructure solution/project/source loading, API orchestration and persistence-seam handoff, generic Neo4j mapper behavior, and integrated solution compilation. When package references have changed or a clean environment is being used, run `dotnet restore .\Archon.slnx` first and then repeat the commands with `--no-restore` so failures are attributable to compile or test behavior rather than package acquisition.
 
+## WP007 configuration and dependency-injection extraction validation
+
+The current WP007 implementation covers the Microsoft dependency-injection registration slice, hosted-service recognition, HttpClientFactory registration recognition, registration-wrapper traversal, constructor dependency correlation for registered implementation types, legacy container recognition, CommonServiceLocator and manual-factory heuristics, modern appsettings/options configuration extraction, legacy `.config`/`ConfigurationManager` extraction, the top-level `ConfigurationExtractor` that composes modern and legacy configuration slices into one merged snapshot, and API extraction pipeline composition through the `wp007-configuration-dependency-injection` stage. The DI tests compile in-memory C# fixtures, bind direct `AddSingleton<TService, TImplementation>()`, `AddScoped<TService, TImplementation>()`, and `AddTransient<TService, TImplementation>()` calls through Roslyn, and also validate service-only overloads, `typeof(...)` overloads, factory registrations with explicit unknown implementation state, descriptor-based `TryAdd`, `TryAddEnumerable`, and `Replace`, `AddHostedService<T>()`, BackgroundService assignability, default, named, typed, and typed-implementation `AddHttpClient` calls, wrapper methods that accept `IServiceCollection`, wrapper cycles, recursion-depth safeguards, unavailable wrapper source, dynamic invocations, constructor-driven `INJECTS` and `DEPENDS_ON` relationships, Unity, Autofac, Castle Windsor, StructureMap, Ninject, SimpleInjector, CommonServiceLocator, manual factory facts, unsupported legacy scanning unknowns, legacy container warnings, confidence bands, and evidence quality. The configuration tests create temporary appsettings and `.config` files, compile in-memory C# fixtures, bind modern and legacy configuration usage through Roslyn, and validate normalized `ConfigurationKey` nodes, centralized `config://` stable keys, `USES_CONFIG` relationships, options binding and options injection metadata, `ConfigurationManager.AppSettings` and `ConfigurationManager.ConnectionStrings` metadata, dynamic-key unknowns, unknown-source-provider facts, deterministic secret redaction, malformed XML warnings, evidence quality, modern-only and legacy-only responsibility boundaries, composed extractor output, and no target application configuration-code execution. The API extraction tests run an in-memory HTTP host, submit accepted extraction runs, replace only the snapshot writer seam, and verify that WP007 dependency-injection and configuration facts are accumulated with repository, project, and semantic facts in the persisted snapshot. These tests do not start the Aspire AppHost, do not require Neo4j credentials, do not invoke MCP tools, and do not scan unrelated repositories.
+
+Use this focused command when changing the dependency-injection extractor:
+
+```powershell
+dotnet test .\test\Archon.Extractors.DependencyInjection.Tests\Archon.Extractors.DependencyInjection.Tests.csproj
+```
+
+Use this focused command when changing the configuration extractor:
+
+```powershell
+dotnet test .\test\Archon.Extractors.Configuration.Tests\Archon.Extractors.Configuration.Tests.csproj
+```
+
+Use this focused command when changing the API pipeline stage composition or the API-triggered WP007 snapshot handoff:
+
+```powershell
+dotnet test .\test\Archon.Api.Extraction.Tests\Archon.Api.Extraction.Tests.csproj --no-restore
+```
+
+Use the integrated build gate after the focused tests pass:
+
+```powershell
+dotnet build .\Archon.slnx --no-restore
+```
+
+Run restore first when dependency-injection or configuration extractor package or project references have changed, then use `--no-restore` for the build gate so later failures point to compile or validation behavior. Contributor-facing details for the DI graph shape, configuration key graph shape, evidence, stable keys, redaction, and currently supported registration and configuration forms are described in [configuration and dependency-injection extraction](configuration-and-dependency-injection-extraction.md).
+
 ## WP003 Neo4j validation and Testcontainers
 
 Neo4j integration tests use Testcontainers instead of the Aspire AppHost. **Testcontainers** starts short-lived Docker containers under test control and removes them after the test run. Docker Desktop or another OCI-compatible runtime must be running for these tests.

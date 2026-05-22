@@ -72,10 +72,10 @@ namespace Archon.Api.Extraction.Tests
         }
 
         /// <summary>
-        /// Verifies extraction API service registration composes the WP005 project extraction stage and WP006 semantic extraction stage instead of the WP004 placeholder stage.
+        /// Verifies extraction API service registration composes project, semantic, and WP007 extraction stages instead of the WP004 placeholder stage.
         /// </summary>
         [Fact]
-        public void AddArchonExtractionApi_WhenServicesAreBuilt_ShouldRegisterProjectAndSemanticExtractionStages()
+        public void AddArchonExtractionApi_WhenServicesAreBuilt_ShouldRegisterProjectSemanticAndWp007ExtractionStages()
         {
             // The API module is the existing composition boundary for the extraction pipeline, so this test guards the ordered stage registration path.
             ServiceCollection services = new();
@@ -95,6 +95,11 @@ namespace Archon.Api.Extraction.Tests
                 {
                     Assert.IsType<RoslynSemanticExtractionStage>(stage);
                     Assert.Equal("roslyn-semantic", stage.StageId);
+                },
+                stage =>
+                {
+                    Assert.IsType<Wp007ExtractionStage>(stage);
+                    Assert.Equal("wp007-configuration-dependency-injection", stage.StageId);
                 });
         }
 
@@ -164,6 +169,49 @@ namespace Archon.Api.Extraction.Tests
                 Assert.Contains(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.Contains && edge.SourceNodeStableKey.Value.Contains("type://", StringComparison.Ordinal));
                 Assert.Contains(snapshot.Evidence, evidence => evidence.FilePath.Value == "Customer.Api.CustomerService.cs" && evidence.SymbolName == "CustomerService");
                 Assert.Empty(snapshot.Errors);
+            }
+        }
+
+        /// <summary>
+        /// Verifies the API-triggered extraction path composes WP007 dependency-injection and configuration extractors into one snapshot.
+        /// </summary>
+        /// <returns>A task that completes after the completed run and combined WP007 snapshot content have been asserted.</returns>
+        [Fact]
+        public async Task GetExtractionStatus_WhenWp007ExtractionRuns_ShouldPersistDependencyInjectionAndConfigurationFacts()
+        {
+            // The fixture deliberately flows through the public API route so WP007 composition is validated at the same orchestration seam used by callers.
+            string repositoryRoot = CreateRepositoryRoot();
+            CreateSolutionFile(repositoryRoot, "CustomerSuite.sln", "Customer.Api", "Customer.Api.csproj");
+            CreateProjectFile(repositoryRoot, "Customer.Api.csproj", "Customer.Api.Composition.cs");
+            CreateWp007SourceFile(repositoryRoot, "Customer.Api.Composition.cs");
+            CreateWp007ConfigurationFiles(repositoryRoot);
+            RecordingSnapshotWriter writer = new("snapshot://wp007-api-test");
+            await using WebApplication app = await CreateApplicationAsync(services => services.AddSingleton<IArchitectureSnapshotWriter>(writer));
+            using HttpClient client = app.GetTestClient();
+
+            HttpResponseMessage startResponse = await client.PostAsJsonAsync(
+                "/extractions",
+                new StartExtractionApiRequest(repositoryRoot, ["CustomerSuite.sln"], null, null, null, null));
+            using JsonDocument startBody = await JsonDocument.ParseAsync(await startResponse.Content.ReadAsStreamAsync());
+            string runId = startBody.RootElement.GetProperty("runId").GetString()!;
+
+            JsonDocument statusBody = await PollForTerminalStatusAsync(client, runId);
+
+            using (statusBody)
+            {
+                Assert.Equal("Completed", statusBody.RootElement.GetProperty("status").GetString());
+                Assert.NotNull(writer.WrittenSnapshot);
+                ExtractedArchitectureSnapshot snapshot = writer.WrittenSnapshot;
+                Assert.Contains(snapshot.Nodes, node => node.NodeKind == NodeKind.ConfigurationKey && node.StableKey.Value == "config://Services:Orders:BaseUrl");
+                Assert.Contains(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.UsesConfig && edge.TargetNodeStableKey.Value == "config://Services:Orders:BaseUrl");
+                Assert.Contains(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.RegisteredAsService && edge.SourceNodeStableKey.Value == "type://Customer.Api.OrderService" && edge.TargetNodeStableKey.Value == "type://Customer.Api.IOrderService");
+                Assert.Contains(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.RegisteredAsService && edge.Metadata.ToCanonicalJson().Contains("\"containerKind\":\"Autofac\"", StringComparison.Ordinal));
+                Assert.Contains(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.Injects && edge.SourceNodeStableKey.Value == "type://Customer.Api.OrderService" && edge.TargetNodeStableKey.Value == "type://Customer.Api.IRepository");
+                Assert.Contains(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.DependsOn && edge.SourceNodeStableKey.Value == "type://Customer.Api.OrderService" && edge.TargetNodeStableKey.Value == "type://Customer.Api.IRepository");
+                Assert.Contains(snapshot.Warnings, warning => warning.Contains("Unsupported legacy container registration", StringComparison.Ordinal));
+                Assert.Empty(snapshot.Errors);
+                Assert.DoesNotContain(snapshot.Evidence, evidence => evidence.SnippetPreview?.Contains("SuperSecretPassword123!", StringComparison.Ordinal) == true);
+                Assert.Equal(snapshot.Edges.Count, snapshot.Edges.Select(edge => edge.StableKey.Value).Distinct(StringComparer.Ordinal).Count());
             }
         }
 
@@ -570,6 +618,86 @@ namespace Archon.Api.Extraction.Tests
                         $"    <Compile Include=\"{sourceInclude}\" />",
                         "  </ItemGroup>",
                         "</Project>"
+                    ]));
+        }
+
+        /// <summary>
+        /// Creates a representative C# source file containing WP007 DI, legacy container, options, and ConfigurationManager usage.
+        /// </summary>
+        /// <param name="repositoryRoot">The repository root that contains the source file.</param>
+        /// <param name="relativeSourcePath">The repository-relative source path to write.</param>
+        private static void CreateWp007SourceFile(string repositoryRoot, string relativeSourcePath)
+        {
+            // Local stubs make the API integration test self-contained while still forcing Roslyn to bind realistic API owners and method shapes.
+            string sourcePath = Path.Combine(repositoryRoot, relativeSourcePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
+            File.WriteAllText(
+                sourcePath,
+                string.Join(
+                    Environment.NewLine,
+                    [
+                        "using System;",
+                        "namespace Microsoft.Extensions.DependencyInjection { public interface IServiceCollection { } public static class ServiceCollectionServiceExtensions { public static IServiceCollection AddSingleton<TService, TImplementation>(this IServiceCollection services) => services; public static IServiceCollection AddScoped<TService, TImplementation>(this IServiceCollection services) => services; } }",
+                        "namespace Microsoft.Extensions.Configuration { public interface IConfiguration { string? this[string key] { get; set; } IConfigurationSection GetSection(string key); } public interface IConfigurationSection : IConfiguration { } public static class ConfigurationBinder { public static T? Get<T>(this IConfiguration configuration) => default; public static void Bind(this IConfiguration configuration, object instance) { } } }",
+                        "namespace Microsoft.Extensions.Options { public interface IOptions<out TOptions> { TOptions Value { get; } } }",
+                        "namespace Autofac { public sealed class ContainerBuilder { public RegistrationBuilder<TImplementation> RegisterType<TImplementation>() => new RegistrationBuilder<TImplementation>(); public RegistrationBuilder<object> RegisterAssemblyTypes(params object[] assemblies) => new RegistrationBuilder<object>(); } public sealed class RegistrationBuilder<TImplementation> { public RegistrationBuilder<TImplementation> As<TService>() => this; } }",
+                        "namespace System.Configuration { public static class ConfigurationManager { public static NameValueCollection AppSettings { get; } = new(); public static ConnectionStringSettingsCollection ConnectionStrings { get; } = new(); } public sealed class NameValueCollection { public string? this[string key] => null; } public sealed class ConnectionStringSettingsCollection { public ConnectionStringSettings? this[string name] => null; } public sealed class ConnectionStringSettings { public string? ConnectionString { get; } } }",
+                        "namespace Customer.Api",
+                        "{",
+                        "    using Autofac;",
+                        "    using Microsoft.Extensions.Configuration;",
+                        "    using Microsoft.Extensions.DependencyInjection;",
+                        "    using Microsoft.Extensions.Options;",
+                        "    using System.Configuration;",
+                        "    public interface IRepository { }",
+                        "    public sealed class Repository : IRepository { }",
+                        "    public interface IOrderService { }",
+                        "    public sealed class OrderService : IOrderService { public OrderService(IRepository repository) { } }",
+                        "    public sealed class OrderOptions { public string? BaseUrl { get; set; } }",
+                        "    public static class Composition",
+                        "    {",
+                        "        public static void Configure(IServiceCollection services, IConfiguration configuration)",
+                        "        {",
+                        "            services.AddRepositoryModule();",
+                        "            services.AddSingleton<IOrderService, OrderService>();",
+                        "            _ = configuration[\"Services:Orders:BaseUrl\"];",
+                        "            _ = configuration.GetSection(\"Services:Orders\").Get<OrderOptions>();",
+                        "            _ = ConfigurationManager.AppSettings[\"LegacyFeature\"];",
+                        "            _ = ConfigurationManager.ConnectionStrings[\"MainDb\"];",
+                        "            var builder = new ContainerBuilder();",
+                        "            builder.RegisterType<OrderService>().As<IOrderService>();",
+                        "            builder.RegisterAssemblyTypes(typeof(Composition));",
+                        "        }",
+                        "        public static IServiceCollection AddRepositoryModule(this IServiceCollection services)",
+                        "        {",
+                        "            services.AddScoped<IRepository, Repository>();",
+                        "            return services;",
+                        "        }",
+                        "    }",
+                        "    public sealed class OptionsConsumer { public OptionsConsumer(IOptions<OrderOptions> options) { } }",
+                        "}"
+                    ]));
+        }
+
+        /// <summary>
+        /// Creates modern and legacy configuration artifacts used by the WP007 API integration fixture.
+        /// </summary>
+        /// <param name="repositoryRoot">The repository root that should contain configuration files.</param>
+        private static void CreateWp007ConfigurationFiles(string repositoryRoot)
+        {
+            // Both artifact families are present so the composed configuration extractor must merge modern and legacy facts into one snapshot.
+            File.WriteAllText(
+                Path.Combine(repositoryRoot, "appsettings.json"),
+                "{ \"Services\": { \"Orders\": { \"BaseUrl\": \"https://orders.example.invalid\", \"ApiKey\": \"SuperSecretPassword123!\" } } }");
+            File.WriteAllText(
+                Path.Combine(repositoryRoot, "app.config"),
+                string.Join(
+                    Environment.NewLine,
+                    [
+                        "<configuration>",
+                        "  <appSettings><add key=\"LegacyFeature\" value=\"enabled\" /></appSettings>",
+                        "  <connectionStrings><add name=\"MainDb\" connectionString=\"Server=localhost;Password=SuperSecretPassword123!\" /></connectionStrings>",
+                        "</configuration>"
                     ]));
         }
 

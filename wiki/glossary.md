@@ -38,9 +38,45 @@ A composition root wires runtime resources and services together. Archon's Aspir
 
 Confidence is a deterministic value that describes how certain Archon is about a graph fact. The persisted domain model uses decimal confidence, while the current Roslyn intermediate model uses categories such as `CompilerResolved`, `MetadataOnly`, `Generated`, `PartiallyResolved`, `Inferred`, and `Unresolved` to preserve whether a fact came from compiler binding, external metadata, generated source, deterministic inference, or an explicit semantic gap.
 
+## Configuration key
+
+A configuration key is the logical path used by configuration systems to address a value, usually written with colon separators such as `Service:Endpoint`. Archon's modern configuration extractor normalizes JSON object nesting into this form, and the legacy configuration extractor prefixes XML concepts with categories such as `Legacy:AppSettings:`, `Legacy:ConnectionStrings:`, `Legacy:CustomSections:`, and `Legacy:BindingRedirects:`. Both forms are stored as `ConfigurationKey` nodes with centralized `config://` stable keys.
+
+## ConfigurationManager
+
+ConfigurationManager is the legacy `System.Configuration` API that .NET Framework applications commonly use to read `appSettings` and `connectionStrings` from XML `.config` files. Archon records compiler-bound `ConfigurationManager.AppSettings[...]` and `ConfigurationManager.ConnectionStrings[...]` source usage as `USES_CONFIG` graph facts.
+
 ## Constructor injection
 
-Constructor injection is the dependency-injection pattern where a type declares required collaborators as constructor parameters. The current Roslyn C# relationship slice represents compiler-resolved constructor parameter types as `INJECTS` relationships because the constructor signature is deterministic source evidence for that collaboration boundary.
+Constructor injection is the dependency-injection pattern where a type declares required collaborators as constructor parameters. The current Roslyn C# relationship slice represents compiler-resolved constructor parameter types as `INJECTS` relationships because the constructor signature is deterministic source evidence for that collaboration boundary. The dependency-injection extractor also correlates registered implementation types with constructor parameters and emits deterministic `INJECTS` and `DEPENDS_ON` facts so registered service dependencies can be queried from the DI slice.
+
+## Background service
+
+A background service is a hosted service that derives from `Microsoft.Extensions.Hosting.BackgroundService`. Archon marks registered implementations as background services when Roslyn proves that inheritance relationship during dependency-injection extraction.
+
+## Dependency injection
+
+Dependency injection is the application-composition pattern where services receive collaborators from a container or composition root rather than constructing every dependency directly. Archon's current WP007 slice models Microsoft.Extensions.DependencyInjection registrations as graph facts when Roslyn can prove the registration method and participating types.
+
+## Legacy container
+
+A legacy container is a dependency-injection container other than Microsoft.Extensions.DependencyInjection, commonly found in older .NET systems. Archon's current dependency-injection extractor recognizes supported compiler-bound registration shapes for Unity, Autofac, Castle Windsor, StructureMap, Ninject, and SimpleInjector, and records unsupported scanning forms as explicit unknown registration facts instead of guessed service mappings.
+
+## Manual factory
+
+A manual factory is project code that creates an implementation behind an abstraction without a container registration call. Archon records narrow deterministic manual-factory patterns as medium-confidence heuristic composition facts when a source method returns an interface and directly constructs a concrete implementation of that interface.
+
+## Secret redaction
+
+Secret redaction is the process of replacing sensitive configuration values with a placeholder before they can appear in evidence previews, metadata, diagnostics, logs, or test output. The configuration extractor applies redaction to appsettings values, legacy XML connection-string values, custom section payloads, source snippets, and diagnostics before graph records are created.
+
+## Factory registration
+
+A factory registration is a dependency-injection registration where a delegate creates or retrieves the implementation at runtime. Archon records the service type and lifetime for supported Microsoft DI factory overloads but uses explicit unknown state when the concrete implementation cannot be proven from the registration itself.
+
+## Registration wrapper
+
+A registration wrapper is a method that accepts `IServiceCollection` and delegates one or more Microsoft dependency-injection registrations to another method body. Archon's DI extractor follows compiler-bound wrappers when source bodies are available, records invocation-chain metadata, and emits warnings rather than guessed registrations when wrapper source, dynamic dispatch, recursion depth, or cycles prevent deterministic traversal.
 
 ## Constraint
 
@@ -122,6 +158,14 @@ A generated summary is durable narrative or report-ready content associated with
 
 Generated source is code produced by tools, designers, source generators, or build steps rather than directly maintained by contributors. Archon detects deterministic generated-code signals such as `.g.cs`, `.g.vb`, `.Designer.cs`, `.Designer.vb`, generated folders, `obj` paths, and auto-generated headers, then marks semantic facts from that source instead of discarding them.
 
+## Legacy configuration artifact
+
+A legacy configuration artifact is a repository-contained XML `.config` file such as `app.config` or `web.config`. Archon parses supported XML concepts from these files as static evidence and does not execute configuration section handlers, transforms, or machine-level configuration during extraction.
+
+## Unknown-source provider
+
+An unknown-source provider is an explicit unknown state used when source code references a configuration key but no matching provider definition was discovered in repository configuration artifacts. The fact preserves the source dependency without claiming that the repository contains the matching setting.
+
 ## Graph fact
 
 A graph fact is a domain object that states something Archon knows about an architecture snapshot, such as a repository, solution, node, edge, evidence record, finding, metric, or generated summary.
@@ -133,6 +177,14 @@ Graph recreation is a deliberately destructive local/test workflow that deletes 
 ## Graph schema
 
 A graph schema is the set of Neo4j constraints and indexes that make graph writes safe and queryable.
+
+## Hosted service
+
+A hosted service is a service that participates in the .NET generic host lifecycle through `Microsoft.Extensions.Hosting.IHostedService`. Archon's DI extractor records `AddHostedService<T>()` and hosted-service-assignable registrations as `REGISTERED_AS_SERVICE` graph facts with hosted-service metadata.
+
+## HttpClientFactory
+
+HttpClientFactory is the Microsoft DI pattern for creating configured `HttpClient` instances through `AddHttpClient` registrations. Archon's current extractor records default, named, typed, and typed-implementation HttpClient registrations and marks unresolved external targets as explicit unknown data.
 
 ## Idempotent
 
@@ -245,6 +297,22 @@ A partial declaration is one source declaration that contributes to a compiler s
 ## REFERENCES edge
 
 A `REFERENCES` edge is an architecture relationship showing that one graph node directly references another. In the current WP005 project extraction stage, a project-to-project `REFERENCES` edge means a source project file declared a `ProjectReference` to the target project file.
+
+## REGISTERED_AS_SERVICE edge
+
+A `REGISTERED_AS_SERVICE` edge is an architecture relationship showing that an implementation type has been registered to satisfy a service abstraction in a dependency-injection container. In the current WP007 Microsoft DI slice, the edge points from the implementation type node to the service abstraction type node and carries lifetime metadata such as `Singleton`, `Scoped`, or `Transient`.
+
+## Service registration
+
+A service registration is a source statement that tells a dependency-injection container which implementation should satisfy a service request and what lifetime should govern the produced instance. Examples in the current WP007 slice include Microsoft DI calls such as `AddSingleton<TService, TImplementation>()`, service-only overloads, `typeof(...)` overloads, factory overloads, `TryAdd`, `TryAddEnumerable`, `Replace`, `AddHostedService<T>()`, and `AddHttpClient`, plus supported legacy container calls such as Unity `RegisterType`, Autofac `RegisterType().As`, Castle Windsor `Register(Component.For)`, StructureMap `For().Use`, Ninject `Bind().To`, and SimpleInjector `Register`.
+
+## Service locator
+
+A service locator is a global or ambient resolver that application code asks for services directly. Archon detects CommonServiceLocator `GetInstance<TService>()` as a medium-confidence heuristic fact because the requested service type is compiler-bound but the concrete implementation is not deterministically visible at the call site.
+
+## Typed HttpClient
+
+A typed HttpClient is a class or abstraction registered through `AddHttpClient<TClient>()` or `AddHttpClient<TClient, TImplementation>()` so callers consume a domain-specific client rather than requesting `HttpClient` or `IHttpClientFactory` directly.
 
 ## USES_PACKAGE edge
 
