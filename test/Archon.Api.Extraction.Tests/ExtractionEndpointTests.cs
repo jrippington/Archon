@@ -73,10 +73,10 @@ namespace Archon.Api.Extraction.Tests
         }
 
         /// <summary>
-        /// Verifies extraction API service registration composes project, semantic, WP007, and WP008 extraction stages instead of the WP004 placeholder stage.
+        /// Verifies extraction API service registration composes project, semantic, WP007, WP008, and WP009 extraction stages instead of the WP004 placeholder stage.
         /// </summary>
         [Fact]
-        public void AddArchonExtractionApi_WhenServicesAreBuilt_ShouldRegisterProjectSemanticWp007AndWp008ExtractionStages()
+        public void AddArchonExtractionApi_WhenServicesAreBuilt_ShouldRegisterProjectSemanticWp007Wp008AndWp009ExtractionStages()
         {
             // The API module is the existing composition boundary for the extraction pipeline, so this test guards the ordered stage registration path.
             ServiceCollection services = new();
@@ -106,6 +106,11 @@ namespace Archon.Api.Extraction.Tests
                 {
                     Assert.IsType<Wp008AspNetCoreMinimalApiExtractionStage>(stage);
                     Assert.Equal("wp008-aspnet-core-minimal-api", stage.StageId);
+                },
+                stage =>
+                {
+                    Assert.IsType<Wp009DataAccessExtractionStage>(stage);
+                    Assert.Equal("wp009-data-access-dbml", stage.StageId);
                 });
         }
 
@@ -227,6 +232,98 @@ namespace Archon.Api.Extraction.Tests
                 Assert.Contains(snapshot.Warnings, warning => warning.Contains("no matching AddHostedService registration", StringComparison.Ordinal));
                 Assert.Empty(snapshot.Errors);
                 Assert.NotNull(consoleNode.PrimaryEvidenceStableKey);
+            }
+        }
+
+        /// <summary>
+        /// Verifies the API-triggered extraction path persists WP009 LINQ to SQL DBML data-access facts through the snapshot writer seam.
+        /// </summary>
+        /// <returns>A task that completes after the completed run and recorded DBML snapshot content have been asserted.</returns>
+        [Fact]
+        public async Task GetExtractionStatus_WhenWp009DbmlExtractionRuns_ShouldPersistDataAccessFactsThroughSnapshotWriter()
+        {
+            // The test proves DBML extraction participates in the public API-triggered pipeline without target database connectivity or direct Neo4j writes.
+            string repositoryRoot = CreateRepositoryRoot();
+            CreateSolutionFile(repositoryRoot, "CustomerSuite.sln");
+            CreateDbmlModelFile(repositoryRoot, "Data", "Northwind.dbml");
+            RecordingSnapshotWriter writer = new("snapshot://wp009-dbml-api-test");
+            await using WebApplication app = await CreateApplicationAsync(services => services.AddSingleton<IArchitectureSnapshotWriter>(writer));
+            using HttpClient client = app.GetTestClient();
+
+            HttpResponseMessage startResponse = await client.PostAsJsonAsync(
+                "/extractions",
+                new StartExtractionApiRequest(repositoryRoot, ["CustomerSuite.sln"], null, null, null, null));
+            using JsonDocument startBody = await JsonDocument.ParseAsync(await startResponse.Content.ReadAsStreamAsync());
+            string runId = startBody.RootElement.GetProperty("runId").GetString()!;
+
+            JsonDocument statusBody = await PollForTerminalStatusAsync(client, runId);
+
+            using (statusBody)
+            {
+                Assert.Equal("Completed", statusBody.RootElement.GetProperty("status").GetString());
+                Assert.NotNull(writer.WrittenSnapshot);
+                ExtractedArchitectureSnapshot snapshot = writer.WrittenSnapshot;
+                ArchitectureNode contextNode = Assert.Single(snapshot.Nodes, node => node.NodeKind == NodeKind.LinqToSqlDataContext);
+                ArchitectureNode entityNode = Assert.Single(snapshot.Nodes, node => node.NodeKind == NodeKind.Entity);
+                ArchitectureNode tableNode = Assert.Single(snapshot.Nodes, node => node.NodeKind == NodeKind.DatabaseTable);
+                ArchitectureNode columnNode = Assert.Single(snapshot.Nodes, node => node.NodeKind == NodeKind.DatabaseColumn);
+                ArchitectureNode procedureNode = Assert.Single(snapshot.Nodes, node => node.NodeKind == NodeKind.StoredProcedure);
+                Assert.Equal("NorthwindDataContext", contextNode.DisplayName);
+                Assert.Contains("\"dataAccessTechnology\":\"LinqToSql\"", contextNode.Metadata.ToCanonicalJson(), StringComparison.Ordinal);
+                Assert.Contains(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.MapsEntity && edge.SourceNodeStableKey == contextNode.StableKey && edge.TargetNodeStableKey == entityNode.StableKey);
+                Assert.Contains(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.MapsTable && edge.SourceNodeStableKey == entityNode.StableKey && edge.TargetNodeStableKey == tableNode.StableKey);
+                Assert.Contains(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.MapsColumn && edge.SourceNodeStableKey == tableNode.StableKey && edge.TargetNodeStableKey == columnNode.StableKey);
+                Assert.Contains(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.CallsStoredProcedure && edge.SourceNodeStableKey == contextNode.StableKey && edge.TargetNodeStableKey == procedureNode.StableKey);
+                Assert.Contains(snapshot.Evidence, evidence => evidence.EvidenceKind == EvidenceKind.Dbml && evidence.FilePath.Value == "Data/Northwind.dbml");
+                Assert.Empty(snapshot.Errors);
+            }
+        }
+
+        /// <summary>
+        /// Verifies the API-triggered extraction path correlates WP009 data-access facts with earlier configuration, dependency-injection, and runtime facts.
+        /// </summary>
+        /// <returns>A task that completes after the integrated data-access snapshot has been asserted.</returns>
+        [Fact]
+        public async Task GetExtractionStatus_WhenWp009IntegratedExtractionRuns_ShouldCorrelateConfigurationDependencyInjectionRuntimeAndDataAccessFacts()
+        {
+            // The fixture intentionally exercises all API-wired precursor stages before WP009 so cross-slice correlation is validated at the public orchestration seam.
+            string repositoryRoot = CreateRepositoryRoot();
+            CreateSolutionFile(repositoryRoot, "CustomerSuite.sln", "Customer.Api", "Customer.Api.csproj");
+            CreateProjectFile(repositoryRoot, "Customer.Api.csproj", "Customer.Api.DataAccess.cs");
+            CreateWp009IntegratedDataAccessSourceFile(repositoryRoot, "Customer.Api.DataAccess.cs");
+            CreateWp009ConnectionConfigurationFiles(repositoryRoot);
+            RecordingSnapshotWriter writer = new("snapshot://wp009-integrated-api-test");
+            await using WebApplication app = await CreateApplicationAsync(services => services.AddSingleton<IArchitectureSnapshotWriter>(writer));
+            using HttpClient client = app.GetTestClient();
+
+            HttpResponseMessage startResponse = await client.PostAsJsonAsync(
+                "/extractions",
+                new StartExtractionApiRequest(repositoryRoot, ["CustomerSuite.sln"], null, null, null, null));
+            using JsonDocument startBody = await JsonDocument.ParseAsync(await startResponse.Content.ReadAsStreamAsync());
+            string runId = startBody.RootElement.GetProperty("runId").GetString()!;
+
+            JsonDocument statusBody = await PollForTerminalStatusAsync(client, runId);
+
+            using (statusBody)
+            {
+                Assert.Equal("Completed", statusBody.RootElement.GetProperty("status").GetString());
+                Assert.NotNull(writer.WrittenSnapshot);
+                ExtractedArchitectureSnapshot snapshot = writer.WrittenSnapshot;
+                ArchitectureNode dbContextNode = Assert.Single(snapshot.Nodes, node => node.NodeKind == NodeKind.DbContext && node.DisplayName == "CustomerDbContext");
+                ArchitectureNode configurationNode = Assert.Single(snapshot.Nodes, node => node.NodeKind == NodeKind.ConfigurationKey && node.StableKey.Value == "config://Legacy:ConnectionStrings:MainDb");
+                ArchitectureNode customerTableNode = Assert.Single(snapshot.Nodes, node => node.NodeKind == NodeKind.DatabaseTable && node.StableKey.Value == "dbtable://Customer.Api.csproj#dbo.Customers");
+                ArchitectureNode runtimeMethodNode = Assert.Single(snapshot.Nodes, node => node.NodeKind == NodeKind.Method && node.DisplayName == "ExecuteAsync" && node.StableKey.Value.StartsWith("method://Customer.Api.CustomerWorker.ExecuteAsync", StringComparison.Ordinal));
+                ArchitectureEdge runtimeCorrelationEdge = Assert.Single(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.DependsOn && edge.SourceNodeStableKey == runtimeMethodNode.StableKey && edge.Metadata.ToCanonicalJson().Contains("\"correlationKind\":\"RuntimeDataAccessMethod\"", StringComparison.Ordinal));
+                ArchitectureNode dataAccessMethodNode = Assert.Single(snapshot.Nodes, node => node.StableKey == runtimeCorrelationEdge.TargetNodeStableKey);
+                Assert.Contains("\"connectionStringKey\":\"MainDb\"", dbContextNode.Metadata.ToCanonicalJson(), StringComparison.Ordinal);
+                Assert.Contains(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.UsesConfig && edge.SourceNodeStableKey == dbContextNode.StableKey && edge.TargetNodeStableKey == configurationNode.StableKey && edge.Metadata.ToCanonicalJson().Contains("\"correlationKind\":\"DataAccessConnectionStringKey\"", StringComparison.Ordinal));
+                Assert.Contains(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.UsesDbContext && edge.SourceNodeStableKey.Value == "type://Customer.Api.CustomerDbContext" && edge.TargetNodeStableKey == dbContextNode.StableKey && edge.Metadata.ToCanonicalJson().Contains("\"correlationKind\":\"DependencyInjectionDbContextRegistration\"", StringComparison.Ordinal));
+                Assert.Equal("LoadCustomers", dataAccessMethodNode.DisplayName);
+                Assert.Contains(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.ReadsTable && edge.TargetNodeStableKey == customerTableNode.StableKey);
+                Assert.Equal(snapshot.Nodes.Count, snapshot.Nodes.Select(node => node.StableKey.Value).Distinct(StringComparer.Ordinal).Count());
+                Assert.Equal(snapshot.Edges.Count, snapshot.Edges.Select(edge => edge.StableKey.Value).Distinct(StringComparer.Ordinal).Count());
+                Assert.DoesNotContain(snapshot.Evidence.Where(evidence => evidence.EvidenceKind is not null && evidence.EvidenceKind.Value is not "CompilerDiagnostic" and not "CompilerSymbol"), evidence => evidence.SnippetPreview?.Contains("SuperSecretPassword123!", StringComparison.Ordinal) == true);
+                Assert.Empty(snapshot.Errors);
             }
         }
 
@@ -759,6 +856,127 @@ namespace Archon.Api.Extraction.Tests
                         "EndGlobal"
                     ]));
             return solutionPath;
+        }
+
+        /// <summary>
+        /// Creates a representative LINQ to SQL DBML model file under a repository root.
+        /// </summary>
+        /// <param name="repositoryRoot">The repository root that should contain the DBML file.</param>
+        /// <param name="pathParts">The nested path parts ending with the DBML file name.</param>
+        /// <returns>The absolute path to the created DBML file.</returns>
+        private static string CreateDbmlModelFile(string repositoryRoot, params string[] pathParts)
+        {
+            // The API integration fixture contains only static model metadata so extraction cannot accidentally depend on a live database.
+            string dbmlPath = Path.Combine([repositoryRoot, .. pathParts]);
+            Directory.CreateDirectory(Path.GetDirectoryName(dbmlPath)!);
+            File.WriteAllText(
+                dbmlPath,
+                """
+                <?xml version="1.0" encoding="utf-8"?>
+                <Database Name="Northwind" Class="NorthwindDataContext" xmlns="http://schemas.microsoft.com/linqtosql/dbml/2007">
+                  <Connection Mode="AppSettings" SettingsPropertyName="NorthwindConnectionString" Provider="System.Data.SqlClient" />
+                  <Table Name="dbo.Customers" Member="Customers">
+                    <Type Name="Customer">
+                      <Column Name="CustomerID" Member="CustomerID" Type="System.String" DbType="NChar(5) NOT NULL" IsPrimaryKey="true" CanBeNull="false" />
+                    </Type>
+                  </Table>
+                  <Function Name="dbo.GetCustomerOrders" Method="GetCustomerOrders" />
+                </Database>
+                """);
+            return dbmlPath;
+        }
+
+        /// <summary>
+        /// Creates a C# source fixture that combines WP007 DI, WP008 runtime, EF Core context, and ADO.NET raw SQL usage for WP009 final integration tests.
+        /// </summary>
+        /// <param name="repositoryRoot">The repository root that contains the source file.</param>
+        /// <param name="relativeSourcePath">The repository-relative source path to write.</param>
+        private static void CreateWp009IntegratedDataAccessSourceFile(string repositoryRoot, string relativeSourcePath)
+        {
+            // Local framework stubs keep the fixture self-contained while still giving Roslyn enough symbol shape for all participating extractors.
+            string sourcePath = Path.Combine(repositoryRoot, relativeSourcePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
+            File.WriteAllText(
+                sourcePath,
+                string.Join(
+                    Environment.NewLine,
+                    [
+                        "namespace Microsoft.Extensions.Hosting { public interface IHostedService { System.Threading.Tasks.Task StartAsync(System.Threading.CancellationToken cancellationToken); System.Threading.Tasks.Task StopAsync(System.Threading.CancellationToken cancellationToken); } public abstract class BackgroundService : IHostedService { public virtual System.Threading.Tasks.Task StartAsync(System.Threading.CancellationToken cancellationToken) => System.Threading.Tasks.Task.CompletedTask; public virtual System.Threading.Tasks.Task StopAsync(System.Threading.CancellationToken cancellationToken) => System.Threading.Tasks.Task.CompletedTask; protected abstract System.Threading.Tasks.Task ExecuteAsync(System.Threading.CancellationToken stoppingToken); } }",
+                        "namespace Microsoft.Extensions.DependencyInjection { public interface IServiceCollection { } public static class ServiceCollectionServiceExtensions { public static IServiceCollection AddScoped<TService, TImplementation>(this IServiceCollection services) => services; public static IServiceCollection AddSingleton<TService, TImplementation>(this IServiceCollection services) => services; public static IServiceCollection AddHostedService<THostedService>(this IServiceCollection services) => services; } public static class EntityFrameworkServiceCollectionExtensions { public static IServiceCollection AddDbContext<TContext>(this IServiceCollection services, System.Action<Microsoft.EntityFrameworkCore.DbContextOptionsBuilder> optionsAction) => services; } }",
+                        "namespace Microsoft.EntityFrameworkCore { public class DbContext { public DbContext() { } public DbContext(DbContextOptions options) { } public DbSet<TEntity> Set<TEntity>() where TEntity : class => new(); } public class DbContextOptions { } public class DbContextOptions<TContext> : DbContextOptions { } public class DbContextOptionsBuilder { public DbContextOptionsBuilder UseSqlServer(string connectionString) => this; } public class DbContextOptionsBuilder<TContext> : DbContextOptionsBuilder { } public class DbSet<TEntity> where TEntity : class { public System.Collections.Generic.IEnumerable<TEntity> ToList() => new TEntity[0]; public void Add(TEntity entity) { } } }",
+                        "namespace System.Configuration { public static class ConfigurationManager { public static ConnectionStringSettingsCollection ConnectionStrings { get; } = new(); } public sealed class ConnectionStringSettingsCollection { public ConnectionStringSettings? this[string name] => null; } public sealed class ConnectionStringSettings { public string ConnectionString => \"name=MainDb\"; } }",
+                        "namespace System.Data.SqlClient { public sealed class SqlConnection { public SqlConnection(string connectionString) { } } public sealed class SqlCommand { public SqlCommand(string commandText, SqlConnection connection) { } public object? ExecuteScalar() => null; } }",
+                        "namespace Customer.Api",
+                        "{",
+                        "    using Microsoft.EntityFrameworkCore;",
+                        "    using Microsoft.Extensions.DependencyInjection;",
+                        "    using Microsoft.Extensions.Hosting;",
+                        "    using System.Configuration;",
+                        "    using System.Data.SqlClient;",
+                        "    using System.Threading;",
+                        "    using System.Threading.Tasks;",
+                        "    public sealed class Customer",
+                        "    {",
+                        "        public int Id { get; set; }",
+                        "        public string? Name { get; set; }",
+                        "    }",
+                        "    public sealed class CustomerDbContext : DbContext",
+                        "    {",
+                        "        public CustomerDbContext(DbContextOptions<CustomerDbContext> options) : base(options) { }",
+                        "        public DbSet<Customer> Customers { get; set; } = new();",
+                        "    }",
+                        "    public sealed class CustomerRepository",
+                        "    {",
+                        "        private readonly CustomerDbContext _dbContext;",
+                        "        public CustomerRepository(CustomerDbContext dbContext) { _dbContext = dbContext; }",
+                        "        public void LoadCustomers()",
+                        "        {",
+                        "            _ = _dbContext.Customers.ToList();",
+                        "            using var connection = new SqlConnection(\"name=MainDb\");",
+                        "            using var command = new SqlCommand(\"SELECT Id, Name FROM dbo.Customers WHERE Token = 'SuperSecretPassword123!'\", connection);",
+                        "            _ = command.ExecuteScalar();",
+                        "        }",
+                        "    }",
+                        "    public sealed class CustomerWorker : BackgroundService",
+                        "    {",
+                        "        private readonly CustomerRepository _repository;",
+                        "        public CustomerWorker(CustomerRepository repository) { _repository = repository; }",
+                        "        protected override Task ExecuteAsync(CancellationToken stoppingToken)",
+                        "        {",
+                        "            _repository.LoadCustomers();",
+                        "            return Task.CompletedTask;",
+                        "        }",
+                        "    }",
+                        "    public static class Composition",
+                        "    {",
+                        "        public static void Configure(IServiceCollection services)",
+                        "        {",
+                        "            services.AddDbContext<CustomerDbContext>(options => options.UseSqlServer(\"name=MainDb\"));",
+                        "            services.AddScoped<CustomerRepository, CustomerRepository>();",
+                        "            services.AddHostedService<CustomerWorker>();",
+                        "            _ = ConfigurationManager.ConnectionStrings[\"MainDb\"];",
+                        "        }",
+                        "    }",
+                        "}"
+                    ]));
+        }
+
+        /// <summary>
+        /// Creates configuration artifacts containing a redacted connection string key used by the integrated WP009 API fixture.
+        /// </summary>
+        /// <param name="repositoryRoot">The repository root that should contain configuration files.</param>
+        private static void CreateWp009ConnectionConfigurationFiles(string repositoryRoot)
+        {
+            // Legacy configuration is used because its stable keys explicitly distinguish connection-string entries and values are already redacted by WP007.
+            File.WriteAllText(
+                Path.Combine(repositoryRoot, "app.config"),
+                string.Join(
+                    Environment.NewLine,
+                    [
+                        "<configuration>",
+                        "  <connectionStrings><add name=\"MainDb\" connectionString=\"Server=localhost;Database=Customers;User Id=sa;Password=SuperSecretPassword123!\" /></connectionStrings>",
+                        "</configuration>"
+                    ]));
         }
 
         /// <summary>

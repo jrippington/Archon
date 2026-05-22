@@ -10,6 +10,10 @@ An accumulator is a stateful application-layer builder that accepts graph fact c
 
 An AppHost is an Aspire project that describes which services, containers, and dependencies run together for local development. Archon's AppHost is `src/Archon`.
 
+## ADO.NET
+
+ADO.NET is the .NET data-access API family built around connections, commands, readers, adapters, and in-memory data containers. Archon extracts supported ADO.NET evidence statically from source code, including command text, execution methods, stored procedure command types, provider hints, and conservative table read/write hints. It does not open connections or execute command text.
+
 ## Architecture graph
 
 The architecture graph is the durable representation of architecture facts, evidence, findings, metrics, and summaries. In the current persistence foundation, Neo4j stores this graph using stable labels, stable keys, fingerprints, and support relationships.
@@ -78,6 +82,90 @@ A background service is a hosted service that derives from `Microsoft.Extensions
 
 Dependency injection is the application-composition pattern where services receive collaborators from a container or composition root rather than constructing every dependency directly. Archon's current WP007 slice models Microsoft.Extensions.DependencyInjection registrations as graph facts when Roslyn can prove the registration method and participating types.
 
+## Data access extraction
+
+Data access extraction is Archon's static-analysis process for identifying repository evidence about database-facing technologies and mapping that evidence into the architecture graph. The current WP009 slice supports LINQ to SQL DBML model files, generated LINQ to SQL designer source, LINQ to SQL source usage, EF6 source artifacts, EF Core source artifacts, ADO.NET/raw SQL source usage, and typed DataSet XSD/generated-source/usage evidence. It does not connect to target databases, apply migrations, open ADO.NET connections, execute SQL command text, execute TableAdapter methods, or execute target application code.
+
+## Data adapter
+
+A data adapter is an ADO.NET component, such as `SqlDataAdapter` or `OleDbDataAdapter`, that fills `DataSet` or `DataTable` objects from a command. Archon treats supported adapter `Fill` calls as source evidence for raw SQL execution and conservative table reads when static command text is available.
+
+## DBML
+
+DBML is the XML model format used by LINQ to SQL designers to describe a database model, generated DataContext, mapped entity types, tables, columns, associations, and stored-procedure wrapper methods. Archon parses `.dbml` files as static XML artifacts and records DBML evidence with redacted snippets.
+
+## DataContext
+
+A DataContext is the LINQ to SQL unit-of-work type generated from a DBML model. In the current data-access graph, a DBML `Database` element with a class name becomes a `LinqToSqlDataContext` node.
+
+## DataSet
+
+A DataSet is an ADO.NET in-memory container for tabular data. Archon recognizes ordinary DataSet usage as part of ADO.NET extraction context, especially when a data adapter fills it from static SQL evidence. It also recognizes typed DataSet model roots from `.xsd` artifacts when the XML schema is marked as a generated DataSet model.
+
+## DataTable
+
+A DataTable is an ADO.NET in-memory representation of a table-like result set. In the current WP009 slice, ordinary DataTable variables are context evidence for ADO.NET usage, while typed DataSet XSD table declarations and generated DataTable classes become `Entity` nodes mapped to `DatabaseTable` and `DatabaseColumn` facts when the model metadata is deterministic.
+
+## TableAdapter
+
+A TableAdapter is a Visual Studio generated component in a typed DataSet model that wraps one or more database commands for a typed DataTable. Archon extracts TableAdapter definitions from typed DataSet `.xsd` files, represents generated TableAdapter artifacts as `GeneratedArtifact` nodes, records text queries as raw SQL facts, records stored-procedure commands as `StoredProcedure` facts, and links source methods to tables or procedures when generated TableAdapter methods are called.
+
+## Typed DataSet
+
+A typed DataSet is a legacy ADO.NET model generated from an `.xsd` schema. It provides strongly typed DataSet, DataTable, row, and TableAdapter classes for code that predates or avoids ORM patterns such as Entity Framework. Archon extracts typed DataSet facts statically from XSD artifacts and generated/consumer source; it does not run designer code, instantiate TableAdapters, or connect to the database described by the model.
+
+## XSD model artifact
+
+An XSD model artifact is an XML schema file that can describe a typed DataSet model. In WP009, Archon recognizes XSD files marked with typed DataSet metadata, reads DataSet names, DataTable declarations, column declarations, TableAdapters, query command text, stored procedure references, and connection-string property names, then emits graph facts with redacted XML evidence.
+
+## DbCommand
+
+DbCommand is the abstract ADO.NET command base type used by provider-independent code. Archon records executions through `DbCommand` parameters or variables even when the concrete provider is unknown, and it uses explicit unknown state when command text cannot be resolved statically.
+
+## Database table node
+
+A database table node is an architecture node representing a table identity extracted from data-access evidence. In the current DBML slice, a deterministic `Table Name="schema.Table"` value becomes a `DatabaseTable` node scoped by the DBML model path.
+
+## Database column node
+
+A database column node is an architecture node representing a column identity under a known database table. In the current DBML slice, deterministic `Column` metadata under a known table becomes a `DatabaseColumn` node.
+
+## DbContext
+
+A DbContext is the primary Entity Framework unit-of-work and mapping type. EF6 and EF Core context classes expose `DbSet<TEntity>` properties, provider configuration, model-building methods, and save operations. Archon represents EF6 and EF Core context types as `DbContext` graph nodes and records source-backed relationships from methods that use those contexts.
+
+## DbSet
+
+A DbSet is an Entity Framework property or object that represents a queryable and mutable collection of a specific entity type. Archon uses `DbSet<TEntity>` declarations to identify mapped entity types and conservative table dependencies, then links method usage to `DatabaseTable` nodes when the mapping can be determined.
+
+## Dynamic SQL
+
+Dynamic SQL is SQL text constructed from runtime values, concatenation, interpolation, formatting, or other computed expressions. Archon does not evaluate dynamic SQL. It records partial source evidence, a raw SQL fact, lower confidence, and an explicit unknown reason so consumers can see that a database command exists without trusting a guessed table or procedure target.
+
+## Entity Framework 6
+
+Entity Framework 6, often abbreviated EF6, is the legacy full-framework-era Entity Framework object-relational mapper that commonly uses `System.Data.Entity.DbContext`, `ObjectContext`, `DbSet<TEntity>`, Code First migrations, provider configuration, and raw SQL APIs such as `SqlQuery` or `ExecuteSqlCommand`. Archon extracts EF6 evidence statically from source and does not instantiate contexts or query databases.
+
+## Entity Framework Core
+
+Entity Framework Core, often abbreviated EF Core, is the modern cross-platform Entity Framework object-relational mapper that commonly uses `Microsoft.EntityFrameworkCore.DbContext`, `DbSet<TEntity>`, Fluent API model building, migrations, provider setup calls such as `UseSqlServer`, and raw SQL APIs such as `FromSqlRaw` or `ExecuteSqlRaw`. Archon extracts EF Core evidence statically from source and treats convention-only mappings and shadow properties as explicit uncertainty when exact database identity cannot be proven.
+
+## EF migration
+
+An EF migration is a source artifact that describes database schema changes for Entity Framework. Archon records migration classes and supported operations as generated artifact facts with source evidence. It never applies migrations during extraction.
+
+## Fluent API mapping
+
+Fluent API mapping is Entity Framework model configuration written through chained method calls, usually inside `OnModelCreating`. Examples include `.ToTable(...)`, `.Property(...).HasColumnName(...)`, and relationship configuration calls. Archon extracts deterministic mapping details from supported chains and records unknowns for source shapes that cannot be proven statically.
+
+## ObjectContext
+
+ObjectContext is a legacy Entity Framework context type from `System.Data.Entity.Core.Objects`. Archon represents ObjectContext-derived application types as `DbContext` graph nodes with metadata that identifies the legacy context kind.
+
+## Shadow property
+
+A shadow property is an EF Core model property that exists in the EF model but has no CLR property on the entity class. Archon records supported shadow-property column mappings with explicit unknown state because the database column can be observed from source mapping but there is no normal CLR property declaration to navigate to.
+
 ## Legacy container
 
 A legacy container is a dependency-injection container other than Microsoft.Extensions.DependencyInjection, commonly found in older .NET systems. Archon's current dependency-injection extractor recognizes supported compiler-bound registration shapes for Unity, Autofac, Castle Windsor, StructureMap, Ninject, and SimpleInjector, and records unsupported scanning forms as explicit unknown registration facts instead of guessed service mappings.
@@ -93,6 +181,18 @@ A custom host loop is a source method that appears to run continuously or repeat
 ## Secret redaction
 
 Secret redaction is the process of replacing sensitive configuration values with a placeholder before they can appear in evidence previews, metadata, diagnostics, logs, or test output. The configuration extractor applies redaction to appsettings values, legacy XML connection-string values, custom section payloads, source snippets, and diagnostics before graph records are created.
+
+## Raw SQL
+
+Raw SQL is command text written directly in source or model artifacts instead of expressed through a higher-level mapping abstraction. Archon stores only redacted previews and stable hashes for static raw SQL text, classifies simple statements with read/write hints, and records unknowns for dynamic or missing command text.
+
+## Read/write hint
+
+A read/write hint is metadata that classifies a data-access relationship as a likely `Read`, `Write`, `ReadWrite`, or `Unknown` operation. Archon derives hints conservatively from API shape and leading SQL verbs such as `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `MERGE`, or `CREATE`; it does not claim full database impact analysis.
+
+## Stored procedure command
+
+A stored procedure command is an ADO.NET command whose `CommandType` is set to `StoredProcedure` and whose command text names a procedure. Archon represents the procedure as a `StoredProcedure` node and links the source method to it with `CALLS_STORED_PROCEDURE` when the name is static.
 
 ## Factory registration
 
@@ -425,6 +525,10 @@ Snapshot persistence writes an assembled `ExtractedArchitectureSnapshot` into Ne
 ## Stable key
 
 A stable key is the durable logical identity for an architecture fact. It is not a database ID, process-local object reference, or machine-specific path.
+
+## Stored procedure node
+
+A stored procedure node is an architecture node representing a database stored procedure or DBML function wrapper target that static evidence can identify. In the current DBML slice, deterministic `Function Name="schema.Procedure"` metadata becomes a `StoredProcedure` node connected to the DataContext by `CALLS_STORED_PROCEDURE`.
 
 ## Testcontainers
 

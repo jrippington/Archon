@@ -8,6 +8,7 @@
     <ProjectReference Include="..\Archon.Application\Archon.Application.csproj" />
     <ProjectReference Include="..\Archon.Extractors.AspNet\Archon.Extractors.AspNet.csproj" />
     <ProjectReference Include="..\Archon.Extractors.Configuration\Archon.Extractors.Configuration.csproj" />
+    <ProjectReference Include="..\Archon.Extractors.DataAccess\Archon.Extractors.DataAccess.csproj" />
     <ProjectReference Include="..\Archon.Extractors.DependencyInjection\Archon.Extractors.DependencyInjection.csproj" />
     <ProjectReference Include="..\Archon.Extractors.Projects\Archon.Extractors.Projects.csproj" />
     <ProjectReference Include="..\Archon.Infrastructure.Roslyn\Archon.Infrastructure.Roslyn.csproj" />

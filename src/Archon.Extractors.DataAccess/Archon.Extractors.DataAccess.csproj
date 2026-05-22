@@ -1,6 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
+
     <ProjectReference Include="..\Archon.Application\Archon.Application.csproj" />
     <ProjectReference Include="..\Archon.Roslyn\Archon.Roslyn.csproj" />
   </ItemGroup>

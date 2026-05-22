@@ -36,6 +36,7 @@ namespace Archon.Api.Extraction
             services.AddSingleton<IExtractionStage, RoslynSemanticExtractionStage>();
             services.AddSingleton<IExtractionStage, Wp007ExtractionStage>();
             services.AddSingleton<IExtractionStage, Wp008AspNetCoreMinimalApiExtractionStage>();
+            services.AddSingleton<IExtractionStage, Wp009DataAccessExtractionStage>();
             services.AddSingleton<ExtractionPipelineRunner>();
             services.AddSingleton<ExtractionSnapshotAssembler>();
             services.AddSingleton<IArchitectureSnapshotWriter, InMemoryArchitectureSnapshotWriter>();
