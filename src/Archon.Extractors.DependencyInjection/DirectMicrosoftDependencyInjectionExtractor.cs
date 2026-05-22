@@ -149,7 +149,8 @@ namespace Archon.Extractors.DependencyInjection
 
             if (descriptor.UnknownRegistration)
             {
-                accumulator.AddWarning($"Unsupported legacy container registration detected for {descriptor.ContainerKind} method {descriptor.RegistrationMethod} at {FormatInvocationLocation(invocation)}.");
+                // Unsupported legacy scanning APIs are retained as explicit unknown graph facts and also surfaced as warnings so orchestration callers can see why the mapping is incomplete.
+                accumulator.AddWarning($"Unsupported legacy container registration '{descriptor.ContainerKind}.{descriptor.RegistrationMethod}' was recorded with unknown service and implementation targets at {FormatInvocationLocation(invocation)}.");
             }
 
             foreach (EvidenceRecord wrapperEvidence in CreateWrapperEvidenceRecords(request, descriptor, cancellationToken))

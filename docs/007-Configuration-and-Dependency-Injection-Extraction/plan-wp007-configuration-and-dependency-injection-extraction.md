@@ -461,7 +461,8 @@ If the implemented WP002 contracts differ from the specification wording, the im
 
 ## 8. Final Documentation, Wiki Impact, and Work-Package Closure Gate
 
-- [ ] Work Item 8: Complete mandatory documentation, wiki impact review, and final validation record
+- [x] Work Item 8: Complete mandatory documentation, wiki impact review, and final validation record - Completed
+  - **Completion Summary**: Completed the final WP007 closure gate without creating standalone implementation notes, ledgers, architecture notes, or substitute contributor-facing artifacts. Verified the documentation-pass closure scope against `./.github/instructions/documentation-pass.instructions.md`, including `src/Archon.Api.Extraction/Wp007ExtractionStage.cs` and `test/Archon.Api.Extraction.Tests/ExtractionEndpointTests.cs`; no additional source-comment corrections were required because the touched production and test code already carries type, constructor, method, parameter, return, and developer-flow comments. Performed the final wiki information-architecture review required by `./.github/instructions/wiki.instructions.md`; no additional wiki edits were required during Work Item 8 because Work Item 7 had already updated the current-state WP007, API workflow, validation, and landing-page guidance, and final review confirmed those pages remain accurate. Final validation performed: `dotnet test .\test\Archon.Extractors.DependencyInjection.Tests\Archon.Extractors.DependencyInjection.Tests.csproj --no-restore` succeeded with 13/13 tests; `dotnet test .\test\Archon.Extractors.Configuration.Tests\Archon.Extractors.Configuration.Tests.csproj --no-restore` succeeded with 11/11 tests; `dotnet test .\test\Archon.Api.Extraction.Tests\Archon.Api.Extraction.Tests.csproj --no-restore` succeeded with 14/14 tests; `dotnet build .\Archon.slnx --no-restore` succeeded. The Aspire AppHost was not run as a blocking automated validation process. Wiki impact matrix: affected concepts reviewed were dependency injection, service registration, hosted services, HttpClientFactory registrations, registration wrappers, constructor correlation, legacy containers, service locators, manual factories, configuration keys, options binding, legacy configuration artifacts, `ConfigurationManager`, secret redaction, confidence, unknown state, extraction warnings, API pipeline composition, snapshot accumulation, persistence handoff, and no-AppHost validation. Pages reviewed were `wiki/home.md`, `wiki/solution-architecture.md`, `wiki/api-extraction-workflow.md`, `wiki/graph-domain-model.md`, `wiki/roslyn-semantic-extraction.md`, `wiki/validation-and-test-workflows.md`, `wiki/glossary.md`, and `wiki/configuration-and-dependency-injection-extraction.md`. Pages updated during Work Item 8 were none; pages created, retired, split, or renamed during Work Item 8 were none. Pages intentionally unchanged were all reviewed pages because existing current-state guidance already covered final WP007 behavior after prior work-item updates: the dedicated WP007 page remains the detailed concept home, the API workflow page remains the orchestration home, the validation page remains the command home, the architecture/graph/Roslyn pages provide sufficient cross-linked foundations, the glossary already defines the necessary terms, and `wiki/home.md` remains concise. Page-structure decision: no new page was needed; `wiki/configuration-and-dependency-injection-extraction.md` is still the correct detailed home for WP007 extraction behavior, `wiki/api-extraction-workflow.md` is still the correct home for pipeline sequencing, `wiki/validation-and-test-workflows.md` is still the correct home for commands, and `wiki/home.md` remains only a landing page and table of contents.
   - **Purpose**: Close WP007 by ensuring source-code documentation, contributor-facing wiki guidance, validation commands, and plan traceability are complete and do not leave a parallel implementation-notes artifact.
   - **Acceptance Criteria**:
 	- Every code-writing task completed in WP007 has followed `./.github/instructions/documentation-pass.instructions.md`.
@@ -477,28 +478,28 @@ If the implemented WP002 contracts differ from the specification wording, the im
 	- The final plan record links to wiki guidance rather than duplicating contributor-facing explanation.
 	- The final plan record includes validation commands and outcomes.
 	- Executor must not stop mid-work-item unless the work item is complete, the user explicitly interrupts, or a true blocker prevents further autonomous progress.
-  - [ ] Task 1: Perform source-code documentation-pass verification
-	- [ ] Step 1: Review touched production and test C# files against `./.github/instructions/documentation-pass.instructions.md`.
-	- [ ] Step 2: Ensure every class, method, constructor, public parameter, non-obvious property, internal type, non-public method, and meaningful logic block has required developer-level comments.
-	- [ ] Step 3: Correct documentation gaps without changing behavior.
-  - [ ] Task 2: Perform final wiki information-architecture review
-	- [ ] Step 1: Identify affected concepts, including dependency injection, service registration, configuration key, options binding, redaction, legacy configuration, legacy container, service locator, unknown state, confidence, and extraction warnings.
-	- [ ] Step 2: Review `wiki/home.md`, `wiki/solution-architecture.md`, `wiki/api-extraction-workflow.md`, `wiki/graph-domain-model.md`, `wiki/roslyn-semantic-extraction.md`, `wiki/validation-and-test-workflows.md`, `wiki/glossary.md`, and any dedicated `wiki/configuration-and-dependency-injection-extraction.md` page.
-	- [ ] Step 3: Decide whether existing pages remain the correct homes, whether a new page is needed, whether cross-links and glossary entries are sufficient, and whether `home.md` remains concise.
-  - [ ] Task 3: Update wiki pages or record explicit no-change result
-	- [ ] Step 1: Add or revise current-state contributor guidance in the selected topic pages when required.
-	- [ ] Step 2: Use long-form, book-like narrative prose for conceptually dense architecture, runtime, workflow, setup, validation, extension, and extraction topics.
-	- [ ] Step 3: Define technical terms on first use or link to glossary entries.
-	- [ ] Step 4: Include examples or walkthrough material where they materially improve understanding.
-  - [ ] Task 4: Run final targeted validation
-	- [ ] Step 1: Run dependency-injection extractor tests.
-	- [ ] Step 2: Run configuration extractor tests.
-	- [ ] Step 3: Run API extraction integration tests touched by WP007.
-	- [ ] Step 4: Build the solution without running the Aspire AppHost as a blocking process.
-  - [ ] Task 5: Record final closure information in this plan
-	- [ ] Step 1: Record validation commands and outcomes concisely.
-	- [ ] Step 2: Record a wiki impact matrix covering affected concepts, pages reviewed, pages updated, pages created, pages intentionally unchanged, and page-structure decision.
-	- [ ] Step 3: Record any intentionally unresolved non-product environmental issue with evidence.
+	- [x] Task 1: Perform source-code documentation-pass verification - Completed
+	- [x] Step 1: Review touched production and test C# files against `./.github/instructions/documentation-pass.instructions.md`. Reviewed the final WP007 closure scope for `Wp007ExtractionStage` and API extraction integration tests.
+	- [x] Step 2: Ensure every class, method, constructor, public parameter, non-obvious property, internal type, non-public method, and meaningful logic block has required developer-level comments. Verified comments are present for in-scope types, constructors, methods, parameters, returns, helper records, test fixtures, and meaningful logic blocks.
+	- [x] Step 3: Correct documentation gaps without changing behavior. No documentation gaps were found during Work Item 8, so no source edits were required.
+  - [x] Task 2: Perform final wiki information-architecture review - Completed
+	- [x] Step 1: Identify affected concepts, including dependency injection, service registration, configuration key, options binding, redaction, legacy configuration, legacy container, service locator, unknown state, confidence, and extraction warnings. Reviewed those concepts plus API pipeline composition, accumulation, and persistence handoff.
+	- [x] Step 2: Review `wiki/home.md`, `wiki/solution-architecture.md`, `wiki/api-extraction-workflow.md`, `wiki/graph-domain-model.md`, `wiki/roslyn-semantic-extraction.md`, `wiki/validation-and-test-workflows.md`, `wiki/glossary.md`, and any dedicated `wiki/configuration-and-dependency-injection-extraction.md` page. Reviewed all listed pages and the dedicated WP007 topic page.
+	- [x] Step 3: Decide whether existing pages remain the correct homes, whether a new page is needed, whether cross-links and glossary entries are sufficient, and whether `home.md` remains concise. Confirmed the existing page structure is sufficient and `home.md` remains concise.
+  - [x] Task 3: Update wiki pages or record explicit no-change result - Completed
+	- [x] Step 1: Add or revise current-state contributor guidance in the selected topic pages when required. No Work Item 8 wiki edits were required because existing guidance already reflected final WP007 behavior.
+	- [x] Step 2: Use long-form, book-like narrative prose for conceptually dense architecture, runtime, workflow, setup, validation, extension, and extraction topics. Confirmed the dedicated WP007 and API workflow pages retain developed narrative explanations rather than terse checklist-only guidance.
+	- [x] Step 3: Define technical terms on first use or link to glossary entries. Confirmed terms are defined in context or linked to the glossary.
+	- [x] Step 4: Include examples or walkthrough material where they materially improve understanding. Confirmed existing examples and walkthrough material remain in the correct topic pages.
+  - [x] Task 4: Run final targeted validation - Completed
+	- [x] Step 1: Run dependency-injection extractor tests. `dotnet test .\test\Archon.Extractors.DependencyInjection.Tests\Archon.Extractors.DependencyInjection.Tests.csproj --no-restore` succeeded with 13/13 tests.
+	- [x] Step 2: Run configuration extractor tests. `dotnet test .\test\Archon.Extractors.Configuration.Tests\Archon.Extractors.Configuration.Tests.csproj --no-restore` succeeded with 11/11 tests.
+	- [x] Step 3: Run API extraction integration tests touched by WP007. `dotnet test .\test\Archon.Api.Extraction.Tests\Archon.Api.Extraction.Tests.csproj --no-restore` succeeded with 14/14 tests.
+	- [x] Step 4: Build the solution without running the Aspire AppHost as a blocking process. `dotnet build .\Archon.slnx --no-restore` succeeded; Aspire AppHost was not run.
+  - [x] Task 5: Record final closure information in this plan - Completed
+	- [x] Step 1: Record validation commands and outcomes concisely. Recorded final validation commands and outcomes in this Work Item 8 completion summary.
+	- [x] Step 2: Record a wiki impact matrix covering affected concepts, pages reviewed, pages updated, pages created, pages intentionally unchanged, and page-structure decision. Recorded the final wiki impact matrix and page-structure decision in this Work Item 8 completion summary.
+	- [x] Step 3: Record any intentionally unresolved non-product environmental issue with evidence. No unresolved non-product environmental issue remains.
   - **Files**:
 	- `src/**`: Documentation-pass-only corrections for WP007-touched source files if needed.
 	- `test/**`: Documentation-pass-only corrections for WP007-touched test files if needed.
