@@ -142,6 +142,25 @@ dotnet build .\Archon.slnx --no-restore
 
 Run restore first when dependency-injection or configuration extractor package or project references have changed, then use `--no-restore` for the build gate so later failures point to compile or validation behavior. Contributor-facing details for the DI graph shape, configuration key graph shape, evidence, stable keys, redaction, and currently supported registration and configuration forms are described in [configuration and dependency-injection extraction](configuration-and-dependency-injection-extraction.md).
 
+## WP008 runtime extraction validation
+
+The current WP008 validation path covers runtime extraction both at extractor level and at the API-triggered orchestration seam. The extractor tests validate focused static-analysis behavior for ASP.NET Core minimal API endpoints, endpoint groups, controllers and actions, pipeline metadata, C# and VB.NET console entry points, ambiguous console entry points, worker hosted services, generic-host setup, hosted-service registration correlation, scheduled jobs with literal schedules, scheduled jobs with computed schedules, queue and topic consumers, computed queue names, message handler subscriptions, service-style host setup, and conservative custom host loops. The classic ASP.NET extractor tests validate `System.Web` application artifacts, `Global.asax`, `web.config`, Web Forms pages and user controls, HTTP handlers, HTTP modules, MVC 5 controllers, Web API 2 controllers, and conventional-route unknowns. The API extraction tests run an in-memory ASP.NET Core test host, submit explicit repository root and solution path lists, replace only the snapshot writer seam, and verify that runtime facts from modern web, console, worker, queue, and scheduled-job source reach the generalized snapshot alongside earlier project, semantic, configuration, and dependency-injection facts.
+
+Use these focused commands when changing WP008 runtime extraction or its API orchestration integration:
+
+```powershell
+dotnet test .\test\Archon.Api.Extraction.Tests\Archon.Api.Extraction.Tests.csproj --no-restore
+dotnet test .\test\Archon.Extractors.AspNet.Tests\Archon.Extractors.AspNet.Tests.csproj --no-restore
+dotnet test .\test\Archon.Extractors.LegacyWeb.Tests\Archon.Extractors.LegacyWeb.Tests.csproj --no-restore
+dotnet build .\Archon.slnx --no-restore
+```
+
+These commands do not start the Aspire AppHost, do not require Neo4j credentials, do not run the target applications being analyzed, and do not connect to external brokers, schedulers, Windows service managers, or MCP tools. A successful API orchestration test proves that WP008 uses the accepted repository root and explicit solution path list, receives accumulated context from earlier stages where available, preserves runtime warnings and unknowns in the same snapshot contract as other stages, and hands graph-ready facts to the application-layer `IArchitectureSnapshotWriter` instead of letting extractor projects write directly to persistence. If a runtime fixture has partial or degraded source context, the expected behavior is a controlled warning or explicit unknown state; unrelated graph facts should still be present and deterministic.
+
+When adding or changing WP008 fixtures, name the test after the runtime evidence shape rather than after an implementation helper. Good names describe the supported or unsupported scenario: computed route, literal endpoint group, ambiguous entry point, uncorrelated hosted service, literal scheduled job, computed schedule, literal queue, computed queue, topic subscription, Windows-service setup, Topshelf setup, custom host loop, Web Forms page, HTTP handler, or conventional classic route. Assertions should cover the graph node kind, relationship direction, stable lower-camel-case metadata, confidence or unknown state when relevant, repository-relative evidence path, snippet hash or preview when available, and absence of unexpected errors. A fixture that proves unsupported or partial behavior should assert the warning or unknown reason explicitly instead of only checking that extraction does not throw.
+
+The build gate remains part of WP008 validation even when a change appears documentation-heavy. Source comments and wiki edits can still expose stale names, broken XML documentation, or invalid generated samples through tests and build. If package references have changed, restore first; otherwise use the `--no-restore` commands above after a successful restore so failures point to compile, extraction, or documentation consistency issues rather than package acquisition.
+
 ## WP003 Neo4j validation and Testcontainers
 
 Neo4j integration tests use Testcontainers instead of the Aspire AppHost. **Testcontainers** starts short-lived Docker containers under test control and removes them after the test run. Docker Desktop or another OCI-compatible runtime must be running for these tests.

@@ -14,6 +14,18 @@ An AppHost is an Aspire project that describes which services, containers, and d
 
 The architecture graph is the durable representation of architecture facts, evidence, findings, metrics, and summaries. In the current persistence foundation, Neo4j stores this graph using stable labels, stable keys, fingerprints, and support relationships.
 
+## Classic ASP.NET application
+
+A classic ASP.NET application is a legacy `System.Web` web application whose runtime surface can be declared across project references, `Global.asax`, `web.config`, Web Forms markup, MVC 5 controllers, Web API 2 controllers, handlers, modules, and route configuration. Archon extracts these artifacts statically and does not run the target application.
+
+## ASP.NET Core controller
+
+An ASP.NET Core controller is a class that participates in MVC-style HTTP request handling. Archon recognizes supported controller classes from controller naming, controller base types, and marker attributes, then records `Controller` nodes and controller-to-action endpoint relationships when deterministic source evidence exists.
+
+## ASP.NET Core middleware registration
+
+An ASP.NET Core middleware registration is a startup pipeline call such as `UseRouting`, `UseAuthorization`, or `UseMiddleware<T>()`. Archon records supported calls as project-level runtime metadata in source order because the current graph contract does not yet define a dedicated middleware node kind.
+
 ## Application type classification
 
 Application type classification is the WP005 project metadata value that places a supported project into a broad category such as ASP.NET Core Web App, ASP.NET Core Web API, Classic ASP.NET Web App, Web Forms App, MVC App, Web API 2 App, Console App, Worker Service, Class Library, Test Project, Tooling Project, or Unknown. Archon records confidence, evidence, and unknown reasons with the classification so consumers can distinguish direct project-file evidence from weaker artifact or naming indicators.
@@ -46,13 +58,21 @@ A configuration key is the logical path used by configuration systems to address
 
 ConfigurationManager is the legacy `System.Configuration` API that .NET Framework applications commonly use to read `appSettings` and `connectionStrings` from XML `.config` files. Archon records compiler-bound `ConfigurationManager.AppSettings[...]` and `ConfigurationManager.ConnectionStrings[...]` source usage as `USES_CONFIG` graph facts.
 
+## Global.asax
+
+`Global.asax` is the classic ASP.NET application directive file that can point to an application class and lifecycle methods such as `Application_Start`. Archon records the directive and lifecycle source as classic runtime evidence.
+
 ## Constructor injection
 
 Constructor injection is the dependency-injection pattern where a type declares required collaborators as constructor parameters. The current Roslyn C# relationship slice represents compiler-resolved constructor parameter types as `INJECTS` relationships because the constructor signature is deterministic source evidence for that collaboration boundary. The dependency-injection extractor also correlates registered implementation types with constructor parameters and emits deterministic `INJECTS` and `DEPENDS_ON` facts so registered service dependencies can be queried from the DI slice.
 
+## Console entry point
+
+A console entry point is the source method or top-level statement file where a command-line .NET application begins execution. Archon currently detects explicit C# `static Main` methods, explicit VB.NET `Sub Main` or `Function Main` methods, and C# top-level statements from submitted target repository projects, then represents them as `Method` facts with console runtime metadata.
+
 ## Background service
 
-A background service is a hosted service that derives from `Microsoft.Extensions.Hosting.BackgroundService`. Archon marks registered implementations as background services when Roslyn proves that inheritance relationship during dependency-injection extraction.
+A background service is a hosted service that derives from `Microsoft.Extensions.Hosting.BackgroundService`. Archon marks registered implementations as background services when Roslyn proves that inheritance relationship during dependency-injection extraction, and the WP008 worker runtime slice emits source-proven background services as `HostedService` nodes with `runtimeKind` metadata of `BackgroundService`.
 
 ## Dependency injection
 
@@ -65,6 +85,10 @@ A legacy container is a dependency-injection container other than Microsoft.Exte
 ## Manual factory
 
 A manual factory is project code that creates an implementation behind an abstraction without a container registration call. Archon records narrow deterministic manual-factory patterns as medium-confidence heuristic composition facts when a source method returns an interface and directly constructs a concrete implementation of that interface.
+
+## Custom host loop
+
+A custom host loop is a source method that appears to run continuously or repeatedly, often through a loop combined with delay or cancellation checks. Archon records these as medium-confidence method-level runtime facts because the pattern suggests a service runner or polling loop but does not prove deployment behavior.
 
 ## Secret redaction
 
@@ -122,6 +146,10 @@ A Visual Basic root namespace is project-level namespace text that the Visual Ba
 
 A Visual Basic shared member is a member accessed on a type rather than on a particular instance. Archon records calls and dependencies for shared members through the same `CALLS` and `DEPENDS_ON` relationship vocabulary used for C# static members.
 
+## Worker service
+
+A worker service is a .NET application that uses the generic host to run background work, commonly through `IHostedService` or `BackgroundService`, rather than exposing HTTP endpoints as its primary runtime surface. Archon's WP008 worker slice represents source-proven worker components as hosted-service runtime facts and project-level generic-host setup metadata.
+
 ## Semantic evidence
 
 Semantic evidence is source evidence captured for compiler-backed declarations and relationships. It includes repository-relative file path, one-based line and column span, symbol name, containing symbol, snippet preview, and snippet hash when source text is available.
@@ -158,6 +186,14 @@ A generated summary is durable narrative or report-ready content associated with
 
 Generated source is code produced by tools, designers, source generators, or build steps rather than directly maintained by contributors. Archon detects deterministic generated-code signals such as `.g.cs`, `.g.vb`, `.Designer.cs`, `.Designer.vb`, generated folders, `obj` paths, and auto-generated headers, then marks semantic facts from that source instead of discarding them.
 
+## Generic host
+
+The generic host is the Microsoft.Extensions.Hosting runtime model that starts an application, manages dependency injection, configuration, logging, lifetime events, and hosted services. Archon's worker runtime slice records deterministic generic-host setup calls as project metadata and does not start or evaluate the target host.
+
+## Handler identity
+
+Handler identity is the deterministic source or symbol identity Archon uses to distinguish runtime handlers such as minimal API delegates, controller action methods, queue message handlers, scheduled-job methods, and entry points. It is used in stable keys and metadata so two runtime facts with the same route or target name can still be distinguished by the code that handles them.
+
 ## Legacy configuration artifact
 
 A legacy configuration artifact is a repository-contained XML `.config` file such as `app.config` or `web.config`. Archon parses supported XML concepts from these files as static evidence and does not execute configuration section handlers, transforms, or machine-level configuration during extraction.
@@ -180,11 +216,19 @@ A graph schema is the set of Neo4j constraints and indexes that make graph write
 
 ## Hosted service
 
-A hosted service is a service that participates in the .NET generic host lifecycle through `Microsoft.Extensions.Hosting.IHostedService`. Archon's DI extractor records `AddHostedService<T>()` and hosted-service-assignable registrations as `REGISTERED_AS_SERVICE` graph facts with hosted-service metadata.
+A hosted service is a service that participates in the .NET generic host lifecycle through `Microsoft.Extensions.Hosting.IHostedService`. Archon's DI extractor records `AddHostedService<T>()` and hosted-service-assignable registrations as `REGISTERED_AS_SERVICE` graph facts with hosted-service metadata. The WP008 worker runtime slice can also emit source-proven hosted services as `HostedService` nodes and correlate them with those prior registration facts.
 
 ## HttpClientFactory
 
 HttpClientFactory is the Microsoft DI pattern for creating configured `HttpClient` instances through `AddHttpClient` registrations. Archon's current extractor records default, named, typed, and typed-implementation HttpClient registrations and marks unresolved external targets as explicit unknown data.
+
+## HTTP handler
+
+An HTTP handler is a classic ASP.NET type that implements `IHttpHandler` and can directly process requests, often through a `web.config` mapping. Archon represents handler types as `Type` nodes and configured handler paths as `Endpoint` nodes connected by `HANDLES` relationships.
+
+## HTTP module
+
+An HTTP module is a classic ASP.NET type that implements `IHttpModule` and participates in the request pipeline without declaring a single endpoint. Archon represents modules as `Type` nodes with runtime metadata.
 
 ## Idempotent
 
@@ -330,6 +374,34 @@ An old-style project is a non-SDK-style MSBuild project, often using the legacy 
 
 A run lifecycle is the operational status model for an accepted extraction request. It records states such as queued, running, completed, failed, or cancelled together with progress, warnings, errors, timestamps, and snapshot identity when available.
 
+## Runtime extraction slice
+
+A runtime extraction slice is a static-analysis contribution that identifies runtime-facing application behavior, such as an HTTP endpoint, console entry point, hosted service, scheduled job, or message consumer, without executing the analyzed application. The current WP008 slices recognize direct ASP.NET Core minimal API mappings, endpoint groups, attributed controllers and actions, MVC setup calls, middleware registration order, OpenAPI setup in C# source, console entry points in C# and VB.NET source, worker hosted-service source, scheduled-job source, queue/topic consumer source, service-host setup source, custom host-loop source, and extractor-level classic ASP.NET artifacts such as `Global.asax`, Web Forms, handlers, modules, MVC 5, Web API 2, and route configuration.
+
+## Scheduled job
+
+A scheduled job is runtime work registered with a scheduler so it can run at a time, interval, or recurrence expression. Archon represents supported scheduled jobs as method-level runtime facts and records a schedule expression only when source evidence provides a compile-time literal.
+
+## Topic consumer
+
+A topic consumer is a message consumer that reads from a publish/subscribe target, often using both a topic name and a subscription name. Archon represents supported topic consumers as `Topic` nodes with transport, topic, and subscription metadata when those values are deterministic.
+
+## Web Forms page
+
+A Web Forms page is a classic ASP.NET `.aspx` markup artifact that is addressable by a virtual path. Archon represents supported pages as `Endpoint` nodes with Web Forms runtime metadata and markup evidence.
+
+## Web Forms user control
+
+A Web Forms user control is a classic ASP.NET `.ascx` markup artifact that can participate in page rendering but is not directly addressable as an endpoint by itself. Archon represents supported user controls as `FilePath` nodes with user-control runtime metadata.
+
+## Endpoint group
+
+An endpoint group is an ASP.NET Core minimal API route prefix created with `MapGroup`. Archon combines a literal group prefix with literal endpoint route templates and records explicit unknown state when the group prefix is computed.
+
+## OpenAPI setup
+
+OpenAPI setup is source-level configuration that enables OpenAPI or Swagger descriptions for an ASP.NET Core application, such as `AddSwaggerGen`, `AddOpenApi`, `UseSwagger`, `UseSwaggerUI`, or `MapOpenApi`. Archon records supported setup calls as project-level runtime metadata rather than invoking the application to generate a document.
+
 ## Relationship-node pattern
 
 The relationship-node pattern stores an architecture edge as an `ArchonRelationship` node instead of only as a native Neo4j relationship. This lets the relationship fact carry its own stable key, fingerprint, metadata, confidence, unknown state, and evidence links.
@@ -361,6 +433,14 @@ Testcontainers is a test library that starts short-lived Docker containers under
 ## Target framework
 
 A target framework is the .NET platform moniker or legacy framework version a project builds for, such as `net10.0`, `net8.0`, or `v4.7.2`. Archon records single-target, multi-target, and legacy target framework values from project-file metadata when available.
+
+## Target repository context
+
+Target repository context is the accepted repository root, submitted solution path list, and repository-relative project/source paths that scope extraction to the application being analyzed. Runtime extractors use this context to avoid confusing target application entry points with Archon host code, test harness code, package-cache files, or arbitrary files outside the submitted extraction input.
+
+## Top-level statements
+
+Top-level statements are C# statements written directly in a source file, usually `Program.cs`, instead of inside an explicit `Main` method. The C# compiler turns them into an implicit entry point; Archon represents that implicit entry point with method metadata keyed by the project and normalized repository-relative file path.
 
 ## Unknown state
 

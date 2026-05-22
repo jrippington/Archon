@@ -3,6 +3,8 @@
   <ItemGroup>
     <ProjectReference Include="..\Archon.Application\Archon.Application.csproj" />
     <ProjectReference Include="..\Archon.Roslyn\Archon.Roslyn.csproj" />
+    <ProjectReference Include="..\Archon.Roslyn.CSharp\Archon.Roslyn.CSharp.csproj" />
+    <ProjectReference Include="..\Archon.Roslyn.VisualBasic\Archon.Roslyn.VisualBasic.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

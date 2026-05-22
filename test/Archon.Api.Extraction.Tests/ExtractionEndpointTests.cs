@@ -4,6 +4,7 @@ using Archon.Application.Extraction.Contracts;
 using Archon.Application.Extraction.Pipeline;
 using Archon.Application.Graph.Persistence;
 using Archon.Domain.Graph.ControlledValues;
+using Archon.Domain.Graph.Model;
 using Archon.Extractors.Projects.Solutions;
 using Archon.Infrastructure.Roslyn.Extraction;
 using Microsoft.AspNetCore.Builder;
@@ -72,10 +73,10 @@ namespace Archon.Api.Extraction.Tests
         }
 
         /// <summary>
-        /// Verifies extraction API service registration composes project, semantic, and WP007 extraction stages instead of the WP004 placeholder stage.
+        /// Verifies extraction API service registration composes project, semantic, WP007, and WP008 extraction stages instead of the WP004 placeholder stage.
         /// </summary>
         [Fact]
-        public void AddArchonExtractionApi_WhenServicesAreBuilt_ShouldRegisterProjectSemanticAndWp007ExtractionStages()
+        public void AddArchonExtractionApi_WhenServicesAreBuilt_ShouldRegisterProjectSemanticWp007AndWp008ExtractionStages()
         {
             // The API module is the existing composition boundary for the extraction pipeline, so this test guards the ordered stage registration path.
             ServiceCollection services = new();
@@ -100,6 +101,11 @@ namespace Archon.Api.Extraction.Tests
                 {
                     Assert.IsType<Wp007ExtractionStage>(stage);
                     Assert.Equal("wp007-configuration-dependency-injection", stage.StageId);
+                },
+                stage =>
+                {
+                    Assert.IsType<Wp008AspNetCoreMinimalApiExtractionStage>(stage);
+                    Assert.Equal("wp008-aspnet-core-minimal-api", stage.StageId);
                 });
         }
 
@@ -133,6 +139,95 @@ namespace Archon.Api.Extraction.Tests
             Assert.False(string.IsNullOrWhiteSpace(body.RootElement.GetProperty("runId").GetString()));
             Assert.Equal("Queued", body.RootElement.GetProperty("status").GetString());
             Assert.Equal(1, body.RootElement.GetProperty("submittedRequest").GetProperty("solutionPaths").GetArrayLength());
+        }
+
+        /// <summary>
+        /// Verifies the API-triggered extraction path persists WP008 ASP.NET Core minimal API endpoint facts through the snapshot writer seam.
+        /// </summary>
+        /// <returns>A task that completes after the completed run and recorded endpoint snapshot content have been asserted.</returns>
+        [Fact]
+        public async Task GetExtractionStatus_WhenWp008MinimalApiExtractionRuns_ShouldPersistEndpointFactsThroughSnapshotWriter()
+        {
+            // The test exercises the accepted API orchestration path without starting Aspire, Neo4j, or the target ASP.NET Core application.
+            string repositoryRoot = CreateRepositoryRoot();
+            CreateSolutionFile(repositoryRoot, "CustomerSuite.sln", "Customer.Api", "Customer.Api.csproj");
+            CreateProjectFile(repositoryRoot, "Customer.Api.csproj", "Program.cs");
+            CreateMinimalApiProgramFile(repositoryRoot, "Program.cs");
+            RecordingSnapshotWriter writer = new("snapshot://wp008-api-test");
+            await using WebApplication app = await CreateApplicationAsync(services => services.AddSingleton<IArchitectureSnapshotWriter>(writer));
+            using HttpClient client = app.GetTestClient();
+
+            HttpResponseMessage startResponse = await client.PostAsJsonAsync(
+                "/extractions",
+                new StartExtractionApiRequest(repositoryRoot, ["CustomerSuite.sln"], null, null, null, null));
+            using JsonDocument startBody = await JsonDocument.ParseAsync(await startResponse.Content.ReadAsStreamAsync());
+            string runId = startBody.RootElement.GetProperty("runId").GetString()!;
+
+            JsonDocument statusBody = await PollForTerminalStatusAsync(client, runId);
+
+            using (statusBody)
+            {
+                Assert.Equal("Completed", statusBody.RootElement.GetProperty("status").GetString());
+                Assert.NotNull(writer.WrittenSnapshot);
+                ExtractedArchitectureSnapshot snapshot = writer.WrittenSnapshot;
+                ArchitectureNode endpointNode = Assert.Single(snapshot.Nodes, node => node.NodeKind == NodeKind.Endpoint && node.DisplayName == "GET /customers/{id}");
+                Assert.Equal("project://Customer.Api.csproj", endpointNode.ProjectStableKey?.Value);
+                Assert.Contains("\"runtimeKind\":\"MinimalApi\"", endpointNode.Metadata.ToCanonicalJson(), StringComparison.Ordinal);
+                Assert.Contains("\"framework\":\"ASP.NET Core\"", endpointNode.Metadata.ToCanonicalJson(), StringComparison.Ordinal);
+                Assert.Contains("\"httpMethod\":\"GET\"", endpointNode.Metadata.ToCanonicalJson(), StringComparison.Ordinal);
+                Assert.Contains("\"routeTemplate\":\"/customers/{id}\"", endpointNode.Metadata.ToCanonicalJson(), StringComparison.Ordinal);
+                Assert.Contains(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.DeclaresEndpoint && edge.SourceNodeStableKey.Value == "project://Customer.Api.csproj" && edge.TargetNodeStableKey == endpointNode.StableKey);
+                Assert.Contains(snapshot.Evidence, evidence => evidence.FilePath.Value == "Program.cs" && evidence.SymbolName == "MapGet" && evidence.SnippetPreview?.Contains("MapGet(\"/customers/{id}\"", StringComparison.Ordinal) == true);
+                Assert.Empty(snapshot.Errors);
+            }
+        }
+
+        /// <summary>
+        /// Verifies the API-triggered extraction path persists all currently wired WP008 runtime slices through the shared snapshot writer seam.
+        /// </summary>
+        /// <returns>A task that completes after runtime graph facts from web, console, worker, and non-HTTP consumer slices have been asserted.</returns>
+        [Fact]
+        public async Task GetExtractionStatus_WhenWp008RuntimeExtractionRuns_ShouldPersistRuntimeFactsThroughSnapshotWriter()
+        {
+            // This test is the Work Item 7 orchestration guard: it proves runtime extraction runs after earlier stages through the public API path, without Aspire, target application startup, or direct extractor persistence.
+            string repositoryRoot = CreateRepositoryRoot();
+            CreateSolutionFile(repositoryRoot, "CustomerSuite.sln", "Customer.Runtime", "Customer.Runtime.csproj");
+            CreateProjectFile(repositoryRoot, "Customer.Runtime.csproj", "RuntimeProgram.cs");
+            CreateRuntimeProgramFile(repositoryRoot, "RuntimeProgram.cs");
+            RecordingSnapshotWriter writer = new("snapshot://wp008-runtime-api-test");
+            await using WebApplication app = await CreateApplicationAsync(services => services.AddSingleton<IArchitectureSnapshotWriter>(writer));
+            using HttpClient client = app.GetTestClient();
+
+            HttpResponseMessage startResponse = await client.PostAsJsonAsync(
+                "/extractions",
+                new StartExtractionApiRequest(repositoryRoot, ["CustomerSuite.sln"], null, null, null, null));
+            using JsonDocument startBody = await JsonDocument.ParseAsync(await startResponse.Content.ReadAsStreamAsync());
+            string runId = startBody.RootElement.GetProperty("runId").GetString()!;
+
+            JsonDocument statusBody = await PollForTerminalStatusAsync(client, runId);
+
+            using (statusBody)
+            {
+                Assert.Equal("Completed", statusBody.RootElement.GetProperty("status").GetString());
+                Assert.NotNull(writer.WrittenSnapshot);
+                ExtractedArchitectureSnapshot snapshot = writer.WrittenSnapshot;
+                ArchitectureNode endpointNode = Assert.Single(snapshot.Nodes, node => node.NodeKind == NodeKind.Endpoint && node.DisplayName == "GET /customers/{id}");
+                ArchitectureNode consoleNode = Assert.Single(snapshot.Nodes, node => node.NodeKind == NodeKind.Method && node.Metadata.ToCanonicalJson().Contains("\"runtimeKind\":\"ConsoleEntryPoint\"", StringComparison.Ordinal));
+                ArchitectureNode hostedServiceNode = Assert.Single(snapshot.Nodes, node => node.NodeKind == NodeKind.HostedService && node.DisplayName == "Worker");
+                ArchitectureNode queueNode = Assert.Single(snapshot.Nodes, node => node.NodeKind == NodeKind.Queue && node.DisplayName == "orders");
+                ArchitectureNode handlerNode = Assert.Single(snapshot.Nodes, node => node.NodeKind == NodeKind.Method && node.DisplayName == "HandleOrderAsync");
+                ArchitectureNode scheduledJobNode = Assert.Single(snapshot.Nodes, node => node.NodeKind == NodeKind.Method && node.Metadata.ToCanonicalJson().Contains("\"runtimeKind\":\"ScheduledJob\"", StringComparison.Ordinal));
+                Assert.Contains("\"runtimeKind\":\"BackgroundService\"", hostedServiceNode.Metadata.ToCanonicalJson(), StringComparison.Ordinal);
+                Assert.Contains("\"transportKind\":\"AzureServiceBus\"", queueNode.Metadata.ToCanonicalJson(), StringComparison.Ordinal);
+                Assert.Contains("\"schedulerTechnology\":\"Hangfire\"", scheduledJobNode.Metadata.ToCanonicalJson(), StringComparison.Ordinal);
+                Assert.Contains(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.DeclaresEndpoint && edge.TargetNodeStableKey == endpointNode.StableKey);
+                Assert.Contains(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.Handles && edge.SourceNodeStableKey == handlerNode.StableKey && edge.TargetNodeStableKey == queueNode.StableKey);
+                Assert.Contains(snapshot.Evidence, evidence => evidence.FilePath.Value == "RuntimeProgram.cs" && evidence.SymbolName == "MapGet");
+                Assert.Contains(snapshot.Evidence, evidence => evidence.FilePath.Value == "RuntimeProgram.cs" && evidence.SymbolName == "CreateProcessor");
+                Assert.Contains(snapshot.Warnings, warning => warning.Contains("no matching AddHostedService registration", StringComparison.Ordinal));
+                Assert.Empty(snapshot.Errors);
+                Assert.NotNull(consoleNode.PrimaryEvidenceStableKey);
+            }
         }
 
         /// <summary>
@@ -170,6 +265,79 @@ namespace Archon.Api.Extraction.Tests
                 Assert.Contains(snapshot.Evidence, evidence => evidence.FilePath.Value == "Customer.Api.CustomerService.cs" && evidence.SymbolName == "CustomerService");
                 Assert.Empty(snapshot.Errors);
             }
+        }
+
+        /// <summary>
+        /// Creates a top-level ASP.NET Core minimal API program source file for WP008 endpoint extraction tests.
+        /// </summary>
+        /// <param name="repositoryRoot">The repository root that contains the source file.</param>
+        /// <param name="relativeSourcePath">The repository-relative source path to write.</param>
+        private static void CreateMinimalApiProgramFile(string repositoryRoot, string relativeSourcePath)
+        {
+            // Local stubs make the fixture compile under the lightweight Roslyn loader while preserving the Program.cs MapGet shape WP008 extracts.
+            string sourcePath = Path.Combine(repositoryRoot, relativeSourcePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
+            File.WriteAllText(
+                sourcePath,
+                string.Join(
+                    Environment.NewLine,
+                    [
+                        "public sealed class WebApplication",
+                        "{",
+                        "    public static WebApplicationBuilder CreateBuilder(string[] args) => new();",
+                        "    public void MapGet(string route, object handler) { }",
+                        "    public void Run() { }",
+                        "}",
+                        "public sealed class WebApplicationBuilder",
+                        "{",
+                        "    public WebApplication Build() => new();",
+                        "}",
+                        "public static class Results",
+                        "{",
+                        "    public static object Ok(object? value = null) => new();",
+                        "}",
+                        "var builder = WebApplication.CreateBuilder(args);",
+                        "var app = builder.Build();",
+                        "app.MapGet(\"/customers/{id}\", (int id) => Results.Ok(id));",
+                        "app.Run();"
+                    ]));
+        }
+
+        /// <summary>
+        /// Creates a runtime-rich C# source file that exercises the currently orchestrated WP008 runtime slices in one API extraction request.
+        /// </summary>
+        /// <param name="repositoryRoot">The repository root that contains the source file.</param>
+        /// <param name="relativeSourcePath">The repository-relative source path to write.</param>
+        private static void CreateRuntimeProgramFile(string repositoryRoot, string relativeSourcePath)
+        {
+            // The fixture keeps all runtime patterns in one submitted project so the API-stage context handoff can be asserted from a single recorded snapshot.
+            string sourcePath = Path.Combine(repositoryRoot, relativeSourcePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
+            File.WriteAllText(
+                sourcePath,
+                string.Join(
+                    Environment.NewLine,
+                    [
+                        "namespace Microsoft.Extensions.Hosting { public interface IHostedService { System.Threading.Tasks.Task StartAsync(System.Threading.CancellationToken cancellationToken); System.Threading.Tasks.Task StopAsync(System.Threading.CancellationToken cancellationToken); } public abstract class BackgroundService : IHostedService { public virtual System.Threading.Tasks.Task StartAsync(System.Threading.CancellationToken cancellationToken) => System.Threading.Tasks.Task.CompletedTask; public virtual System.Threading.Tasks.Task StopAsync(System.Threading.CancellationToken cancellationToken) => System.Threading.Tasks.Task.CompletedTask; protected abstract System.Threading.Tasks.Task ExecuteAsync(System.Threading.CancellationToken stoppingToken); } }",
+                        "namespace Hangfire { public static class RecurringJob { public static void AddOrUpdate<T>(string recurringJobId, System.Linq.Expressions.Expression<System.Action<T>> methodCall, string cronExpression) { } } }",
+                        "public sealed class WebApplication { public static WebApplicationBuilder CreateBuilder(string[] args) => new(); public void MapGet(string route, object handler) { } public void Run() { } }",
+                        "public sealed class WebApplicationBuilder { public WebApplication Build() => new(); }",
+                        "public static class Results { public static object Ok(object? value = null) => new(); }",
+                        "public sealed class ServiceBusClient { public ServiceBusProcessor CreateProcessor(string queueName) => new(); }",
+                        "public sealed class ServiceBusProcessor { public event System.Func<ProcessMessageEventArgs, System.Threading.Tasks.Task>? ProcessMessageAsync; }",
+                        "public sealed class ProcessMessageEventArgs { }",
+                        "public sealed class Worker : Microsoft.Extensions.Hosting.BackgroundService { protected override System.Threading.Tasks.Task ExecuteAsync(System.Threading.CancellationToken stoppingToken) => System.Threading.Tasks.Task.CompletedTask; }",
+                        "public sealed class QueueConsumer { public void Configure(ServiceBusClient client) { ServiceBusProcessor processor = client.CreateProcessor(\"orders\"); processor.ProcessMessageAsync += HandleOrderAsync; } public System.Threading.Tasks.Task HandleOrderAsync(ProcessMessageEventArgs args) => System.Threading.Tasks.Task.CompletedTask; }",
+                        "public sealed class CustomerSyncJob { public void Configure() { Hangfire.RecurringJob.AddOrUpdate<CustomerSyncJob>(\"customer-sync\", job => job.SyncCustomers(), \"0 0 * * *\"); } public void SyncCustomers() { } }",
+                        "var builder = WebApplication.CreateBuilder(args);",
+                        "var app = builder.Build();",
+                        "app.MapGet(\"/customers/{id}\", (int id) => Results.Ok(id));",
+                        "var consumer = new QueueConsumer();",
+                        "consumer.Configure(new ServiceBusClient());",
+                        "var scheduler = new CustomerSyncJob();",
+                        "scheduler.Configure();",
+                        "app.Run();"
+                    ]));
         }
 
         /// <summary>
