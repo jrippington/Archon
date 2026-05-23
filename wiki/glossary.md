@@ -38,6 +38,122 @@ Application type classification is the WP005 project metadata value that places 
 
 An architecture relationship is the domain fact that one architecture node relates to another. Examples include a project referencing a package, a service calling an endpoint, or a component depending on configuration.
 
+## External integration
+
+An external integration is a dependency that leaves the analyzed application boundary, such as an outbound HTTP service, REST client, WCF/SOAP/gRPC client, queue, topic, storage target, SMTP/email channel, payment provider, or internal service API. Archon extracts integration facts statically and does not contact live external systems.
+
+## External service node
+
+An external service node is an `ExternalService` architecture node representing a service dependency observed from static source, configuration, package, generated-client, or runtime evidence. Known services use logical stable keys, while unknown services use evidence-scoped placeholder-safe stable keys and explicit unknown reasons.
+
+## Internal service API
+
+An internal service API is an HTTP endpoint exposed by one analyzed project and called by another analyzed project in the same extraction scope. Archon correlates internal service APIs only when prior endpoint facts and client-side route, base URL, or configuration-key evidence prove ownership deterministically.
+
+## Internal service correlation
+
+Internal service correlation is the WP010 process that links a client-side service call to endpoint, controller, method, project, and external-service graph facts from another analyzed project. The correlation is conservative: unresolved ownership, ambiguous routes, computed paths, or missing endpoint facts become explicit unknowns instead of guessed service matches.
+
+## Storage account
+
+A storage account is the Azure Storage identity that owns blob containers, file shares, queues, tables, and related endpoints. Archon records storage-account-related dependencies only from static source or configuration-key evidence; it does not validate account names, read connection-string values, list storage resources, or contact Azure Storage.
+
+## Container
+
+A container is an Azure Blob Storage namespace under a storage account. Archon records deterministic container names as storage target metadata when source-visible `GetBlobContainerClient` evidence proves the name. Runtime-computed container names become explicit unknown external integration facts.
+
+## Share
+
+A share is an Azure File Storage namespace under a storage account. Archon records deterministic share names from `ShareClient` evidence and may combine them with directory or file path hints when source evidence is static. It does not browse share contents.
+
+## Blob path
+
+A blob path is the object name or virtual path inside an Azure Blob Storage container. Archon records blob path hints only when source-visible constants prove them, and it treats computed blob paths as unknown evidence rather than evaluating runtime string construction.
+
+## SMTP host
+
+An SMTP host is the mail server endpoint used by an SMTP client to send email. Archon can record a literal host or a configuration-key dependency, but it does not open SMTP connections, validate credentials, send test messages, or persist recipient and body payload values.
+
+## Payment provider
+
+A payment provider is an external system that processes payment operations, such as a payment SDK service or a project-specific payment gateway. Archon records provider, endpoint-key, operation, and authentication-hint metadata from deterministic static evidence while redacting API keys, card data, payment tokens, and customer payment identifiers.
+
+## Authentication hint
+
+An authentication hint is non-secret metadata that indicates the mechanism a client appears to use, such as API key, bearer token, network credentials, or configuration-backed credentials. Archon records the mechanism when source evidence proves it but never stores the credential value.
+
+## Redaction
+
+Redaction is the process of replacing sensitive text with a safe marker before the value appears in graph metadata, evidence previews, diagnostics, logs, or tests. WP010 uses redaction for endpoints, connection strings, broker secrets, storage account keys, SMTP credentials, payment API keys, tokens, card data, customer payment identifiers, and secret-bearing payload snippets.
+
+## VB.NET parity limit
+
+A VB.NET parity limit is a documented current implementation boundary where a feature uses Roslyn semantic infrastructure that supports Visual Basic generally, but a specific detector does not yet implement Visual Basic syntax traversal for that evidence shape. WP010 internal service correlation reports this limit explicitly rather than producing false-positive facts from unsupported syntax.
+
+## Queue
+
+A queue is a point-to-point messaging destination where producers send messages and consumers receive or process them. Archon represents deterministic queue targets as `Queue` graph nodes and records producer, sender, receiver, consumer, processor, handler, and abstraction roles as metadata and relationships without connecting to the broker.
+
+## Topic
+
+A topic is a publish-subscribe messaging destination where published messages can be distributed to one or more subscriptions. Archon represents deterministic topic targets as `Topic` graph nodes and records publisher, subscriber, processor, exchange, and routing evidence when source or configuration artifacts prove it.
+
+## Subscription
+
+A subscription is the named consumer view of a topic. In Azure Service Bus and similar brokers, a topic can have multiple subscriptions that each receive matching messages. Archon records subscription names as metadata on topic-related messaging facts when the name is deterministic.
+
+## Message handler
+
+A message handler is source code that processes messages from a queue, topic, subscription, or message bus. Examples include Azure Service Bus processor callbacks, NServiceBus `IHandleMessages<TMessage>` implementations, RabbitMQ consumer callbacks, and MSMQ receive flows. Archon links handlers to queue or topic targets with `HANDLES` relationships when static evidence identifies the target.
+
+## Saga
+
+A saga is a long-running message-driven workflow that coordinates state across multiple messages. In NServiceBus this is commonly a type deriving from `Saga<TData>` and implementing message handlers. Archon records saga relationships as handler-style messaging facts with saga role metadata; it does not execute saga state machines.
+
+## Routing key
+
+A routing key is broker-visible text used by RabbitMQ exchanges to decide which queues receive a published message. Archon records routing keys when they are source-visible constants and treats computed routing keys as unknown evidence rather than querying broker topology.
+
+## Exchange
+
+An exchange is a RabbitMQ routing entity that receives published messages and routes them to queues according to exchange type, bindings, and routing keys. Archon represents deterministic exchange names as topic-style messaging targets because they model publish-subscribe routing outside the analyzed application boundary.
+
+## Recoverability
+
+Recoverability is the messaging behavior that controls what happens after handler failures, such as retry policy and error-queue routing. Archon records deterministic recoverability hints such as NServiceBus error queue names as metadata; it does not inspect or execute broker retry behavior.
+
+## Transport provider
+
+A transport provider is the broker or messaging transport used by a framework or abstraction, such as Azure Service Bus for NServiceBus or RabbitMQ for direct AMQP-style calls. Archon records transport-provider names when source or configuration evidence proves them.
+
+## Named HTTP client
+
+A named HTTP client is an `HttpClient` identity registered or created through `IHttpClientFactory` with a string name, such as `CreateClient("InventoryClient")` or `AddHttpClient("InventoryClient", ...)`. Archon's HTTP/REST integration extractor records the name as deterministic integration evidence and does not instantiate the factory or contact the configured service.
+
+## Typed HTTP client
+
+A typed HTTP client is an application class registered through `AddHttpClient<TClient>(...)` and usually constructed with an `HttpClient` dependency. Archon records the typed-client class as static integration evidence and links configuration-backed or literal base addresses when they are visible in source.
+
+## RestSharp
+
+RestSharp is a .NET REST client library built around `RestClient`, `RestRequest`, method selections, resources, headers, and execute calls. Archon extracts supported RestSharp evidence statically, records resource and operation hints when deterministic, redacts authentication values, and represents dynamic resources as explicit unknowns.
+
+## Generated proxy
+
+A generated proxy is a client type produced from a service description, connected-service definition, service reference, web reference, or protocol schema rather than handwritten application logic. WCF, SOAP/ASMX, and gRPC clients commonly use generated proxies. Archon treats these files and symbols as static evidence, records deterministic endpoint and operation details when available, and never executes proxy constructors or service calls.
+
+## Service contract
+
+A service contract is the interface or schema-defined contract that describes operations exposed by a service client. In WCF this is commonly an interface used as `ClientBase<TContract>` or `ChannelFactory<TContract>`; in gRPC the generated client type reflects operations from a `.proto` service definition. Archon records service contract names as metadata when source or generated artifacts prove them.
+
+## WCF binding
+
+A WCF binding is the client-side transport and protocol configuration used to call a Windows Communication Foundation service, such as `basicHttpBinding`, `wsHttpBinding`, `netTcpBinding`, or a custom binding. Archon extracts binding names and transport hints from source and configuration artifacts without opening channels or resolving endpoints.
+
+## gRPC channel
+
+A gRPC channel is the client transport object used by generated gRPC clients to send calls to an endpoint address. In .NET source this is commonly created through `GrpcChannel.ForAddress(...)`. Archon records literal channel addresses, nearby configuration-key references, generated client types, and method calls when deterministic; runtime-computed channels become explicit unknown integration facts.
+
 ## Asynchronous extraction
 
 Asynchronous extraction means the API start request validates and accepts work, records a run, queues the work through a scheduler seam, and returns before later extraction, snapshot assembly, or persistence finishes.

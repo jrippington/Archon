@@ -6,6 +6,7 @@ using Archon.Application.Extraction.Scheduling;
 using Archon.Application.Extraction.Snapshots;
 using Archon.Application.Extraction.Validation;
 using Archon.Application.Graph.Persistence;
+using Archon.Extractors.Integrations.Foundation;
 using Archon.Extractors.Projects.Solutions;
 using Archon.Infrastructure.Roslyn.Extraction;
 using Microsoft.Extensions.DependencyInjection;
@@ -37,6 +38,9 @@ namespace Archon.Api.Extraction
             services.AddSingleton<IExtractionStage, Wp007ExtractionStage>();
             services.AddSingleton<IExtractionStage, Wp008AspNetCoreMinimalApiExtractionStage>();
             services.AddSingleton<IExtractionStage, Wp009DataAccessExtractionStage>();
+            services.AddSingleton<ExternalIntegrationFoundationExtractor>();
+            services.AddSingleton<IExternalIntegrationObservationProvider, NoOpExternalIntegrationObservationProvider>();
+            services.AddSingleton<IExtractionStage, Wp010ExternalIntegrationExtractionStage>();
             services.AddSingleton<ExtractionPipelineRunner>();
             services.AddSingleton<ExtractionSnapshotAssembler>();
             services.AddSingleton<IArchitectureSnapshotWriter, InMemoryArchitectureSnapshotWriter>();

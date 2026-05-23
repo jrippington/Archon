@@ -38,6 +38,8 @@ A **graph fact** is a domain object that states something Archon knows about an 
 
 The current model includes repository, solution, snapshot header, architecture node, architecture edge, evidence, rule, finding, metric, and generated summary contracts. These models are snapshot-scoped where appropriate and use stable keys and fingerprints rather than store-local IDs. Neo4j database IDs are intentionally absent from the domain model.
 
+External integration facts use this same generic graph model. An outbound service dependency is an `ExternalService` node, while messaging dependencies use `Queue` and `Topic` nodes. Integration relationships reuse controlled edge kinds such as `CALLS_EXTERNAL_SERVICE`, `HANDLES`, `USES_CONFIG`, and `DEPENDS_ON` instead of creating a separate integration graph. This keeps future HTTP, REST, WCF, SOAP, gRPC, messaging, storage, SMTP, payment, and internal API detectors compatible with the same snapshot accumulator, persistence adapter, query model, and evidence vocabulary used by earlier extraction slices. The contributor-facing detector model is described in [external integration extraction](external-integration-extraction.md).
+
 ## Evidence-first modeling
 
 The graph fact model is **evidence-first**. Evidence-first means a fact is designed to carry or link to the explanation that caused the system to believe it. An architecture node can point at the project file, source symbol, configuration file, generated artifact, compiler diagnostic, inference, or manual annotation that supports it. An architecture edge can point at evidence for a reference, call, dependency, navigation, package use, or data-access relationship.
