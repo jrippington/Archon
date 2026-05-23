@@ -18,6 +18,110 @@ ADO.NET is the .NET data-access API family built around connections, commands, r
 
 The architecture graph is the durable representation of architecture facts, evidence, findings, metrics, and summaries. In the current persistence foundation, Neo4j stores this graph using stable labels, stable keys, fingerprints, and support relationships.
 
+## Blazor component
+
+A Blazor component is a `.razor` artifact that can combine markup, Razor directives, and C# code. Archon's current UI extraction slice records source `.razor` components as `UiComponent` graph nodes without rendering them or starting the target application.
+
+## Blazor route
+
+A Blazor route is a literal `@page` directive in a Razor component. Archon records supported route templates as `UiRoute` nodes and `DECLARES_UI_ROUTE` relationships, while malformed or missing route templates become explicit unknown route facts with source evidence.
+
+## Razor Page
+
+A Razor Page is a server-rendered `.cshtml` artifact under a `Pages` folder. Archon extracts Razor Pages statically as `UiPage` facts, records literal or conventional route metadata, links page models and handler methods when deterministic source evidence exists, and treats runtime-computed page routes or navigation targets as explicit unknowns.
+
+## MVC Razor view
+
+An MVC Razor view is a server-rendered `.cshtml` artifact under a `Views` folder. Archon extracts MVC Razor views statically as `UiView` facts and links conventional `Views/{Controller}/{Action}.cshtml` artifacts to matching controller action source only when deterministic evidence exists.
+
+## Tag helper
+
+A tag helper is an ASP.NET Core Razor feature that augments HTML-like elements with server-side attributes such as `asp-page`, `asp-controller`, `asp-action`, and `asp-page-handler`. Archon records tag-helper usage from static markup and `_ViewImports.cshtml` context but does not execute tag helpers or render their output.
+
+## Windows Forms application
+
+A Windows Forms application is a desktop .NET application built around `System.Windows.Forms`, forms, controls, resources, and a message loop. Archon extracts Windows Forms projects statically from project files, C# or VB.NET source, designer partials, and `.resx` resources; it does not load designers, instantiate controls, or start the target application.
+
+## Designer partial
+
+A designer partial is a source file such as `MainForm.Designer.cs` or `MainForm.Designer.vb` that contains tool-maintained Windows Forms initialization code for a partial form or user-control class. Archon reads designer partials as static source evidence for controls, hierarchy, events, and bindings, but it does not execute `InitializeComponent`.
+
+## Windows Forms data binding
+
+Windows Forms data binding connects a control property to a data source path through APIs such as `DataBindings.Add("Text", source, "CustomerName", true)`. Archon records literal binding paths as `Binding` graph facts and treats runtime-computed binding sources as unsupported static-analysis gaps rather than evaluating application state.
+
+## WPF application
+
+A WPF application is a Windows Presentation Foundation desktop application whose UI is commonly described in XAML and connected to code-behind source. Archon extracts WPF artifacts statically from project metadata, application definitions, XAML files, C# or VB.NET source, resource dictionaries, and code-behind dependency hints; it does not load XAML, instantiate controls, start a dispatcher, or run the target application.
+
+## WPF resource dictionary
+
+A WPF resource dictionary is a XAML resource container that can define reusable brushes, styles, templates, and other keyed objects. Archon records visible resource keys, styles, and templates as UI resource or style facts and treats dynamic resource lookup as an explicit unknown because WPF resolves those targets at runtime.
+
+## WPF binding
+
+A WPF binding is a XAML expression such as `{Binding CustomerName}` or `{Binding Path=CustomerName}` that connects a UI property to a data-context path. Archon records static binding paths as `Binding` graph facts and emits explicit unknowns for bare or runtime-computed bindings.
+
+## Routed event
+
+A routed event is a WPF event that can travel through the element tree and be handled by source-visible handler methods such as `Click="SaveButton_Click"`. Archon records visible routed-event handlers as command-style graph facts, but it does not execute the handler or prove that the event fires at runtime.
+
+## WinUI application
+
+A WinUI application is a modern Windows desktop application built with the Windows App SDK and `Microsoft.UI.Xaml`. Archon extracts WinUI projects statically from project metadata, XAML artifacts, package manifests, C# or VB.NET source, and code-behind dependency hints; it does not load XAML, instantiate controls, start a dispatcher, validate MSIX packages, or run the target application.
+
+## Windows App SDK
+
+The Windows App SDK is the Microsoft platform SDK used by modern WinUI desktop applications. Archon treats package references such as `Microsoft.WindowsAppSDK` and source references such as `Microsoft.UI.Xaml` as static evidence that a project may contain WinUI UI facts.
+
+## Package manifest
+
+A package manifest is an XML artifact such as `Package.appxmanifest` that describes a Windows app package identity, display name, publisher, version, application entry point, and visual metadata. Archon records safe package identity metadata for WinUI extraction and represents missing or ambiguous package identity as an explicit unknown rather than validating or signing the package.
+
+## Navigation frame
+
+A navigation frame is a WinUI or XAML control that hosts navigable page content, commonly used through calls such as `Frame.Navigate(typeof(DetailsPage))`. Archon records static frame navigation targets as `NAVIGATES_TO` graph relationships and treats runtime-computed navigation targets as explicit unknowns.
+
+## .NET MAUI application
+
+A .NET MAUI application is a cross-platform .NET client application that can target multiple platform heads from one project. Archon extracts MAUI projects statically from project metadata, `UseMaui`, `MauiProgram` source, XAML artifacts, package references, platform folders, and code-behind dependency hints; it does not install MAUI workloads, load XAML, start platform applications, or run the target application.
+
+## MAUI Shell
+
+MAUI Shell is the application-level navigation and layout structure commonly declared in `AppShell.xaml`. Archon models Shell as a `UiLayout` fact and records static Shell route declarations or registrations as `UiRoute` facts without executing Shell navigation.
+
+## Shell route
+
+A Shell route is a MAUI route template declared in markup through attributes such as `Route="main"` or in source through calls such as `Routing.RegisterRoute("details", typeof(DetailsPage))`. Archon records static Shell routes as `DECLARES_UI_ROUTE` relationships and treats computed route names as explicit unknowns.
+
+## Platform head
+
+A platform head is the platform-specific entry point and assets that let a shared MAUI application run on a target such as Android, iOS, Mac Catalyst, Windows, or Tizen. Archon records platform heads as normalized metadata from target frameworks and `Platforms/{PlatformName}` folders rather than as separate graph nodes.
+
+## MAUI handler
+
+A MAUI handler maps a cross-platform control abstraction to a platform-specific implementation, commonly registered through `ConfigureMauiHandlers` and `AddHandler`. Archon records visible handler registrations as command-style facts with control and handler metadata because the current graph vocabulary does not define a dedicated handler node kind.
+
+## Avalonia application
+
+An Avalonia application is a cross-platform .NET client application whose UI is commonly declared in `.axaml` files and started through Avalonia desktop lifetime setup. Archon extracts Avalonia projects statically from package references, AXAML artifacts, startup source, view-locator source, ReactiveUI source, and code-behind dependency hints; it does not load AXAML, instantiate controls, start desktop lifetimes, render windows, or run the target application.
+
+## AXAML
+
+AXAML is Avalonia's XAML dialect and uses the `.axaml` file extension. Archon treats AXAML as static markup evidence for applications, windows, user controls, styles, resources, bindings, commands, events, and project-local component usage without evaluating the Avalonia runtime.
+
+## Avalonia view locator
+
+An Avalonia view locator is source code, commonly an `IDataTemplate`, that maps a view-model object to a view control. Archon records static view-model-to-view mappings when they are visible in source and emits explicit unknowns for convention-based or reflection-based locators that depend on runtime type creation.
+
+## ReactiveUI relationship
+
+A ReactiveUI relationship is the connection between an Avalonia reactive view, such as `ReactiveWindow<TViewModel>` or `ReactiveUserControl<TViewModel>`, and the view model type carried by its generic argument or navigation flow. Archon records generic relationships statically and treats non-generic or runtime-only ReactiveUI wiring as ambiguous unknown evidence.
+
+## Unified UI/client stage
+
+A unified UI/client stage is the WP011 API extraction pipeline stage with the stable identifier `wp011-ui-client`. It coordinates the framework-specific Blazor, Razor Pages, MVC Razor, Windows Forms, WPF, WinUI, .NET MAUI, and Avalonia adapters through one API-triggered extraction path, then relies on the shared accumulator to deduplicate nodes, relationships, and evidence by stable key.
+
 ## Classic ASP.NET application
 
 A classic ASP.NET application is a legacy `System.Web` web application whose runtime surface can be declared across project references, `Global.asax`, `web.config`, Web Forms markup, MVC 5 controllers, Web API 2 controllers, handlers, modules, and route configuration. Archon extracts these artifacts statically and does not run the target application.

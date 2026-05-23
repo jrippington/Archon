@@ -73,10 +73,10 @@ namespace Archon.Api.Extraction.Tests
         }
 
         /// <summary>
-        /// Verifies extraction API service registration composes project, semantic, WP007, WP008, and WP009 extraction stages instead of the WP004 placeholder stage.
+        /// Verifies extraction API service registration composes project, semantic, WP007, WP008, WP009, WP010, and unified WP011 extraction stages instead of the WP004 placeholder stage.
         /// </summary>
         [Fact]
-        public void AddArchonExtractionApi_WhenServicesAreBuilt_ShouldRegisterProjectSemanticWp007Wp008AndWp009ExtractionStages()
+        public void AddArchonExtractionApi_WhenServicesAreBuilt_ShouldRegisterProjectSemanticWp007Wp008Wp009Wp010AndWp011ExtractionStages()
         {
             // The API module is the existing composition boundary for the extraction pipeline, so this test guards the ordered stage registration path.
             ServiceCollection services = new();
@@ -111,6 +111,16 @@ namespace Archon.Api.Extraction.Tests
                 {
                     Assert.IsType<Wp009DataAccessExtractionStage>(stage);
                     Assert.Equal("wp009-data-access-dbml", stage.StageId);
+                },
+                stage =>
+                {
+                    Assert.IsType<Wp010ExternalIntegrationExtractionStage>(stage);
+                    Assert.Equal("wp010-external-integrations", stage.StageId);
+                },
+                stage =>
+                {
+                    Assert.IsType<Wp011UiClientExtractionStage>(stage);
+                    Assert.Equal("wp011-ui-client", stage.StageId);
                 });
         }
 

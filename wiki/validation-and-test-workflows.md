@@ -198,6 +198,30 @@ When adding or changing WP008 fixtures, name the test after the runtime evidence
 
 The build gate remains part of WP008 validation even when a change appears documentation-heavy. Source comments and wiki edits can still expose stale names, broken XML documentation, or invalid generated samples through tests and build. If package references have changed, restore first; otherwise use the `--no-restore` commands above after a successful restore so failures point to compile, extraction, or documentation consistency issues rather than package acquisition.
 
+## WP011 .NET UI and client extraction validation
+
+The current WP011 validation path covers the shared UI helper layer, Blazor `.razor` extraction, Razor Pages and MVC Razor `.cshtml` extraction, Windows Forms designer/source extraction, WPF XAML extraction, WinUI XAML and package-manifest extraction, .NET MAUI XAML/Shell/platform-head extraction, Avalonia AXAML/view-locator/ReactiveUI extraction, and the unified API-triggered `wp011-ui-client` stage that runs all framework adapters through one orchestration path. The framework extractor tests create temporary repository roots with minimal project files and source-controlled UI artifacts, then execute the corresponding extractor project directly. The unified API tests create a mixed UI fixture so one run can assert cross-framework snapshot output, stable-key deduplication, redaction, warnings, unknowns, and the absence of product UI artifacts. Those tests validate supported static patterns and degraded dynamic patterns without compiling the target UI project, loading designers, loading XAML or AXAML, starting platform runtimes, launching browsers, opening database connections, or contacting live APIs.
+
+The WP011 tests assert `UiApplication`, `UiComponent`, `UiPage`, `UiView`, `UiRoute`, `UiLayout`, `UiControl`, `UiResource`, `ViewModel`, `Command`, `Binding`, `Method`, `Controller`, `Type`, `Project`, `ExternalService`, and `ConfigurationKey` facts; `DECLARES_COMPONENT`, `DECLARES_UI_ROUTE`, `USES_LAYOUT`, `USES_COMPONENT`, `USES_CONTROL`, `USES_UI_RESOURCE`, `USES_VIEW_MODEL`, `NAVIGATES_TO`, `HANDLES_UI_EVENT`, `USES_COMMAND`, `BINDS_TO`, `CALLS_API`, `USES_CONFIG`, and `DEPENDS_ON` relationships; deterministic repository-relative evidence paths; line spans; snippet hashes; redacted previews; metadata values; confidence; warnings; deduplication; and explicit unknown state.
+
+Use these focused commands when changing WP011 shared UI helpers, framework-specific UI extraction, or API orchestration integration:
+
+```powershell
+dotnet test .\test\Archon.Extractors.Ui.Tests\Archon.Extractors.Ui.Tests.csproj
+dotnet test .\test\Archon.Extractors.Blazor.Tests\Archon.Extractors.Blazor.Tests.csproj --filter Blazor
+dotnet test .\test\Archon.Extractors.Razor.Tests\Archon.Extractors.Razor.Tests.csproj
+dotnet test .\test\Archon.Extractors.WinForms.Tests\Archon.Extractors.WinForms.Tests.csproj
+dotnet test .\test\Archon.Extractors.Wpf.Tests\Archon.Extractors.Wpf.Tests.csproj --filter Wpf
+dotnet test .\test\Archon.Extractors.WinUI.Tests\Archon.Extractors.WinUI.Tests.csproj --filter WinUI
+dotnet test .\test\Archon.Extractors.Maui.Tests\Archon.Extractors.Maui.Tests.csproj --filter Maui
+dotnet test .\test\Archon.Extractors.Avalonia.Tests\Archon.Extractors.Avalonia.Tests.csproj --filter Avalonia
+dotnet test .\test\Archon.Api.Extraction.Tests\Archon.Api.Extraction.Tests.csproj --filter Ui
+dotnet test .\test\Archon.Api.Extraction.Tests\Archon.Api.Extraction.Tests.csproj --filter Wp011
+dotnet build .\Archon.slnx --no-restore
+```
+
+These commands do not start the Aspire AppHost, do not render Razor components or views, do not launch Playwright or a browser, do not call live APIs, do not instantiate target Blazor, ASP.NET Core, Windows Forms, WPF, WinUI, MAUI, or Avalonia applications, do not execute Razor Page handlers or MVC actions, do not evaluate tag helpers, do not load Windows Forms designers, do not load XAML or AXAML, do not run MAUI platform heads, do not start Avalonia desktop lifetimes, do not instantiate controls, do not open database connections, do not require Neo4j credentials, and do not invoke MCP tools. When package or project references have changed, run `dotnet restore .\Archon.slnx` first; otherwise use the focused test commands and the no-restore build gate so failures point to compile, extraction, or graph-contract behavior rather than package acquisition. Contributor-facing details for supported Blazor, Razor Pages, MVC Razor, Windows Forms, WPF, WinUI, MAUI, and Avalonia facts, stable keys, evidence, confidence, unknown state, redaction, current exclusions, and extension guidance live in [.NET UI and client extraction](dotnet-ui-client-extraction.md).
+
 ## WP003 Neo4j validation and Testcontainers
 
 Neo4j integration tests use Testcontainers instead of the Aspire AppHost. **Testcontainers** starts short-lived Docker containers under test control and removes them after the test run. Docker Desktop or another OCI-compatible runtime must be running for these tests.

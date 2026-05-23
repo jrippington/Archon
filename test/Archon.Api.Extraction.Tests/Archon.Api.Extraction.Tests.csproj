@@ -18,8 +18,15 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Archon.Api.Extraction\Archon.Api.Extraction.csproj" />
+    <ProjectReference Include="..\..\src\Archon.Extractors.Avalonia\Archon.Extractors.Avalonia.csproj" />
+    <ProjectReference Include="..\..\src\Archon.Extractors.Blazor\Archon.Extractors.Blazor.csproj" />
     <ProjectReference Include="..\..\src\Archon.Extractors.Integrations\Archon.Extractors.Integrations.csproj" />
+    <ProjectReference Include="..\..\src\Archon.Extractors.Maui\Archon.Extractors.Maui.csproj" />
     <ProjectReference Include="..\..\src\Archon.Extractors.Projects\Archon.Extractors.Projects.csproj" />
+    <ProjectReference Include="..\..\src\Archon.Extractors.Razor\Archon.Extractors.Razor.csproj" />
+    <ProjectReference Include="..\..\src\Archon.Extractors.WinForms\Archon.Extractors.WinForms.csproj" />
+    <ProjectReference Include="..\..\src\Archon.Extractors.WinUI\Archon.Extractors.WinUI.csproj" />
+    <ProjectReference Include="..\..\src\Archon.Extractors.Wpf\Archon.Extractors.Wpf.csproj" />
   </ItemGroup>
 
 </Project>
