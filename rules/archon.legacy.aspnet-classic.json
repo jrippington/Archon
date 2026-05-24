@@ -1,0 +1,95 @@
+{
+  "ruleCode": "ARCHON-LEGACY-ASP.NET-CLASSIC",
+  "name": "Classic ASP.NET application technology",
+  "category": "LegacyTechnology",
+  "severity": "High",
+  "defaultStatus": "Legacy",
+  "enabled": true,
+  "version": "1.0.0",
+  "description": "Flags classic ASP.NET Web Forms, Web Pages, MVC 3 through 5, Web API 2, System.Web, Global.asax, HTTP module, and HTTP handler usage.",
+  "builtIn": true,
+  "ownerScope": "Archon",
+  "sourceUrls": [
+    "https://learn.microsoft.com/aspnet/core/migration/proper-to-2x/"
+  ],
+  "impact": [
+    "Classic ASP.NET patterns are tied to System.Web hosting assumptions and usually require architectural migration before moving to modern ASP.NET Core."
+  ],
+  "evidenceRequirements": [
+    "Package, namespace, file-path, symbol, or method-call facts must be available from project, web, or Roslyn extraction."
+  ],
+  "recommendedActions": [
+    "Inventory System.Web dependencies and separate application behavior from hosting and page/controller framework assumptions."
+  ],
+  "tags": [
+    "legacy-technology",
+    "aspnet",
+    "system-web"
+  ],
+  "metadata": {
+    "ruleFamily": "legacyTechnology",
+    "coverage": [
+      "aspNetWebForms",
+      "aspNetWebPages",
+      "mvc3",
+      "mvc4",
+      "mvc5",
+      "webApi2",
+      "systemWeb",
+      "globalAsax",
+      "httpModules",
+      "httpHandlers"
+    ],
+    "appliesTo": "project"
+  },
+  "detection": {
+    "nodeKinds": [
+      "Project",
+      "Type",
+      "Method",
+      "FilePath"
+    ],
+    "match": "any",
+    "conditions": [
+      {
+        "kind": "package",
+        "operator": "In",
+        "values": [
+          "Microsoft.AspNet.Mvc",
+          "Microsoft.AspNet.Razor",
+          "Microsoft.AspNet.WebApi",
+          "Microsoft.AspNet.WebPages",
+          "System.Web.Mvc",
+          "System.Web.WebPages"
+        ]
+      },
+      {
+        "kind": "namespace",
+        "operator": "StartsWith",
+        "value": "System.Web"
+      },
+      {
+        "kind": "symbol",
+        "operator": "In",
+        "values": [
+          "System.Web.UI.Page",
+          "System.Web.Mvc.Controller",
+          "System.Web.Http.ApiController",
+          "System.Web.IHttpModule",
+          "System.Web.IHttpHandler",
+          "HttpApplication"
+        ]
+      },
+      {
+        "kind": "file-pattern",
+        "operator": "MatchesPattern",
+        "value": "*.asax"
+      },
+      {
+        "kind": "file-pattern",
+        "operator": "MatchesPattern",
+        "value": "*.aspx"
+      }
+    ]
+  }
+}

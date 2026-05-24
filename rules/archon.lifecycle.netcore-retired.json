@@ -1,0 +1,60 @@
+{
+  "ruleCode": "ARCHON-LIFECYCLE-NETCORE-RETIRED",
+  "name": "Retired .NET Core target framework",
+  "category": "Lifecycle",
+  "severity": "High",
+  "defaultStatus": "OutOfSupport",
+  "enabled": true,
+  "version": "1.0.0",
+  "description": "Flags projects that target retired .NET Core 1.x, 2.x, 3.0, or 3.1 target framework monikers.",
+  "builtIn": true,
+  "ownerScope": "Archon",
+  "sourceUrls": [
+    "https://learn.microsoft.com/lifecycle/products/microsoft-net-and-net-core"
+  ],
+  "impact": [
+    "Retired .NET Core runtimes no longer receive standard support and can block safe modernization sequencing."
+  ],
+  "evidenceRequirements": [
+    "Project target framework metadata must be available from extracted project facts."
+  ],
+  "recommendedActions": [
+    "Plan migration to a supported .NET target and review package constraints before changing the target framework."
+  ],
+  "tags": [
+    "lifecycle",
+    "dotnet-core",
+    "target-framework"
+  ],
+  "metadata": {
+    "ruleFamily": "lifecycle",
+    "coverage": [
+      "dotnetCore1x",
+      "dotnetCore2x",
+      "dotnetCore30",
+      "dotnetCore31"
+    ],
+    "appliesTo": "project"
+  },
+  "detection": {
+    "nodeKinds": [
+      "Project"
+    ],
+    "match": "all",
+    "conditions": [
+      {
+        "kind": "target-framework-membership",
+        "operator": "In",
+        "values": [
+          "netcoreapp1.0",
+          "netcoreapp1.1",
+          "netcoreapp2.0",
+          "netcoreapp2.1",
+          "netcoreapp2.2",
+          "netcoreapp3.0",
+          "netcoreapp3.1"
+        ]
+      }
+    ]
+  }
+}

@@ -159,6 +159,9 @@ namespace Archon.Domain.Tests.Graph.Model
                 latestSeenSnapshotStableKey: null,
                 suppressionReason: null,
                 suppressedBy: null,
+                affectedNodeStableKeys: [],
+                evidenceStableKeys: [],
+                historyKey: "history://finding/test",
                 GraphMetadata.Empty,
                 new Fingerprint("sha256:test")));
         }
@@ -412,6 +415,9 @@ namespace Archon.Domain.Tests.Graph.Model
                 latestSeenSnapshotStableKey: null,
                 suppressionReason: null,
                 suppressedBy: null,
+                affectedNodeStableKeys: [nodeStableKey],
+                evidenceStableKeys: [evidenceStableKey],
+                historyKey: "history://finding/ARCHON001/unsupported-target-framework",
                 GraphMetadata.Empty,
                 FingerprintGenerator.ForFinding("ARCHON001", "1.0.0", FindingSeverity.High, FindingStatus.Open, "Unsupported target framework", KnowledgeKind.Fact, GraphMetadata.Empty));
         }

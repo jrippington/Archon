@@ -1,0 +1,59 @@
+{
+  "ruleCode": "ARCHON-MODERNIZATION-NETSTANDARD-ONLY",
+  "name": ".NET Standard-only library migration blocker",
+  "category": "ModernizationBlocker",
+  "severity": "Medium",
+  "defaultStatus": "MigrationBlocker",
+  "enabled": true,
+  "version": "1.0.0",
+  "description": "Flags projects that only target .NET Standard because they can obscure the concrete runtime and application migration target.",
+  "builtIn": true,
+  "ownerScope": "Archon",
+  "sourceUrls": [
+    "https://learn.microsoft.com/dotnet/standard/net-standard"
+  ],
+  "impact": [
+    ".NET Standard-only libraries may need explicit retargeting or multi-targeting decisions before application modernization can complete."
+  ],
+  "evidenceRequirements": [
+    "Project target framework metadata must be available from extracted project facts."
+  ],
+  "recommendedActions": [
+    "Decide whether the library should multi-target or move to the repository's supported concrete .NET target."
+  ],
+  "tags": [
+    "modernization-blocker",
+    "netstandard",
+    "target-framework"
+  ],
+  "metadata": {
+    "ruleFamily": "modernizationBlocker",
+    "coverage": [
+      "netStandardOnly"
+    ],
+    "appliesTo": "project"
+  },
+  "detection": {
+    "nodeKinds": [
+      "Project"
+    ],
+    "match": "all",
+    "conditions": [
+      {
+        "kind": "target-framework-membership",
+        "operator": "In",
+        "values": [
+          "netstandard1.0",
+          "netstandard1.1",
+          "netstandard1.2",
+          "netstandard1.3",
+          "netstandard1.4",
+          "netstandard1.5",
+          "netstandard1.6",
+          "netstandard2.0",
+          "netstandard2.1"
+        ]
+      }
+    ]
+  }
+}

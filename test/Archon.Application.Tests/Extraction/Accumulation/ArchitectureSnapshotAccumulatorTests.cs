@@ -346,6 +346,9 @@ namespace Archon.Application.Tests.Extraction.Accumulation
                     latestSeenSnapshotStableKey: null,
                     suppressionReason: null,
                     suppressedBy: null,
+                    affectedNodeStableKeys: [node.StableKey],
+                    evidenceStableKeys: [evidence.StableKey],
+                    historyKey: "history://finding/ARCHON001/customer-api",
                     GraphMetadata.Empty,
                     FingerprintGenerator.ForFinding("ARCHON001", "1.0.0", FindingSeverity.High, FindingStatus.Open, "Unsupported target framework", KnowledgeKind.Fact, GraphMetadata.Empty));
                 MetricRecord metric = new(

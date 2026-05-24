@@ -1,0 +1,64 @@
+{
+  "ruleCode": "ARCHON-OBSOLETE-API-SYSLIB-EXTOBS",
+  "name": "Obsolete SYSLIB or external obsolete API usage",
+  "category": "ObsoleteApi",
+  "severity": "Medium",
+  "defaultStatus": "Obsolete",
+  "enabled": true,
+  "version": "1.0.0",
+  "description": "Flags representative SYSLIB and EXTOBS obsolete API evidence emitted by semantic extraction.",
+  "builtIn": true,
+  "ownerScope": "Archon",
+  "sourceUrls": [
+    "https://learn.microsoft.com/dotnet/fundamentals/syslib-diagnostics/obsoletions-overview"
+  ],
+  "impact": [
+    "Obsolete APIs can represent platform behavior that has changed, become unsupported, or requires explicit replacement before modernization."
+  ],
+  "evidenceRequirements": [
+    "Roslyn semantic extraction must provide symbol, attribute, or diagnostic-style facts for obsolete API usage."
+  ],
+  "recommendedActions": [
+    "Use the exact obsolete diagnostic or symbol evidence to select a supported replacement API."
+  ],
+  "tags": [
+    "obsolete-api",
+    "syslib",
+    "extobs"
+  ],
+  "metadata": {
+    "ruleFamily": "obsoleteApi",
+    "coverage": [
+      "syslib",
+      "extobs"
+    ],
+    "appliesTo": "symbol"
+  },
+  "detection": {
+    "nodeKinds": [
+      "Project",
+      "Type",
+      "Method",
+      "Property",
+      "Field"
+    ],
+    "match": "any",
+    "conditions": [
+      {
+        "kind": "symbol",
+        "operator": "StartsWith",
+        "value": "SYSLIB"
+      },
+      {
+        "kind": "symbol",
+        "operator": "StartsWith",
+        "value": "EXTOBS"
+      },
+      {
+        "kind": "attribute",
+        "operator": "Equal",
+        "value": "ObsoleteAttribute"
+      }
+    ]
+  }
+}

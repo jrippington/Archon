@@ -1,0 +1,111 @@
+{
+  "ruleCode": "ARCHON-ARCHITECTURE-SMELL-FIRST-CUT",
+  "name": "First-cut architecture smell indicators",
+  "category": "ArchitectureLayering",
+  "severity": "Medium",
+  "defaultStatus": "Unknown",
+  "enabled": true,
+  "version": "1.0.0",
+  "description": "Flags architecture-smell indicators where supporting facts or metrics exist, including high fan-in, high fan-out, shared libraries, invalid layer references, data-access spread, shared table usage, circular dependencies, large projects, god service classes, controller-heavy logic, static service locator, reflection-heavy call paths, and dynamic invocation.",
+  "builtIn": true,
+  "ownerScope": "Archon",
+  "sourceUrls": [
+    "https://learn.microsoft.com/dotnet/architecture/modern-web-apps-azure/common-web-application-architectures"
+  ],
+  "impact": [
+    "Architecture smells do not prove a defect by themselves, but they identify areas where modernization work can be risky, coupled, or hard to test."
+  ],
+  "evidenceRequirements": [
+    "Metric, dependency, symbol, package, namespace, or method-call facts must already exist; missing metrics must be treated as partial evaluation rather than invented evidence."
+  ],
+  "recommendedActions": [
+    "Use the affected node and metric evidence to prioritize focused architecture review before planning broad rewrites."
+  ],
+  "tags": [
+    "architecture",
+    "smell",
+    "metrics"
+  ],
+  "metadata": {
+    "ruleFamily": "architectureLayering",
+    "coverage": [
+      "highFanIn",
+      "highFanOut",
+      "sharedLibraryReferencedByManyApps",
+      "invalidLayerReference",
+      "dataAccessSpread",
+      "sharedTableUsage",
+      "circularProjectDependencies",
+      "largeProject",
+      "godServiceClass",
+      "controllerHeavyLogic",
+      "staticServiceLocator",
+      "reflectionHeavyCallPath",
+      "dynamicInvocation"
+    ],
+    "appliesTo": "projectOrType"
+  },
+  "detection": {
+    "nodeKinds": [
+      "Project",
+      "Type",
+      "Method",
+      "Controller",
+      "DatabaseTable"
+    ],
+    "match": "any",
+    "conditions": [
+      {
+        "kind": "metric-threshold",
+        "metric": "fanIn",
+        "operator": "GreaterThanOrEqual",
+        "value": 25
+      },
+      {
+        "kind": "metric-threshold",
+        "metric": "fanOut",
+        "operator": "GreaterThanOrEqual",
+        "value": 25
+      },
+      {
+        "kind": "metric-threshold",
+        "metric": "referencingApplicationCount",
+        "operator": "GreaterThanOrEqual",
+        "value": 3
+      },
+      {
+        "kind": "metric-threshold",
+        "metric": "projectFileCount",
+        "operator": "GreaterThanOrEqual",
+        "value": 500
+      },
+      {
+        "kind": "metric-threshold",
+        "metric": "publicMethodCount",
+        "operator": "GreaterThanOrEqual",
+        "value": 50
+      },
+      {
+        "kind": "metric-threshold",
+        "metric": "controllerActionCount",
+        "operator": "GreaterThanOrEqual",
+        "value": 20
+      },
+      {
+        "kind": "symbol",
+        "operator": "In",
+        "values": [
+          "InvalidLayerReference",
+          "DataAccessSpread",
+          "SharedTableUsage",
+          "CircularProjectDependency",
+          "ServiceLocator.Current",
+          "Activator.CreateInstance",
+          "Type.GetType",
+          "MethodInfo.Invoke",
+          "dynamic"
+        ]
+      }
+    ]
+  }
+}

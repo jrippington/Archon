@@ -194,6 +194,9 @@ namespace Archon.Infrastructure.Neo4j.Persistence
                 ["latestSeenSnapshotStableKey"] = finding.LatestSeenSnapshotStableKey?.Value,
                 ["suppressionReason"] = finding.SuppressionReason,
                 ["suppressedBy"] = finding.SuppressedBy,
+                ["affectedNodeStableKeys"] = finding.AffectedNodeStableKeys.Select(static stableKey => stableKey.Value).ToArray(),
+                ["evidenceStableKeys"] = finding.EvidenceStableKeys.Select(static stableKey => stableKey.Value).ToArray(),
+                ["historyKey"] = finding.HistoryKey,
                 ["metadataJson"] = finding.Metadata.ToCanonicalJson(),
                 ["fingerprint"] = finding.Fingerprint.Value
             };

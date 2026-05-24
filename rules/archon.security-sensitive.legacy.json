@@ -1,0 +1,107 @@
+{
+  "ruleCode": "ARCHON-SECURITY-SENSITIVE-LEGACY",
+  "name": "Security-sensitive legacy API or configuration evidence",
+  "category": "SecuritySensitive",
+  "severity": "Critical",
+  "defaultStatus": "SecuritySensitive",
+  "enabled": true,
+  "version": "1.0.0",
+  "description": "Flags legacy serializers, Code Access Security, principal permissions, Forms Authentication, machineKey, custom authentication, weak cryptography, hard-coded secret locations, connection-string locations, and custom encryption indicators without storing secret values.",
+  "builtIn": true,
+  "ownerScope": "Archon",
+  "sourceUrls": [
+    "https://learn.microsoft.com/dotnet/standard/serialization/binaryformatter-security-guide",
+    "https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca5351"
+  ],
+  "impact": [
+    "Security-sensitive findings require careful review because they can combine migration blockers with confidentiality, integrity, or authentication risk."
+  ],
+  "evidenceRequirements": [
+    "Extractor facts must identify API, configuration, or location evidence without persisting the raw secret or credential value."
+  ],
+  "recommendedActions": [
+    "Review the location evidence, replace unsafe APIs, and rotate any affected credentials outside Archon if a true secret exposure is confirmed."
+  ],
+  "tags": [
+    "security",
+    "redaction",
+    "legacy-api"
+  ],
+  "metadata": {
+    "ruleFamily": "securitySensitive",
+    "coverage": [
+      "binaryFormatter",
+      "losFormatter",
+      "netDataContractSerializer",
+      "soapFormatter",
+      "objectStateFormatter",
+      "codeAccessSecurity",
+      "principalPermissionAttribute",
+      "formsAuthentication",
+      "machineKey",
+      "customAuthentication",
+      "sha1",
+      "md5",
+      "des",
+      "tripleDes",
+      "rijndaelManaged",
+      "hardCodedSecretLocation",
+      "connectionStringLocation",
+      "customEncryption"
+    ],
+    "storesSecretValues": false,
+    "appliesTo": "symbol"
+  },
+  "detection": {
+    "nodeKinds": [
+      "Project",
+      "Type",
+      "Method",
+      "ConfigurationKey",
+      "FilePath"
+    ],
+    "match": "any",
+    "conditions": [
+      {
+        "kind": "symbol",
+        "operator": "In",
+        "values": [
+          "BinaryFormatter",
+          "LosFormatter",
+          "NetDataContractSerializer",
+          "SoapFormatter",
+          "ObjectStateFormatter",
+          "PrincipalPermissionAttribute",
+          "FormsAuthentication",
+          "SHA1",
+          "MD5",
+          "DES",
+          "TripleDES",
+          "RijndaelManaged",
+          "SecretCandidateLocation",
+          "ConnectionStringLocation",
+          "CustomEncryptionRoutine"
+        ]
+      },
+      {
+        "kind": "namespace",
+        "operator": "In",
+        "values": [
+          "System.Security.Permissions",
+          "System.Web.Security",
+          "System.Security.Cryptography"
+        ]
+      },
+      {
+        "kind": "attribute",
+        "operator": "Equal",
+        "value": "PrincipalPermissionAttribute"
+      },
+      {
+        "kind": "file-pattern",
+        "operator": "MatchesPattern",
+        "value": "*.config"
+      }
+    ]
+  }
+}

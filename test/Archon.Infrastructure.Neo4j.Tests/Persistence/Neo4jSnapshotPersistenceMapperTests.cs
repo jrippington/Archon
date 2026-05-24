@@ -604,6 +604,9 @@ namespace Archon.Infrastructure.Neo4j.Tests.Persistence
                 snapshotStableKey,
                 "Accepted risk",
                 "architecture-review",
+                [nodeStableKey],
+                [evidenceStableKey],
+                "history://finding/ARCHON001/invalid-dependency",
                 GraphMetadata.Empty,
                 new Fingerprint("sha256:finding"));
         }

@@ -1,0 +1,60 @@
+{
+  "ruleCode": "ARCHON-LIFECYCLE-NETFRAMEWORK-UNSUPPORTED",
+  "name": "Unsupported .NET Framework target framework",
+  "category": "Lifecycle",
+  "severity": "High",
+  "defaultStatus": "OutOfSupport",
+  "enabled": true,
+  "version": "1.0.0",
+  "description": "Flags projects that target unsupported .NET Framework target framework monikers so modernization work can start from a deterministic lifecycle risk.",
+  "builtIn": true,
+  "ownerScope": "Archon",
+  "sourceUrls": [
+    "https://learn.microsoft.com/lifecycle/products/microsoft-net-framework"
+  ],
+  "impact": [
+    "Unsupported target frameworks increase operational, security, and modernization risk."
+  ],
+  "evidenceRequirements": [
+    "Project target framework metadata must be available from extracted project facts."
+  ],
+  "recommendedActions": [
+    "Plan migration to a supported .NET target framework and review dependencies that constrain the target framework."
+  ],
+  "tags": [
+    "lifecycle",
+    "target-framework",
+    "modernization"
+  ],
+  "metadata": {
+    "ruleFamily": "lifecycle",
+    "appliesTo": "project"
+  },
+  "detection": {
+    "nodeKinds": [
+      "Project"
+    ],
+    "match": "all",
+    "conditions": [
+      {
+        "kind": "target-framework-membership",
+        "operator": "In",
+        "values": [
+          "net48",
+          "net472",
+          "net471",
+          "net47",
+          "net462",
+          "net461",
+          "net46",
+          "net452",
+          "net451",
+          "net45",
+          "net40",
+          "net35",
+          "net20"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "ruleCode": "ARCHON-CONFIGURATION-HOSTING-BLOCKERS",
+  "name": "Configuration and hosting modernization blocker",
+  "category": "Configuration",
+  "severity": "Medium",
+  "defaultStatus": "MigrationBlocker",
+  "enabled": true,
+  "version": "1.0.0",
+  "description": "Flags web.config or app.config-heavy applications, binding redirects, machine.config assumptions, ConfigurationManager, packages.config, non-SDK-style projects, IIS-only assumptions, registry configuration, hard-coded file paths, UNC paths, and environment-specific transforms.",
+  "builtIn": true,
+  "ownerScope": "Archon",
+  "sourceUrls": [
+    "https://learn.microsoft.com/dotnet/core/extensions/configuration"
+  ],
+  "impact": [
+    "Configuration and hosting assumptions often define the practical order of migration because they control startup, deployment, and environment-specific behavior."
+  ],
+  "evidenceRequirements": [
+    "Configuration, project, package, file-path, namespace, or symbol facts must be available from prior extraction slices."
+  ],
+  "recommendedActions": [
+    "Separate runtime configuration, transform behavior, hosting assumptions, and project-system constraints before moving the application."
+  ],
+  "tags": [
+    "configuration",
+    "hosting",
+    "migration-blocker"
+  ],
+  "metadata": {
+    "ruleFamily": "configuration",
+    "coverage": [
+      "webConfigHeavy",
+      "appConfigHeavy",
+      "bindingRedirects",
+      "machineConfigAssumption",
+      "configurationManager",
+      "packagesConfig",
+      "nonSdkStyleProject",
+      "iisOnlyAssumption",
+      "registryConfiguration",
+      "hardCodedFilePath",
+      "uncPath",
+      "environmentTransform"
+    ],
+    "appliesTo": "project"
+  },
+  "detection": {
+    "nodeKinds": [
+      "Project",
+      "ConfigurationKey",
+      "FilePath",
+      "Type",
+      "Method"
+    ],
+    "match": "any",
+    "conditions": [
+      {
+        "kind": "file-pattern",
+        "operator": "In",
+        "values": [
+          "web.config",
+          "app.config",
+          "packages.config",
+          "machine.config"
+        ]
+      },
+      {
+        "kind": "file-pattern",
+        "operator": "MatchesPattern",
+        "value": "*.Release.config"
+      },
+      {
+        "kind": "symbol",
+        "operator": "In",
+        "values": [
+          "ConfigurationManager",
+          "RegistryKey",
+          "BindingRedirect",
+          "IisOnlyHostingAssumption",
+          "NonSdkStyleProject",
+          "HardCodedFilePath",
+          "UncPath"
+        ]
+      },
+      {
+        "kind": "namespace",
+        "operator": "In",
+        "values": [
+          "System.Configuration",
+          "Microsoft.Win32"
+        ]
+      }
+    ]
+  }
+}

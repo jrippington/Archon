@@ -18,6 +18,74 @@ ADO.NET is the .NET data-access API family built around connections, commands, r
 
 The architecture graph is the durable representation of architecture facts, evidence, findings, metrics, and summaries. In the current persistence foundation, Neo4j stores this graph using stable labels, stable keys, fingerprints, and support relationships.
 
+## Rule catalog
+
+The rule catalog is the authored set of versioned JSON rules that describe modernization, lifecycle, security, dependency, configuration, data-access, and architecture concerns. In the current WP012 foundation, Archon loads the catalog from copied runtime output, validates it, upserts versioned catalog records into Neo4j, evaluates enabled rules against accumulated graph facts, constructs deterministic findings, persists finding history and suppression state, and exposes controlled rule and hotlist query output.
+
+## Rule catalog upsert
+
+A rule catalog upsert is the persistence operation that creates or updates a global `ArchonRule` node by rule code and rule version. It is idempotent for unchanged versions, preserves new versions beside old versions, and does not delete rules merely because they are disabled or omitted from a later disk load.
+
+## Built-in rule
+
+A built-in rule is repository-shipped JSON rule content with `builtIn` set to `true`. Built-in rules are still data-only, versioned by rule code plus version, loaded from copied runtime output, validated by the shared loader, and evaluated only against established graph facts.
+
+## Rule coverage metadata
+
+Rule coverage metadata is lower camel case traceability stored in a rule's metadata block to show which source-brief scenarios are represented by an authored rule. It is explanatory metadata for contributors and tests, not an executable condition language.
+
+## Definition JSON
+
+Definition JSON is the validated authored rule document stored with a persisted rule catalog record. It preserves the exact data payload that explains what the rule meant at a specific code/version pair.
+
+## Historical fidelity
+
+Historical fidelity is the repository principle that durable analysis records must remain explainable after authored rules, extracted facts, or classifications evolve. For WP012 rules, this means old rule versions and disabled or removed catalog records remain available so future findings can point to the exact rule code and version that classified them.
+
+## Finding stable key
+
+A finding stable key is the snapshot-scoped logical identity for one persisted finding record. It includes snapshot context and deterministic rule/target information so one extraction snapshot can store exactly one equivalent finding without depending on Neo4j internal IDs.
+
+## Finding history key
+
+A finding history key is the cross-snapshot logical identity for equivalent findings. It deliberately excludes the snapshot stable key so Archon can carry first-seen and latest-seen data forward when the same rule and affected target remain applicable in later snapshots.
+
+## Suppression
+
+Suppression is a lifecycle overlay that records why a finding is intentionally hidden, accepted, or deferred without deleting the underlying finding. WP012 suppressions target finding history key, rule identity, and primary node identity, and they preserve reason and suppressed-by audit fields.
+
+## Hotlist
+
+The hotlist is the controlled product-facing list of persisted findings. It returns bounded, deterministically ordered finding summaries with approved filters rather than exposing arbitrary graph queries or raw Neo4j records.
+
+## Controlled query
+
+A controlled query is an API read operation whose filters, page bounds, ordering, and response shape are defined by Archon code. Controlled queries protect the graph by accepting only approved values instead of caller-provided Cypher, SQL, JSONPath, or unrestricted predicate text.
+
+## Copied-output rule loading
+
+Copied-output rule loading is the rule catalog runtime model where repository-root `rules/**/*.json` files are copied to build or publish output under `rules/`, and the loader reads `AppContext.BaseDirectory/rules` instead of walking back to the source repository. This keeps local tests, deployed binaries, and host initialization aligned.
+
+## Rule identity
+
+Rule identity is the stable pair of `ruleCode` and `version`. Findings must preserve both values so historical results remain explainable after an authored rule evolves.
+
+## Detection DSL
+
+The detection DSL is the JSON detection language used by rule files. The current loader validates `nodeKinds`, `match`, `conditions`, nested `groups`, condition kinds, operators, and operator/payload compatibility; the current evaluator applies the same structure to fixture graph facts with recursive `all`, `any`, and `none` semantics.
+
+## Candidate node
+
+A candidate node is a graph node that remains eligible for rule evaluation after the evaluator applies a rule's `nodeKinds` filter. Candidate filtering happens before condition evaluation so rules inspect only the graph node kinds they explicitly target.
+
+## Rule evaluation warning
+
+A rule evaluation warning is a deterministic diagnostic emitted when a rule can only be evaluated partially for a candidate node, such as when an expected graph fact collection or named metric is unavailable. Warnings do not invent facts and do not necessarily prevent an `any` group from matching through another branch.
+
+## Deterministic rule diagnostic
+
+A deterministic rule diagnostic is a stable validation result emitted by the rule catalog loader with a machine-readable code, developer-facing message, file context, and JSON path or parse location when available. Deterministic diagnostics let rule authors fix catalog content without depending on load order or incidental exception text.
+
 ## Blazor component
 
 A Blazor component is a `.razor` artifact that can combine markup, Razor directives, and C# code. Archon's current UI extraction slice records source `.razor` components as `UiComponent` graph nodes without rendering them or starting the target application.
@@ -189,6 +257,10 @@ An authentication hint is non-secret metadata that indicates the mechanism a cli
 ## Redaction
 
 Redaction is the process of replacing sensitive text with a safe marker before the value appears in graph metadata, evidence previews, diagnostics, logs, or tests. WP010 uses redaction for endpoints, connection strings, broker secrets, storage account keys, SMTP credentials, payment API keys, tokens, card data, customer payment identifiers, and secret-bearing payload snippets.
+
+## Secret location evidence
+
+Secret location evidence is a safe reference that identifies where a secret-like value was observed without storing the value itself. WP012 security-sensitive rules should match location indicators such as configuration keys, file paths, or sanitized symbol facts rather than passwords, tokens, or full connection strings.
 
 ## VB.NET parity limit
 

@@ -278,6 +278,9 @@ namespace Archon.Infrastructure.Neo4j.Tests.Persistence
                 snapshotStableKey,
                 null,
                 null,
+                [nodeStableKey],
+                [evidenceStableKey],
+                $"history://finding/{suffix}/invalid-dependency",
                 GraphMetadata.Empty,
                 new Fingerprint($"sha256:finding-{suffix}"));
         }

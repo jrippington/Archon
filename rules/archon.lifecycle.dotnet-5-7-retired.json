@@ -1,0 +1,55 @@
+{
+  "ruleCode": "ARCHON-LIFECYCLE-DOTNET-5-7-RETIRED",
+  "name": "Retired modern .NET target framework",
+  "category": "Lifecycle",
+  "severity": "High",
+  "defaultStatus": "OutOfSupport",
+  "enabled": true,
+  "version": "1.0.0",
+  "description": "Flags projects that target .NET 5, .NET 6, or .NET 7 monikers that are retired for current modernization planning.",
+  "builtIn": true,
+  "ownerScope": "Archon",
+  "sourceUrls": [
+    "https://learn.microsoft.com/lifecycle/products/microsoft-net-and-net-core"
+  ],
+  "impact": [
+    "Retired modern .NET targets can hide runtime, hosting, and dependency risk even when the application is no longer on .NET Framework."
+  ],
+  "evidenceRequirements": [
+    "Project target framework metadata must be available from extracted project facts."
+  ],
+  "recommendedActions": [
+    "Move to the repository's supported .NET target after dependency and hosting compatibility checks are complete."
+  ],
+  "tags": [
+    "lifecycle",
+    "dotnet",
+    "target-framework"
+  ],
+  "metadata": {
+    "ruleFamily": "lifecycle",
+    "coverage": [
+      "dotnet5",
+      "dotnet6",
+      "dotnet7"
+    ],
+    "appliesTo": "project"
+  },
+  "detection": {
+    "nodeKinds": [
+      "Project"
+    ],
+    "match": "all",
+    "conditions": [
+      {
+        "kind": "target-framework-membership",
+        "operator": "In",
+        "values": [
+          "net5.0",
+          "net6.0",
+          "net7.0"
+        ]
+      }
+    ]
+  }
+}

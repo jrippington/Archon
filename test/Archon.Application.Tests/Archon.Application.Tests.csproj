@@ -21,4 +21,8 @@
     <ProjectReference Include="..\..\src\Archon.Extractors.Projects\Archon.Extractors.Projects.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="..\..\rules\**\*.json" Link="rules\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

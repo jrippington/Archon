@@ -1,0 +1,81 @@
+{
+  "ruleCode": "ARCHON-DEPENDENCY-RISK-LEGACY-PACKAGES",
+  "name": "Legacy dependency package risk",
+  "category": "DependencyRisk",
+  "severity": "Medium",
+  "defaultStatus": "Discouraged",
+  "enabled": true,
+  "version": "1.0.0",
+  "description": "Flags legacy package dependencies called out by WP012, including EF6, classic ASP.NET packages, System.Web packages, legacy containers, logging, REST, JSON, and service hosting packages.",
+  "builtIn": true,
+  "ownerScope": "Archon",
+  "sourceUrls": [
+    "https://learn.microsoft.com/nuget/concepts/package-versioning"
+  ],
+  "impact": [
+    "Legacy packages can constrain target frameworks, hosting model, dependency-injection patterns, and upgrade sequencing even when application code compiles."
+  ],
+  "evidenceRequirements": [
+    "Package-reference facts must be available from project/package extraction."
+  ],
+  "recommendedActions": [
+    "Review package ownership, supported versions, replacement paths, and transitive constraints before framework migration."
+  ],
+  "tags": [
+    "dependency-risk",
+    "packages",
+    "modernization"
+  ],
+  "metadata": {
+    "ruleFamily": "dependencyRisk",
+    "coverage": [
+      "entityFramework6",
+      "microsoftAspNetMvc",
+      "microsoftAspNetWebApi",
+      "systemWebPackages",
+      "unity",
+      "commonServiceLocator",
+      "enterpriseLibrary",
+      "castleWindsor",
+      "structureMap",
+      "ninject",
+      "log4net",
+      "oldNLog",
+      "oldRestSharp",
+      "oldNewtonsoftJson",
+      "topshelf"
+    ],
+    "appliesTo": "package"
+  },
+  "detection": {
+    "nodeKinds": [
+      "Project",
+      "Package"
+    ],
+    "match": "all",
+    "conditions": [
+      {
+        "kind": "package",
+        "operator": "In",
+        "values": [
+          "EntityFramework",
+          "Microsoft.AspNet.Mvc",
+          "Microsoft.AspNet.WebApi",
+          "System.Web.Mvc",
+          "System.Web.WebPages",
+          "Unity",
+          "CommonServiceLocator",
+          "EnterpriseLibrary.Common",
+          "Castle.Windsor",
+          "StructureMap",
+          "Ninject",
+          "log4net",
+          "NLog",
+          "RestSharp",
+          "Newtonsoft.Json",
+          "Topshelf"
+        ]
+      }
+    ]
+  }
+}

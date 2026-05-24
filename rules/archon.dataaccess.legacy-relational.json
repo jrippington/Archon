@@ -1,0 +1,125 @@
+{
+  "ruleCode": "ARCHON-DATAACCESS-LEGACY-RELATIONAL",
+  "name": "Legacy or migration-sensitive relational data access",
+  "category": "DataAccess",
+  "severity": "Medium",
+  "defaultStatus": "Discouraged",
+  "enabled": true,
+  "version": "1.0.0",
+  "description": "Flags LINQ to SQL, DBML, typed DataSets, DataSet/DataTable/TableAdapter, ADO.NET reader/command access, EF Classic or EF6, EF Core, ObjectContext, raw SQL, stored-procedure-heavy access, OleDb, and Odbc usage.",
+  "builtIn": true,
+  "ownerScope": "Archon",
+  "sourceUrls": [
+    "https://learn.microsoft.com/dotnet/framework/data/adonet/",
+    "https://learn.microsoft.com/ef/"
+  ],
+  "impact": [
+    "Relational data-access patterns can dominate modernization sequencing because they couple domain behavior, database schema, and transaction boundaries."
+  ],
+  "evidenceRequirements": [
+    "Package, namespace, symbol, method-call, file-path, or stored-procedure graph facts must be available from data-access and Roslyn extraction."
+  ],
+  "recommendedActions": [
+    "Separate the inventory by technology and risk so EF, ADO.NET, raw SQL, and generated data-access artifacts can be modernized deliberately."
+  ],
+  "tags": [
+    "data-access",
+    "relational",
+    "migration-risk"
+  ],
+  "metadata": {
+    "ruleFamily": "dataAccess",
+    "coverage": [
+      "linqToSql",
+      "dbml",
+      "typedDataSet",
+      "dataSet",
+      "dataTable",
+      "tableAdapter",
+      "adoNetSqlCommand",
+      "adoNetSqlDataReader",
+      "efClassic",
+      "ef6",
+      "efCore",
+      "objectContext",
+      "rawSqlConstruction",
+      "storedProcedureHeavyAccess",
+      "oleDb",
+      "odbc"
+    ],
+    "appliesTo": "project"
+  },
+  "detection": {
+    "nodeKinds": [
+      "Project",
+      "Type",
+      "Method",
+      "DbContext",
+      "LinqToSqlDataContext",
+      "StoredProcedure",
+      "FilePath"
+    ],
+    "match": "any",
+    "conditions": [
+      {
+        "kind": "package",
+        "operator": "In",
+        "values": [
+          "System.Data.Linq",
+          "EntityFramework",
+          "Microsoft.EntityFrameworkCore",
+          "System.Data.SqlClient",
+          "Microsoft.Data.SqlClient"
+        ]
+      },
+      {
+        "kind": "namespace",
+        "operator": "In",
+        "values": [
+          "System.Data.Linq",
+          "System.Data",
+          "System.Data.SqlClient",
+          "System.Data.OleDb",
+          "System.Data.Odbc",
+          "System.Data.Entity",
+          "Microsoft.EntityFrameworkCore"
+        ]
+      },
+      {
+        "kind": "symbol",
+        "operator": "In",
+        "values": [
+          "System.Data.Linq.DataContext",
+          "System.Data.Linq.Table",
+          "DataSet",
+          "DataTable",
+          "TableAdapter",
+          "SqlCommand",
+          "SqlDataReader",
+          "ObjectContext",
+          "DbContext",
+          "OleDbConnection",
+          "OdbcConnection"
+        ]
+      },
+      {
+        "kind": "method-call",
+        "operator": "In",
+        "values": [
+          "SubmitChanges",
+          "ExecuteQuery",
+          "ExecuteCommand",
+          "ExecuteReader",
+          "ExecuteSqlCommand",
+          "FromSqlRaw",
+          "ExecuteStoredProcedure"
+        ]
+      },
+      {
+        "kind": "file-pattern",
+        "operator": "MatchesPattern",
+        "value": "*.dbml"
+      }
+    ]
+  }
+}

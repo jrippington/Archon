@@ -28,6 +28,9 @@ namespace Archon.Domain.Graph.Model
         /// <param name="latestSeenSnapshotStableKey">The optional stable key of the latest snapshot where the finding was seen.</param>
         /// <param name="suppressionReason">The optional reason this finding is suppressed.</param>
         /// <param name="suppressedBy">The optional actor or process that suppressed this finding.</param>
+        /// <param name="affectedNodeStableKeys">The affected architecture nodes associated with the finding.</param>
+        /// <param name="evidenceStableKeys">The evidence records associated with the finding.</param>
+        /// <param name="historyKey">The deterministic cross-snapshot history identity for equivalent findings.</param>
         /// <param name="metadata">Deterministic metadata for finding details that are not normalized fields.</param>
         /// <param name="fingerprint">The deterministic fingerprint for diff-relevant finding content.</param>
         public FindingRecord(
@@ -47,35 +50,36 @@ namespace Archon.Domain.Graph.Model
             StableKey? latestSeenSnapshotStableKey,
             string? suppressionReason,
             string? suppressedBy,
+            IEnumerable<StableKey>? affectedNodeStableKeys,
+            IEnumerable<StableKey>? evidenceStableKeys,
+            string? historyKey,
             GraphMetadata metadata,
             Fingerprint fingerprint)
+            : this(
+                snapshotStableKey,
+                stableKey,
+                ruleCode,
+                ruleVersion,
+                severity,
+                status,
+                title,
+                description,
+                knowledgeKind,
+                confidence,
+                UnknownState.Known,
+                primaryNodeStableKey,
+                primaryEvidenceStableKey,
+                firstSeenSnapshotStableKey,
+                latestSeenSnapshotStableKey,
+                suppressionReason,
+                suppressedBy,
+                affectedNodeStableKeys,
+                evidenceStableKeys,
+                historyKey,
+                metadata,
+                fingerprint)
         {
-            // Finding construction keeps rule identity, confidence, status, and evidence linkage explicit for historical explanation.
-            ArgumentNullException.ThrowIfNull(severity);
-            ArgumentNullException.ThrowIfNull(status);
-            ArgumentNullException.ThrowIfNull(knowledgeKind);
-            ArgumentNullException.ThrowIfNull(metadata);
-            GraphFactValidation.RequireUnknownReasonWhenNeeded(knowledgeKind, UnknownState.Known, nameof(FindingRecord));
-
-            SnapshotStableKey = snapshotStableKey;
-            StableKey = stableKey;
-            RuleCode = GraphFactValidation.RequiredString(ruleCode, nameof(ruleCode));
-            RuleVersion = GraphFactValidation.RequiredString(ruleVersion, nameof(ruleVersion));
-            Severity = severity;
-            Status = status;
-            Title = GraphFactValidation.RequiredString(title, nameof(title));
-            Description = GraphFactValidation.RequiredString(description, nameof(description));
-            KnowledgeKind = knowledgeKind;
-            Confidence = confidence;
-            UnknownState = UnknownState.Known;
-            PrimaryNodeStableKey = primaryNodeStableKey;
-            PrimaryEvidenceStableKey = primaryEvidenceStableKey;
-            FirstSeenSnapshotStableKey = firstSeenSnapshotStableKey;
-            LatestSeenSnapshotStableKey = latestSeenSnapshotStableKey;
-            SuppressionReason = GraphFactValidation.OptionalString(suppressionReason);
-            SuppressedBy = GraphFactValidation.OptionalString(suppressedBy);
-            Metadata = metadata;
-            Fingerprint = fingerprint;
+            // This overload preserves the original known-state convenience constructor while delegating to the full unknown-aware constructor.
         }
 
         /// <summary>
@@ -98,6 +102,9 @@ namespace Archon.Domain.Graph.Model
         /// <param name="latestSeenSnapshotStableKey">The optional stable key of the latest snapshot where the finding was seen.</param>
         /// <param name="suppressionReason">The optional reason this finding is suppressed.</param>
         /// <param name="suppressedBy">The optional actor or process that suppressed this finding.</param>
+        /// <param name="affectedNodeStableKeys">The affected architecture nodes associated with the finding.</param>
+        /// <param name="evidenceStableKeys">The evidence records associated with the finding.</param>
+        /// <param name="historyKey">The deterministic cross-snapshot history identity for equivalent findings.</param>
         /// <param name="metadata">Deterministic metadata for finding details that are not normalized fields.</param>
         /// <param name="fingerprint">The deterministic fingerprint for diff-relevant finding content.</param>
         public FindingRecord(
@@ -118,6 +125,9 @@ namespace Archon.Domain.Graph.Model
             StableKey? latestSeenSnapshotStableKey,
             string? suppressionReason,
             string? suppressedBy,
+            IEnumerable<StableKey>? affectedNodeStableKeys,
+            IEnumerable<StableKey>? evidenceStableKeys,
+            string? historyKey,
             GraphMetadata metadata,
             Fingerprint fingerprint)
         {
@@ -146,6 +156,9 @@ namespace Archon.Domain.Graph.Model
             LatestSeenSnapshotStableKey = latestSeenSnapshotStableKey;
             SuppressionReason = GraphFactValidation.OptionalString(suppressionReason);
             SuppressedBy = GraphFactValidation.OptionalString(suppressedBy);
+            AffectedNodeStableKeys = NormalizeStableKeys(affectedNodeStableKeys, primaryNodeStableKey);
+            EvidenceStableKeys = NormalizeStableKeys(evidenceStableKeys, primaryEvidenceStableKey);
+            HistoryKey = GraphFactValidation.RequiredString(historyKey ?? stableKey.Value, nameof(historyKey));
             Metadata = metadata;
             Fingerprint = fingerprint;
         }
@@ -236,6 +249,21 @@ namespace Archon.Domain.Graph.Model
         public string? SuppressedBy { get; }
 
         /// <summary>
+        /// Gets affected architecture nodes linked to the finding.
+        /// </summary>
+        public IReadOnlyList<StableKey> AffectedNodeStableKeys { get; }
+
+        /// <summary>
+        /// Gets evidence records linked to the finding.
+        /// </summary>
+        public IReadOnlyList<StableKey> EvidenceStableKeys { get; }
+
+        /// <summary>
+        /// Gets the deterministic cross-snapshot history identity for equivalent findings.
+        /// </summary>
+        public string HistoryKey { get; }
+
+        /// <summary>
         /// Gets deterministic metadata for finding details that are not normalized fields.
         /// </summary>
         public GraphMetadata Metadata { get; }
@@ -244,5 +272,25 @@ namespace Archon.Domain.Graph.Model
         /// Gets the deterministic fingerprint for diff-relevant finding content.
         /// </summary>
         public Fingerprint Fingerprint { get; }
+
+        /// <summary>
+        /// Normalizes linked stable keys into deterministic order while retaining the primary key when only a singular link is supplied.
+        /// </summary>
+        /// <param name="stableKeys">The optional linked stable-key sequence supplied by callers.</param>
+        /// <param name="primaryStableKey">The optional primary stable key to include when the sequence is empty.</param>
+        /// <returns>A deterministic read-only stable-key list.</returns>
+        private static IReadOnlyList<StableKey> NormalizeStableKeys(IEnumerable<StableKey>? stableKeys, StableKey? primaryStableKey)
+        {
+            // Linked nodes and evidence must be deterministic because persistence and APIs later expose them without relying on Neo4j IDs.
+            IEnumerable<StableKey> source = stableKeys ?? [];
+            StableKey[] normalized = source
+                .Where(static stableKey => !string.IsNullOrWhiteSpace(stableKey.Value))
+                .Concat(primaryStableKey.HasValue ? [primaryStableKey.Value] : [])
+                .GroupBy(static stableKey => stableKey.Value, StringComparer.Ordinal)
+                .Select(static group => group.First())
+                .OrderBy(static stableKey => stableKey.Value, StringComparer.Ordinal)
+                .ToArray();
+            return normalized;
+        }
     }
 }

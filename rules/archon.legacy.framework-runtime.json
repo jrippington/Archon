@@ -1,0 +1,110 @@
+{
+  "ruleCode": "ARCHON-LEGACY-FRAMEWORK-RUNTIME",
+  "name": ".NET Framework-only runtime technology",
+  "category": "LegacyTechnology",
+  "severity": "High",
+  "defaultStatus": "FrameworkOnly",
+  "enabled": true,
+  "version": "1.0.0",
+  "description": "Flags WCF, ASMX, Windows Workflow Foundation, .NET Remoting, Enterprise Services or COM+, ClickOnce, classic Windows Services, Topshelf, and OWIN/Katana startup usage.",
+  "builtIn": true,
+  "ownerScope": "Archon",
+  "sourceUrls": [
+    "https://learn.microsoft.com/dotnet/core/porting/"
+  ],
+  "impact": [
+    "Framework-only runtime technologies often require replacement architecture, hosting changes, or compatibility shims before migration can complete."
+  ],
+  "evidenceRequirements": [
+    "Namespace, package, symbol, attribute, method-call, or file-path facts must be available from runtime, project, configuration, or Roslyn extraction."
+  ],
+  "recommendedActions": [
+    "Classify each runtime dependency as rewrite, replace, isolate, or compatibility-host before changing the target framework."
+  ],
+  "tags": [
+    "legacy-technology",
+    "framework-only",
+    "runtime"
+  ],
+  "metadata": {
+    "ruleFamily": "legacyTechnology",
+    "coverage": [
+      "wcfServer",
+      "wcfClient",
+      "asmx",
+      "windowsWorkflowFoundation",
+      "dotnetRemoting",
+      "enterpriseServicesComPlus",
+      "clickOnce",
+      "windowsService",
+      "topshelf",
+      "owinKatanaStartup"
+    ],
+    "appliesTo": "project"
+  },
+  "detection": {
+    "nodeKinds": [
+      "Project",
+      "Type",
+      "Method",
+      "FilePath"
+    ],
+    "match": "any",
+    "conditions": [
+      {
+        "kind": "package",
+        "operator": "In",
+        "values": [
+          "System.ServiceModel",
+          "Topshelf",
+          "Microsoft.Owin",
+          "Microsoft.Owin.Host.SystemWeb"
+        ]
+      },
+      {
+        "kind": "namespace",
+        "operator": "In",
+        "values": [
+          "System.ServiceModel",
+          "System.Web.Services",
+          "System.Workflow",
+          "System.Runtime.Remoting",
+          "System.EnterpriseServices",
+          "Microsoft.Owin"
+        ]
+      },
+      {
+        "kind": "symbol",
+        "operator": "In",
+        "values": [
+          "ServiceContractAttribute",
+          "WebServiceAttribute",
+          "ServiceBase",
+          "MarshalByRefObject",
+          "ServicedComponent",
+          "Topshelf.HostFactory",
+          "OwinStartupAttribute"
+        ]
+      },
+      {
+        "kind": "attribute",
+        "operator": "In",
+        "values": [
+          "ServiceContractAttribute",
+          "WebServiceAttribute",
+          "OwinStartupAttribute"
+        ]
+      },
+      {
+        "kind": "file-pattern",
+        "operator": "MatchesPattern",
+        "value": "*.asmx"
+      },
+      {
+        "kind": "file-pattern",
+        "operator": "MatchesPattern",
+        "value": "*.application"
+      }
+    ]
+  }
+}

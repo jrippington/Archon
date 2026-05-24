@@ -1,4 +1,5 @@
 ﻿using Archon.Api.Extraction;
+using Archon.Api.Query;
 using Archon.ServiceDefaults;
 using Scalar.AspNetCore;
 
@@ -52,6 +53,7 @@ namespace ArchonApi
             builder.AddServiceDefaults();
             builder.Services.AddOpenApi();
             builder.Services.AddArchonExtractionApi();
+            builder.Services.AddArchonQueryApi();
 
             WebApplication app = builder.Build();
 
@@ -70,6 +72,7 @@ namespace ArchonApi
             // Health probes remain mapped alongside feature modules so operational endpoints stay available for every host slice.
             app.MapDefaultEndpoints();
             app.MapArchonExtractionApi();
+            app.MapArchonQueryApi();
 
             return app;
         }

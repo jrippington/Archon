@@ -3,6 +3,7 @@ using Archon.Api.Extraction.Contracts;
 using Archon.Application.Extraction.Contracts;
 using Archon.Application.Extraction.Pipeline;
 using Archon.Application.Graph.Persistence;
+using Archon.Application.Rules;
 using Archon.Domain.Graph.ControlledValues;
 using Archon.Domain.Graph.Model;
 using Archon.Extractors.Projects.Solutions;
@@ -73,10 +74,10 @@ namespace Archon.Api.Extraction.Tests
         }
 
         /// <summary>
-        /// Verifies extraction API service registration composes project, semantic, WP007, WP008, WP009, WP010, and unified WP011 extraction stages instead of the WP004 placeholder stage.
+            /// Verifies extraction API service registration composes project, semantic, WP007, WP008, WP009, WP010, unified WP011, and WP012 rule stages instead of the WP004 placeholder stage.
         /// </summary>
         [Fact]
-        public void AddArchonExtractionApi_WhenServicesAreBuilt_ShouldRegisterProjectSemanticWp007Wp008Wp009Wp010AndWp011ExtractionStages()
+        public void AddArchonExtractionApi_WhenServicesAreBuilt_ShouldRegisterProjectSemanticWp007Wp008Wp009Wp010Wp011AndWp012ExtractionStages()
         {
             // The API module is the existing composition boundary for the extraction pipeline, so this test guards the ordered stage registration path.
             ServiceCollection services = new();
@@ -121,6 +122,11 @@ namespace Archon.Api.Extraction.Tests
                 {
                     Assert.IsType<Wp011UiClientExtractionStage>(stage);
                     Assert.Equal("wp011-ui-client", stage.StageId);
+                },
+                stage =>
+                {
+                    Assert.IsType<RuleEvaluationExtractionStage>(stage);
+                    Assert.Equal("wp012-rule-catalog-evaluation", stage.StageId);
                 });
         }
 

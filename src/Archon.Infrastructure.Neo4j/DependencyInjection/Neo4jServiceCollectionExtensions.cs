@@ -1,3 +1,4 @@
+using Archon.Application.Rules;
 using Archon.Infrastructure.Neo4j.Configuration;
 using Archon.Infrastructure.Neo4j.Driver;
 using Archon.Infrastructure.Neo4j.Health;
@@ -50,6 +51,9 @@ namespace Archon.Infrastructure.Neo4j.DependencyInjection
             services.TryAddSingleton<Neo4jSnapshotPersistenceMapper>();
             services.TryAddSingleton<Neo4jPersistenceStageLogger>();
             services.AddSingleton<IArchitectureSnapshotWriter, Neo4jArchitectureSnapshotWriter>();
+            services.AddSingleton<IRuleCatalogStore, Neo4jRuleCatalogStore>();
+            services.AddSingleton<IFindingStore, Neo4jFindingStore>();
+            services.AddSingleton<IHotlistQueryStore, Neo4jHotlistQueryStore>();
             services.TryAddSingleton<Neo4jHealthCheck>();
             services.TryAddEnumerable(ServiceDescriptor.Singleton<IHealthCheck, Neo4jHealthCheck>());
 

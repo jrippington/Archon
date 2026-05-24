@@ -198,6 +198,71 @@ When adding or changing WP008 fixtures, name the test after the runtime evidence
 
 The build gate remains part of WP008 validation even when a change appears documentation-heavy. Source comments and wiki edits can still expose stale names, broken XML documentation, or invalid generated samples through tests and build. If package references have changed, restore first; otherwise use the `--no-restore` commands above after a successful restore so failures point to compile, extraction, or documentation consistency issues rather than package acquisition.
 
+## WP012 rule catalog, evaluator, persistence, extraction integration, finding, and hotlist validation
+
+The current WP012 foundation validates the copied-output JSON rule catalog, persists validated catalog entries as versioned Neo4j rule records, integrates rule loading and evaluation into the extraction pipeline, evaluates enabled rules against application-layer graph facts, constructs deterministic finding records from matched rule context, persists finding history and suppression seams, and exposes controlled rule catalog, hotlist, finding detail, finding history, and suppression API behavior without starting the Aspire AppHost. The targeted tests exercise the application-layer loader, evaluator, extraction integration service, finding construction service, in-memory finding store, query service, query API endpoints, Neo4j rule catalog store, Neo4j finding store Cypher, Neo4j hotlist query Cypher, and API stage composition because the current slices are about authored rule content, runtime folder resolution, deterministic diagnostics, catalog availability, boolean DSL semantics, condition/operator behavior, code/version upsert identity, non-destructive historical catalog behavior, data-only predicate execution, finding stable keys, finding history keys, confidence derivation, evidence/node links, suppression overlays, controlled filters, pagination, deterministic ordering, and redaction safeguards.
+
+Run the focused catalog tests after changing rule files, rule catalog contracts, validation rules, or copied-output project configuration:
+
+```powershell
+dotnet test .\test\Archon.Application.Tests\Archon.Application.Tests.csproj --filter FullyQualifiedName~RuleCatalogLoaderTests
+```
+
+Run the focused evaluator tests after changing boolean group evaluation, condition-kind mapping, operator behavior, unknown handling, warning behavior, evidence references, or evaluator result ordering:
+
+```powershell
+dotnet test .\test\Archon.Application.Tests\Archon.Application.Tests.csproj --filter FullyQualifiedName~RuleEvaluatorTests
+```
+
+Run the focused built-in catalog tests after changing `rules/**/*.json`, first-cut rule-family coverage metadata, representative fixture facts, or security-sensitive redaction expectations:
+
+```powershell
+dotnet test .\test\Archon.Application.Tests\Archon.Application.Tests.csproj --filter FullyQualifiedName~BuiltInRuleCatalogTests
+```
+
+Run the extraction integration tests after changing copied-output rule initialization, accumulated snapshot projection, catalog upsert sequencing, enabled-rule selection during extraction, evaluation diagnostics, or cancellation flow:
+
+```powershell
+dotnet test .\test\Archon.Application.Tests\Archon.Application.Tests.csproj --filter FullyQualifiedName~RuleExtractionIntegrationServiceTests
+dotnet test .\test\Archon.Api.Extraction.Tests\Archon.Api.Extraction.Tests.csproj --filter "FullyQualifiedName~AddArchonExtractionApi|FullyQualifiedName~RuleEvaluation"
+```
+
+Run the integrated end-to-end WP012 application path when changes span rule loading, catalog persistence, evaluator output, finding construction, finding persistence, hotlist queries, finding detail/history, suppression, unknown-state handling, or redaction. The focused command can be run by itself while iterating on the integrated path:
+
+```powershell
+dotnet test .\test\Archon.Application.Tests\Archon.Application.Tests.csproj --filter FullyQualifiedName~WP012EndToEndPath_WhenRepresentativeFactsExist_ShouldPersistQueryAndSuppressFindingsSafely
+```
+
+That test deliberately composes application-layer seams and does not start the Aspire AppHost. It validates the same sequence a production WP012 flow depends on: load copied-output rule JSON, upsert rule catalog entries, evaluate enabled rules over established graph facts, create deterministic findings, persist findings, query hotlist output, read finding detail and history, apply suppression, and verify secret-like values remain redacted from public DTOs and extraction diagnostics.
+
+Run the Neo4j rule catalog tests after changing rule catalog persistence, mapper fields, Cypher, schema assumptions, idempotency behavior, disabled-rule persistence, version coexistence, or removed-on-disk non-deletion behavior:
+
+```powershell
+dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj --filter RuleCatalog
+```
+
+Run the finding construction and persistence tests after changing finding stable keys, fingerprints, history, confidence, unknown preservation, affected-node links, evidence links, suppression validation, suppression carry-forward, Neo4j finding Cypher, or finding-store dependency injection:
+
+```powershell
+dotnet test .\test\Archon.Application.Tests\Archon.Application.Tests.csproj --filter FullyQualifiedName~FindingConstructionServiceTests
+dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj --filter "FullyQualifiedName~Neo4jRuleCatalogStoreTests|FullyQualifiedName~Neo4jServiceCollectionExtensionsTests"
+```
+
+Run the query API tests after changing rule catalog query DTOs, hotlist filters, paging, deterministic ordering, finding detail, finding history, route/query-parameter stable-key behavior, suppression endpoint validation, response-size limits, metadata redaction, or endpoint metadata:
+
+```powershell
+dotnet test .\test\Archon.Api.Query.Tests\Archon.Api.Query.Tests.csproj --filter "FullyQualifiedName~QueryEndpointTests|FullyQualifiedName~ArchonApiQueryProjectReferenceTests"
+dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj --filter "FullyQualifiedName~Neo4jRuleCatalogStoreTests|FullyQualifiedName~Neo4jServiceCollectionExtensionsTests"
+```
+
+Then run the solution build gate:
+
+```powershell
+dotnet build .\Archon.slnx --no-restore
+```
+
+These commands prove that `rules/**/*.json` content is copied into runtime output, that the default loader reads `AppContext.BaseDirectory/rules`, and that invalid catalog input produces deterministic diagnostics for missing folders, invalid JSON, missing fields, invalid category/severity/status values, invalid versions, empty detection groups, unsupported condition kinds, unsupported operators, incompatible operators, duplicate rule identities, and disabled-rule availability. They also prove that invalid required built-in content can fail visibly through the fail-fast validation helper. The evaluator tests prove that only enabled rules are selected, candidate nodes are restricted by `nodeKinds`, `all`, `any`, and `none` compose direct conditions and nested groups recursively, all required condition kinds map to graph facts, all required operators use deterministic comparison behavior, partial evaluation warnings and unknown context are preserved, and executable-looking rule values are treated as literal data. The built-in catalog tests validate every copied-output rule file, assert executable traceability for the first-cut lifecycle, legacy technology, data-access, obsolete API, security-sensitive, configuration, dependency-risk, modernization-blocker, and architecture-smell families, prove representative fixture matches, and verify that security-sensitive rules expose location evidence without storing secret values. The extraction and persistence tests prove that the WP012 stage runs after prior extraction stages, loads copied-output rules, upserts catalog records before evaluation, uses rule code plus version as the Neo4j identity, preserves new versions beside old versions, keeps disabled rules as catalog history, does not delete rules omitted from later disk loads, and surfaces rule diagnostics without putting evaluator logic in host composition. The end-to-end application test proves those pieces can be composed through the current application seams into persisted findings and controlled hotlist/detail/history/suppression output while preserving deterministic ordering, unknown-state context, and redaction. The finding tests prove that satisfied matches become deterministic findings, that equivalent findings can be tracked across snapshots, that suppression does not delete findings, and that Neo4j finding writes use stable logical identities rather than database-local IDs. The query tests prove that catalog list/detail, hotlist filters, paging, deterministic ordering, finding detail, history, suppression validation, route-safe stable-key lookup, and metadata redaction work through an in-memory ASP.NET Core test host and static Neo4j Cypher assertions. Contributor-facing behavior and authoring concepts are described in [rule catalog and rule engine](rule-catalog-and-rule-engine.md), product query behavior is described in [hotlist and findings](hotlist-and-findings.md), and persisted rule/finding identity is described in [Neo4j persistence foundation](neo4j-persistence-foundation.md).
+
 ## WP011 .NET UI and client extraction validation
 
 The current WP011 validation path covers the shared UI helper layer, Blazor `.razor` extraction, Razor Pages and MVC Razor `.cshtml` extraction, Windows Forms designer/source extraction, WPF XAML extraction, WinUI XAML and package-manifest extraction, .NET MAUI XAML/Shell/platform-head extraction, Avalonia AXAML/view-locator/ReactiveUI extraction, and the unified API-triggered `wp011-ui-client` stage that runs all framework adapters through one orchestration path. The framework extractor tests create temporary repository roots with minimal project files and source-controlled UI artifacts, then execute the corresponding extractor project directly. The unified API tests create a mixed UI fixture so one run can assert cross-framework snapshot output, stable-key deduplication, redaction, warnings, unknowns, and the absence of product UI artifacts. Those tests validate supported static patterns and degraded dynamic patterns without compiling the target UI project, loading designers, loading XAML or AXAML, starting platform runtimes, launching browsers, opening database connections, or contacting live APIs.
