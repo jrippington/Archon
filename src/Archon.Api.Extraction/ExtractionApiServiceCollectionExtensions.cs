@@ -1,4 +1,5 @@
 using Archon.Application.Extraction.Requests;
+using Archon.Application.Extraction.Metrics;
 using Archon.Application.Extraction.Orchestration;
 using Archon.Application.Extraction.Pipeline;
 using Archon.Application.Extraction.Runs;
@@ -70,6 +71,7 @@ namespace Archon.Api.Extraction
             services.AddSingleton<IRuleCatalogStore, InMemoryRuleCatalogStore>();
             services.AddSingleton<RuleExtractionIntegrationService>();
             services.AddSingleton<IExtractionStage, RuleEvaluationExtractionStage>();
+            services.AddSingleton<IExtractionStage, SnapshotMetricExtractionStage>();
             services.AddSingleton<ExtractionPipelineRunner>();
             services.AddSingleton<ExtractionSnapshotAssembler>();
             services.AddSingleton<IArchitectureSnapshotWriter, InMemoryArchitectureSnapshotWriter>();

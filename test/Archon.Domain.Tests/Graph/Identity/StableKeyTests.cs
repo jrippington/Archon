@@ -154,6 +154,18 @@ namespace Archon.Domain.Tests.Graph.Identity
         }
 
         /// <summary>
+        /// Verifies metric stable keys include snapshot, metric kind, and normalized scope identity without Neo4j-local data.
+        /// </summary>
+        [Fact]
+        public void MetricStableKeyIncludesSnapshotKindAndScopeIdentity()
+        {
+            // Metric keys must be stable public identities that distinguish the same metric kind across snapshots and scopes.
+            StableKey key = StableKeyGenerator.ForMetric(" snapshot://current ", " SnapshotNodeCount ", " Snapshot ");
+
+            Assert.Equal("metric://snapshot://current/SnapshotNodeCount/Snapshot", key.Value);
+        }
+
+        /// <summary>
         /// Verifies generator methods reject invalid input instead of producing ambiguous keys.
         /// </summary>
         [Fact]
@@ -163,6 +175,7 @@ namespace Archon.Domain.Tests.Graph.Identity
             Assert.Throws<ArgumentException>(() => StableKeyGenerator.ForPackage("   "));
             Assert.Throws<ArgumentException>(() => StableKeyGenerator.ForDatabaseTable("dbo", "   "));
             Assert.Throws<ArgumentException>(() => StableKeyGenerator.ForProject("D:\\Dev\\Archon\\src\\Customer.Api\\Customer.Api.csproj"));
+            Assert.Throws<ArgumentException>(() => StableKeyGenerator.ForMetric("snapshot://current", " ", "Snapshot"));
         }
     }
 }

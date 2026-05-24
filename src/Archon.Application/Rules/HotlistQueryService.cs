@@ -179,7 +179,7 @@ namespace Archon.Application.Rules
                 rule.Impact,
                 rule.EvidenceRequirements,
                 rule.RecommendedActions,
-                SanitizeMetadata(rule.Metadata));
+                PublicMetadataSanitizer.Sanitize(rule.Metadata));
         }
 
         /// <summary>
@@ -227,7 +227,7 @@ namespace Archon.Application.Rules
                 finding.LatestSeenSnapshotStableKey?.Value,
                 finding.SuppressionReason,
                 finding.SuppressedBy,
-                SanitizeMetadata(finding.Metadata),
+                PublicMetadataSanitizer.Sanitize(finding.Metadata),
                 finding.Fingerprint.Value);
         }
 
@@ -246,43 +246,6 @@ namespace Archon.Application.Rules
                 finding.Severity.Value,
                 finding.Confidence.Value,
                 finding.Fingerprint.Value);
-        }
-
-        /// <summary>
-        /// Produces credential-safe metadata for public API responses.
-        /// </summary>
-        /// <param name="metadata">The source metadata value to sanitize.</param>
-        /// <returns>Metadata with secret-like property names removed.</returns>
-        private static GraphMetadata SanitizeMetadata(GraphMetadata metadata)
-        {
-            // The current metadata model exposes canonical JSON, so sanitation reconstructs an allowed lower camel case object from safe fields only.
-            using System.Text.Json.JsonDocument document = System.Text.Json.JsonDocument.Parse(metadata.ToCanonicalJson());
-            Dictionary<string, object?> values = new(StringComparer.Ordinal);
-            foreach (System.Text.Json.JsonProperty property in document.RootElement.EnumerateObject())
-            {
-                if (IsSafeMetadataName(property.Name))
-                {
-                    values[property.Name] = property.Value.Clone();
-                }
-            }
-
-            return values.Count == 0 ? GraphMetadata.Empty : GraphMetadata.From(values);
-        }
-
-        /// <summary>
-        /// Determines whether a metadata property is safe to expose through public query APIs.
-        /// </summary>
-        /// <param name="name">The metadata property name to inspect.</param>
-        /// <returns><see langword="true"/> when the name is lower camel case and not secret-like; otherwise, <see langword="false"/>.</returns>
-        private static bool IsSafeMetadataName(string name)
-        {
-            // Stable lower camel case metadata is allowed, while obvious secret-bearing fields are omitted defensively.
-            return !string.IsNullOrWhiteSpace(name)
-                && char.IsLower(name[0])
-                && !name.Contains("secret", StringComparison.OrdinalIgnoreCase)
-                && !name.Contains("password", StringComparison.OrdinalIgnoreCase)
-                && !name.Contains("token", StringComparison.OrdinalIgnoreCase)
-                && !name.Contains("connectionString", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>

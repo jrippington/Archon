@@ -121,7 +121,8 @@ namespace Archon.Infrastructure.Neo4j.Persistence
             }
 
             if (snapshot.Nodes.Any(node => !StringComparer.Ordinal.Equals(node.SnapshotStableKey.Value, snapshotStableKey))
-                || snapshot.Evidence.Any(evidence => !StringComparer.Ordinal.Equals(evidence.SnapshotStableKey.Value, snapshotStableKey)))
+                || snapshot.Evidence.Any(evidence => !StringComparer.Ordinal.Equals(evidence.SnapshotStableKey.Value, snapshotStableKey))
+                || snapshot.Metrics.Any(metric => !StringComparer.Ordinal.Equals(metric.SnapshotStableKey.Value, snapshotStableKey)))
             {
                 return SnapshotValidationResult.Failure("MismatchedSnapshotScope", "Minimal snapshot records must use the snapshot header stable key as their snapshot scope.");
             }
@@ -130,6 +131,11 @@ namespace Archon.Infrastructure.Neo4j.Persistence
             if (snapshot.Nodes.Any(node => node.PrimaryEvidenceStableKey is not null && !evidenceStableKeys.Contains(node.PrimaryEvidenceStableKey.Value.Value)))
             {
                 return SnapshotValidationResult.Failure("MissingNodeEvidenceReference", "Architecture nodes must not reference missing primary evidence records.");
+            }
+
+            if (snapshot.Metrics.Any(metric => metric.PrimaryEvidenceStableKey is not null && !evidenceStableKeys.Contains(metric.PrimaryEvidenceStableKey.Value.Value)))
+            {
+                return SnapshotValidationResult.Failure("MissingMetricEvidenceReference", "Metrics must not reference missing primary evidence records.");
             }
 
             return SnapshotValidationResult.Success();
@@ -194,6 +200,11 @@ namespace Archon.Infrastructure.Neo4j.Persistence
                         await RunAsync(transaction, NodeMergeCypher, _mapper.MapNode(node)).ConfigureAwait(false);
                     }
 
+                    foreach (MetricRecord metric in snapshot.Metrics)
+                    {
+                        await RunAsync(transaction, MetricMergeCypher, _mapper.MapMetric(metric)).ConfigureAwait(false);
+                    }
+
                     foreach (EvidenceRecord evidence in canonicalEvidence.Records)
                     {
                         await RunAsync(transaction, EvidenceMergeCypher, _mapper.MapEvidence(evidence)).ConfigureAwait(false);
@@ -221,6 +232,31 @@ namespace Archon.Infrastructure.Neo4j.Persistence
                         nodeEvidenceRelationships++;
                     }
 
+                    int metricEvidenceRelationships = 0;
+                    foreach (MetricRecord metric in snapshot.Metrics.Where(metric => metric.PrimaryEvidenceStableKey is not null))
+                    {
+                        string canonicalEvidenceStableKey = canonicalEvidence.CanonicalStableKeyByInputStableKey[metric.PrimaryEvidenceStableKey!.Value.Value];
+                        await RunAsync(transaction, MetricEvidenceRelationshipCypher, new Dictionary<string, object?>(StringComparer.Ordinal)
+                        {
+                            ["snapshotStableKey"] = snapshot.SnapshotHeader!.StableKey.Value,
+                            ["metricStableKey"] = metric.StableKey.Value,
+                            ["evidenceStableKey"] = canonicalEvidenceStableKey
+                        }).ConfigureAwait(false);
+                        metricEvidenceRelationships++;
+                    }
+
+                    int metricTargetRelationships = 0;
+                    foreach (MetricRecord metric in snapshot.Metrics.Where(metric => metric.NodeStableKey is not null))
+                    {
+                        await RunAsync(transaction, MetricNodeTargetRelationshipCypher, new Dictionary<string, object?>(StringComparer.Ordinal)
+                        {
+                            ["snapshotStableKey"] = snapshot.SnapshotHeader!.StableKey.Value,
+                            ["metricStableKey"] = metric.StableKey.Value,
+                            ["nodeStableKey"] = metric.NodeStableKey!.Value.Value
+                        }).ConfigureAwait(false);
+                        metricTargetRelationships++;
+                    }
+
                     return new SnapshotPersistenceCounts(
                         snapshot.Repositories.Count,
                         snapshot.Solutions.Count,
@@ -229,9 +265,12 @@ namespace Archon.Infrastructure.Neo4j.Persistence
                         canonicalEvidence.Records.Count,
                         architectureRelationships: 0,
                         snapshotSolutionRelationships: snapshot.Solutions.Count,
-                        nodeEvidenceRelationships,
+                        nodeEvidenceRelationships: nodeEvidenceRelationships,
                         relationshipEndpointRelationships: 0,
-                        relationshipEvidenceRelationships: 0);
+                        relationshipEvidenceRelationships: 0,
+                        metrics: snapshot.Metrics.Count,
+                        metricEvidenceRelationships: metricEvidenceRelationships,
+                        metricTargetRelationships: metricTargetRelationships);
                 }).ConfigureAwait(false);
         }
 
@@ -296,6 +335,23 @@ SET node.nodeKind = $nodeKind,
     node.metadataJson = $metadataJson,
     node.fingerprint = $fingerprint";
 
+        private const string MetricMergeCypher = @"
+MERGE (metric:ArchonMetric { snapshotStableKey: $snapshotStableKey, stableKey: $stableKey })
+SET metric.metricKind = $metricKind,
+    metric.scopeKind = $scopeKind,
+    metric.nodeStableKey = $nodeStableKey,
+    metric.edgeStableKey = $edgeStableKey,
+    metric.primaryEvidenceStableKey = $primaryEvidenceStableKey,
+    metric.name = $name,
+    metric.numericValue = $numericValue,
+    metric.textValue = $textValue,
+    metric.unit = $unit,
+    metric.confidence = $confidence,
+    metric.hasUnknownData = $hasUnknownData,
+    metric.unknownReason = $unknownReason,
+    metric.metadataJson = $metadataJson,
+    metric.fingerprint = $fingerprint";
+
         private const string EvidenceMergeCypher = @"
 MERGE (evidence:ArchonEvidence { snapshotStableKey: $snapshotStableKey, stableKey: $stableKey })
 SET evidence.evidenceKind = $evidenceKind,
@@ -322,6 +378,16 @@ MERGE (snapshot)-[:INCLUDES_SOLUTION]->(solution)";
 MATCH (node:ArchonNode { snapshotStableKey: $snapshotStableKey, stableKey: $nodeStableKey })
 MATCH (evidence:ArchonEvidence { snapshotStableKey: $snapshotStableKey, stableKey: $evidenceStableKey })
 MERGE (node)-[:SUPPORTED_BY_EVIDENCE]->(evidence)";
+
+        private const string MetricEvidenceRelationshipCypher = @"
+MATCH (metric:ArchonMetric { snapshotStableKey: $snapshotStableKey, stableKey: $metricStableKey })
+MATCH (evidence:ArchonEvidence { snapshotStableKey: $snapshotStableKey, stableKey: $evidenceStableKey })
+MERGE (metric)-[:SUPPORTED_BY_EVIDENCE]->(evidence)";
+
+        private const string MetricNodeTargetRelationshipCypher = @"
+MATCH (metric:ArchonMetric { snapshotStableKey: $snapshotStableKey, stableKey: $metricStableKey })
+MATCH (node:ArchonNode { snapshotStableKey: $snapshotStableKey, stableKey: $nodeStableKey })
+MERGE (metric)-[:MEASURES_NODE]->(node)";
 
         /// <summary>
         /// Captures validation success or a safe persistence error.

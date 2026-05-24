@@ -62,6 +62,38 @@ The hotlist is the controlled product-facing list of persisted findings. It retu
 
 A controlled query is an API read operation whose filters, page bounds, ordering, and response shape are defined by Archon code. Controlled queries protect the graph by accepting only approved values instead of caller-provided Cypher, SQL, JSONPath, or unrestricted predicate text.
 
+## Dependency cycle
+
+A dependency cycle is a directed path through dependency-like architecture edges that returns to the starting node. Archon reports cycles through stable node keys, stable edge keys, evidence references, confidence, unknown state, truncation metadata, and a `cycle://` stable key rather than Neo4j internal IDs.
+
+## Snapshot diff
+
+A snapshot diff is a deterministic comparison between two persisted architecture snapshots. Archon matches records by stable key, compares fingerprints, and classifies nodes, edges, findings, and metrics as added, removed, changed, or unchanged.
+
+## Changed record
+
+A changed record is a snapshot diff row whose stable key exists in both compared snapshots but whose normalized fingerprints differ. The stable key preserves logical continuity, while the fingerprint difference signals content drift.
+
+## Truncation metadata
+
+Truncation metadata describes how many matching detail rows existed for a bounded query, how many were returned, which skip/take bounds were applied, and whether rows were omitted before or after the returned page.
+
+## Validation problem
+
+A validation problem is the structured client-error response returned when a controlled API request is malformed or unsupported. WP013 query endpoints use validation problems for missing snapshot identities, invalid paging values, unsupported snapshot diff domains or change kinds, missing snapshots, and incompatible snapshot comparisons so callers can correct requests without inspecting server logs.
+
+## Public metadata sanitizer
+
+The public metadata sanitizer is the application-layer safeguard that removes metadata properties with unsafe or secret-like names before rule detail, finding detail, metric, cycle, hotspot, or architecture-rule DTOs cross the API boundary. It preserves safe lower camel case diagnostic metadata but omits fields whose names suggest passwords, secrets, tokens, or connection strings.
+
+## Cycle path
+
+A cycle path is the ordered node and edge sequence that explains a dependency cycle. The node path repeats its first node at the end so the closure is explicit, while the edge path contains one stable edge key for each hop.
+
+## Cycle participation
+
+Cycle participation is the graph metric value that counts how many returned canonical dependency cycles contain an architecture node. It helps contributors find nodes that are part of circular dependency structures before inspecting the path-level cycle records.
+
 ## Copied-output rule loading
 
 Copied-output rule loading is the rule catalog runtime model where repository-root `rules/**/*.json` files are copied to build or publish output under `rules/`, and the loader reads `AppContext.BaseDirectory/rules` instead of walking back to the source repository. This keeps local tests, deployed binaries, and host initialization aligned.
@@ -209,6 +241,18 @@ Application type classification is the WP005 project metadata value that places 
 ## Architecture relationship
 
 An architecture relationship is the domain fact that one architecture node relates to another. Examples include a project referencing a package, a service calling an endpoint, or a component depending on configuration.
+
+## Architecture-rule result
+
+An architecture-rule result is a deterministic query-side result from a generic built-in architecture check over completed snapshot facts. It carries an `architecture-rule://` stable key, rule/check identity, category, status, target stable key, contribution references, confidence, unknown state, metadata, and fingerprint.
+
+## Review required
+
+Review required is an architecture-rule result status that means the graph indicates change risk or policy attention rather than a proven violation. High fan-in shared-library review results use this status.
+
+## Target stable key
+
+A target stable key is the stable key of the graph object that a metric, hotspot, architecture-rule result, or other analysis output is about. It remains a logical graph identity, not a database-local ID.
 
 ## External integration
 
@@ -649,6 +693,18 @@ A metadata-only symbol is a Roslyn symbol resolved from a referenced assembly or
 ## Metric
 
 A metric is a durable computed value for a graph, snapshot, project, architecture node, architecture relationship, or modernization scope.
+
+## Hotspot
+
+A hotspot is a deterministic architecture triage result derived from existing snapshot facts such as metrics, findings, graph nodes, and dependency-cycle participation. Hotspots use `hotspot://` stable keys and carry score, rank, category, target identity, contribution references, confidence, unknown state, metadata, and fingerprint.
+
+## Hotspot score
+
+A hotspot score is the numeric value used to decide whether a target crosses a category threshold and how it ranks within that category. For metric-derived hotspots the score is usually the contributing metric value; for finding concentration it is the count of open findings on the target.
+
+## Hotspot rank
+
+A hotspot rank is the one-based deterministic ordering position within a hotspot category. Higher scores rank first, and equal scores are tie-broken by stable target identity so paging and API responses remain repeatable.
 
 ## Neo4j
 

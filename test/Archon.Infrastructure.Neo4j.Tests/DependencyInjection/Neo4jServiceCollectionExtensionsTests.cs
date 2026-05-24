@@ -1,3 +1,4 @@
+using Archon.Application.Metrics;
 using Archon.Application.Rules;
 using Archon.Infrastructure.Neo4j.Configuration;
 using Archon.Infrastructure.Neo4j.DependencyInjection;
@@ -42,6 +43,7 @@ namespace Archon.Infrastructure.Neo4j.Tests.DependencyInjection
             Assert.NotNull(serviceProvider.GetRequiredService<IRuleCatalogStore>());
             Assert.NotNull(serviceProvider.GetRequiredService<IFindingStore>());
             Assert.NotNull(serviceProvider.GetRequiredService<IHotlistQueryStore>());
+            Assert.NotNull(serviceProvider.GetRequiredService<IMetricQueryStore>());
             Assert.Contains(healthRegistrations, registration => registration.Name == Neo4jHealthCheck.Name);
         }
 

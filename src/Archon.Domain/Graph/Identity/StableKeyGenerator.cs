@@ -309,13 +309,13 @@ namespace Archon.Domain.Graph.Identity
         /// Generates a metric stable key.
         /// </summary>
         /// <param name="snapshotStableKey">The snapshot stable key that scopes the metric.</param>
-        /// <param name="metricName">The metric name.</param>
+        /// <param name="metricKind">The stable metric kind.</param>
         /// <param name="scopeIdentity">The metric scope identity or discriminator.</param>
         /// <returns>A stable key with the <c>metric://</c> prefix.</returns>
-        public static StableKey ForMetric(string? snapshotStableKey, string? metricName, string? scopeIdentity)
+        public static StableKey ForMetric(string? snapshotStableKey, string? metricKind, string? scopeIdentity)
         {
-            // Metrics are snapshot-scoped first-class outputs, so the key includes snapshot and scope information.
-            return new StableKey($"metric://{RequireText(snapshotStableKey, nameof(snapshotStableKey))}/{RequireText(metricName, nameof(metricName))}/{RequireText(scopeIdentity, nameof(scopeIdentity))}");
+            // Metrics are snapshot-scoped first-class outputs, so the key includes snapshot, kind, and scope information.
+            return new StableKey($"metric://{RequireText(snapshotStableKey, nameof(snapshotStableKey))}/{RequireText(metricKind, nameof(metricKind))}/{RequireText(scopeIdentity, nameof(scopeIdentity))}");
         }
 
         /// <summary>

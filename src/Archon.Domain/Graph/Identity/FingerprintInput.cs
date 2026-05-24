@@ -105,6 +105,18 @@ namespace Archon.Domain.Graph.Identity
         }
 
         /// <summary>
+        /// Adds a diff-relevant field to the fingerprint input from an optional decimal value.
+        /// </summary>
+        /// <param name="name">The stable field name.</param>
+        /// <param name="value">The optional decimal value to include.</param>
+        /// <returns>The current builder so calls can be chained.</returns>
+        public FingerprintInput AddField(string? name, decimal? value)
+        {
+            // Decimal values use invariant formatting so metric values hash the same across cultures and machines.
+            return AddField(name, value?.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        /// <summary>
         /// Adds canonical metadata to the fingerprint input.
         /// </summary>
         /// <param name="metadata">The canonical metadata value to include.</param>

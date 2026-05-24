@@ -10,6 +10,10 @@ namespace Archon.Domain.Graph.ControlledValues
     {
         /// <summary>Represents a metric scoped to an extraction snapshot.</summary>
         public static readonly MetricScopeKind Snapshot = new("Snapshot");
+        /// <summary>Represents a metric scoped to a repository boundary.</summary>
+        public static readonly MetricScopeKind Repository = new("Repository");
+        /// <summary>Represents a metric scoped to a solution boundary.</summary>
+        public static readonly MetricScopeKind Solution = new("Solution");
         /// <summary>Represents a metric scoped to an architecture node.</summary>
         public static readonly MetricScopeKind Node = new("Node");
         /// <summary>Represents a metric scoped to an architecture edge.</summary>

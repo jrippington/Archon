@@ -22,6 +22,19 @@ namespace Archon.Application.Graph.Persistence
         private readonly List<ExtractedArchitectureSnapshot> _snapshots = [];
 
         /// <summary>
+        /// Gets a deterministic copy of snapshots written during the current process for in-memory query adapters and tests.
+        /// </summary>
+        /// <returns>A read-only snapshot of in-memory persisted architecture snapshots.</returns>
+        public IReadOnlyList<ExtractedArchitectureSnapshot> GetSnapshotsSnapshotForDiagnostics()
+        {
+            // The copy prevents query callers from mutating the writer's internal process-local persistence list.
+            lock (_syncRoot)
+            {
+                return _snapshots.ToArray();
+            }
+        }
+
+        /// <summary>
         /// Persists one assembled snapshot into process memory and reports a successful application-owned result.
         /// </summary>
         /// <param name="snapshot">The assembled architecture snapshot to persist.</param>

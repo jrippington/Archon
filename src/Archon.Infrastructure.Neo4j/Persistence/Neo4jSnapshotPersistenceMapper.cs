@@ -225,6 +225,9 @@ namespace Archon.Infrastructure.Neo4j.Persistence
                 ["numericValue"] = metric.NumericValue,
                 ["textValue"] = metric.TextValue,
                 ["unit"] = metric.Unit,
+                ["confidence"] = metric.Confidence.Value,
+                ["hasUnknownData"] = metric.UnknownState.HasUnknownData,
+                ["unknownReason"] = metric.UnknownState.UnknownReason,
                 ["metadataJson"] = metric.Metadata.ToCanonicalJson(),
                 ["fingerprint"] = metric.Fingerprint.Value
             };

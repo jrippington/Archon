@@ -1,3 +1,9 @@
+using Archon.Application.ArchitectureRules;
+using Archon.Application.Cycles;
+using Archon.Application.Diff;
+using Archon.Application.Graph.Persistence;
+using Archon.Application.Hotspots;
+using Archon.Application.Metrics;
 using Archon.Application.Rules;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -19,10 +25,17 @@ namespace Archon.Api.Query
             // Query services default to in-memory stores so tests and local hosts work without Neo4j; infrastructure registrations can override them.
             ArgumentNullException.ThrowIfNull(services);
             services.AddLogging();
+            services.TryAddSingleton<IArchitectureSnapshotWriter, InMemoryArchitectureSnapshotWriter>();
             services.TryAddSingleton<IRuleCatalogStore, InMemoryRuleCatalogStore>();
             services.TryAddSingleton<IFindingStore, InMemoryFindingStore>();
             services.TryAddSingleton<IHotlistQueryStore, InMemoryHotlistQueryStore>();
             services.TryAddSingleton<IHotlistQueryService, HotlistQueryService>();
+            services.TryAddSingleton<IMetricQueryStore, InMemoryMetricQueryStore>();
+            services.TryAddSingleton<IMetricQueryService, MetricQueryService>();
+            services.TryAddSingleton<ICycleQueryService, CycleQueryService>();
+            services.TryAddSingleton<IHotspotQueryService, HotspotQueryService>();
+            services.TryAddSingleton<IArchitectureRuleQueryService, ArchitectureRuleQueryService>();
+            services.TryAddSingleton<ISnapshotDiffService, SnapshotDiffService>();
             return services;
         }
     }

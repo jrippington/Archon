@@ -1,3 +1,4 @@
+using Archon.Application.Metrics;
 using Archon.Application.Rules;
 using Archon.Infrastructure.Neo4j.Configuration;
 using Archon.Infrastructure.Neo4j.Driver;
@@ -54,6 +55,7 @@ namespace Archon.Infrastructure.Neo4j.DependencyInjection
             services.AddSingleton<IRuleCatalogStore, Neo4jRuleCatalogStore>();
             services.AddSingleton<IFindingStore, Neo4jFindingStore>();
             services.AddSingleton<IHotlistQueryStore, Neo4jHotlistQueryStore>();
+            services.AddSingleton<IMetricQueryStore, Neo4jMetricQueryStore>();
             services.TryAddSingleton<Neo4jHealthCheck>();
             services.TryAddEnumerable(ServiceDescriptor.Singleton<IHealthCheck, Neo4jHealthCheck>());
 

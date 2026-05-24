@@ -53,15 +53,21 @@ namespace Archon.Infrastructure.Neo4j.Tests.Persistence
             Assert.Equal(1, result.Counts.Snapshots);
             Assert.Equal(1, result.Counts.Nodes);
             Assert.Equal(1, result.Counts.Evidence);
+            Assert.Equal(1, result.Counts.Metrics);
             Assert.Equal(1, result.Counts.SnapshotSolutionRelationships);
             Assert.Equal(1, result.Counts.NodeEvidenceRelationships);
+            Assert.Equal(1, result.Counts.MetricEvidenceRelationships);
+            Assert.Equal(1, result.Counts.MetricTargetRelationships);
             Assert.Equal(1, counts.Repositories);
             Assert.Equal(1, counts.Solutions);
             Assert.Equal(1, counts.Snapshots);
             Assert.Equal(1, counts.Nodes);
             Assert.Equal(1, counts.Evidence);
+            Assert.Equal(1, counts.Metrics);
             Assert.Equal(1, counts.SnapshotSolutionRelationships);
             Assert.Equal(1, counts.NodeEvidenceRelationships);
+            Assert.Equal(1, counts.MetricEvidenceRelationships);
+            Assert.Equal(1, counts.MetricTargetRelationships);
             Assert.Equal("sha256:node-minimal-one", nodeFingerprint);
         }
 
@@ -173,6 +179,7 @@ namespace Archon.Infrastructure.Neo4j.Tests.Persistence
             SnapshotHeader header = CreateHeader(repositoryStableKey, snapshotStableKey, suffix);
             EvidenceRecord firstEvidence = CreateEvidence(snapshotStableKey, firstEvidenceStableKey, suffix);
             ArchitectureNode firstNode = CreateNode(snapshotStableKey, new StableKey($"project://{suffix}"), firstEvidenceStableKey, suffix, "Project");
+            MetricRecord metric = CreateMetric(snapshotStableKey, new StableKey($"metric://{suffix}/SnapshotNodeCount/Snapshot"), firstNode.StableKey, firstEvidenceStableKey, suffix, duplicateEvidence ? 2 : 1);
 
             List<ArchitectureNode> nodes = [firstNode];
             List<EvidenceRecord> evidence = [firstEvidence];
@@ -182,7 +189,7 @@ namespace Archon.Infrastructure.Neo4j.Tests.Persistence
                 nodes.Add(CreateNode(snapshotStableKey, new StableKey($"project://{suffix}/second"), secondEvidenceStableKey, suffix, "Second Project"));
             }
 
-            return new ExtractedArchitectureSnapshot(header, new[] { repository }, new[] { solution }, nodes, Array.Empty<ArchitectureEdge>(), evidence, Array.Empty<RuleDefinition>(), Array.Empty<FindingRecord>(), Array.Empty<MetricRecord>(), Array.Empty<GeneratedSummary>(), Array.Empty<string>(), Array.Empty<string>());
+            return new ExtractedArchitectureSnapshot(header, new[] { repository }, new[] { solution }, nodes, Array.Empty<ArchitectureEdge>(), evidence, Array.Empty<RuleDefinition>(), Array.Empty<FindingRecord>(), new[] { metric }, Array.Empty<GeneratedSummary>(), Array.Empty<string>(), Array.Empty<string>());
         }
 
         /// <summary>
@@ -314,6 +321,37 @@ namespace Archon.Infrastructure.Neo4j.Tests.Persistence
         }
 
         /// <summary>
+        /// Creates a snapshot-owned metric for a persistence test snapshot.
+        /// </summary>
+        /// <param name="snapshotStableKey">The stable key of the snapshot that scopes the metric.</param>
+        /// <param name="stableKey">The stable key that identifies the metric.</param>
+        /// <param name="nodeStableKey">The node stable key targeted by the metric.</param>
+        /// <param name="evidenceStableKey">The primary evidence stable key explaining the metric.</param>
+        /// <param name="suffix">The unique suffix used in fingerprints.</param>
+        /// <param name="nodeCount">The node count value represented by the metric.</param>
+        /// <returns>A metric record suitable for persistence validation.</returns>
+        private static MetricRecord CreateMetric(StableKey snapshotStableKey, StableKey stableKey, StableKey nodeStableKey, StableKey evidenceStableKey, string suffix, decimal nodeCount)
+        {
+            // The metric targets the first node so persistence can validate metric-to-evidence and metric-to-target relationships.
+            return new MetricRecord(
+                snapshotStableKey,
+                stableKey,
+                "SnapshotNodeCount",
+                MetricScopeKind.Snapshot,
+                nodeStableKey,
+                edgeStableKey: null,
+                evidenceStableKey,
+                "Snapshot node count",
+                nodeCount,
+                textValue: null,
+                "nodes",
+                Confidence.Certain,
+                UnknownState.Known,
+                GraphMetadata.Empty,
+                new Fingerprint($"sha256:metric-{suffix}"));
+        }
+
+        /// <summary>
         /// Reads persisted graph counts needed by integration assertions.
         /// </summary>
         /// <param name="driver">The configured Neo4j driver used to query the database.</param>
@@ -328,9 +366,12 @@ CALL { MATCH (solution:ArchonSolution) RETURN count(solution) AS solutions }
 CALL { MATCH (snapshot:ArchonSnapshot) RETURN count(snapshot) AS snapshots }
 CALL { MATCH (node:ArchonNode) RETURN count(node) AS nodes }
 CALL { MATCH (evidence:ArchonEvidence) RETURN count(evidence) AS evidence }
+CALL { MATCH (metric:ArchonMetric) RETURN count(metric) AS metrics }
 CALL { MATCH (:ArchonSnapshot)-[includes:INCLUDES_SOLUTION]->(:ArchonSolution) RETURN count(includes) AS snapshotSolutionRelationships }
 CALL { MATCH (:ArchonNode)-[supported:SUPPORTED_BY_EVIDENCE]->(:ArchonEvidence) RETURN count(supported) AS nodeEvidenceRelationships }
-RETURN repositories, solutions, snapshots, nodes, evidence, snapshotSolutionRelationships, nodeEvidenceRelationships");
+CALL { MATCH (:ArchonMetric)-[supported:SUPPORTED_BY_EVIDENCE]->(:ArchonEvidence) RETURN count(supported) AS metricEvidenceRelationships }
+CALL { MATCH (:ArchonMetric)-[measures:MEASURES_NODE]->(:ArchonNode) RETURN count(measures) AS metricTargetRelationships }
+RETURN repositories, solutions, snapshots, nodes, evidence, metrics, snapshotSolutionRelationships, nodeEvidenceRelationships, metricEvidenceRelationships, metricTargetRelationships");
             IRecord record = await cursor.SingleAsync();
             return new GraphCounts(
                 record["repositories"].As<long>(),
@@ -338,8 +379,11 @@ RETURN repositories, solutions, snapshots, nodes, evidence, snapshotSolutionRela
                 record["snapshots"].As<long>(),
                 record["nodes"].As<long>(),
                 record["evidence"].As<long>(),
+                record["metrics"].As<long>(),
                 record["snapshotSolutionRelationships"].As<long>(),
-                record["nodeEvidenceRelationships"].As<long>());
+                record["nodeEvidenceRelationships"].As<long>(),
+                record["metricEvidenceRelationships"].As<long>(),
+                record["metricTargetRelationships"].As<long>());
         }
 
         /// <summary>
@@ -368,8 +412,11 @@ RETURN repositories, solutions, snapshots, nodes, evidence, snapshotSolutionRela
         /// <param name="Snapshots">The snapshot node count.</param>
         /// <param name="Nodes">The architecture node count.</param>
         /// <param name="Evidence">The evidence node count.</param>
+        /// <param name="Metrics">The metric node count.</param>
         /// <param name="SnapshotSolutionRelationships">The snapshot-to-solution relationship count.</param>
         /// <param name="NodeEvidenceRelationships">The node-to-evidence relationship count.</param>
-        private sealed record GraphCounts(long Repositories, long Solutions, long Snapshots, long Nodes, long Evidence, long SnapshotSolutionRelationships, long NodeEvidenceRelationships);
+        /// <param name="MetricEvidenceRelationships">The metric-to-evidence relationship count.</param>
+        /// <param name="MetricTargetRelationships">The metric-to-target relationship count.</param>
+        private sealed record GraphCounts(long Repositories, long Solutions, long Snapshots, long Nodes, long Evidence, long Metrics, long SnapshotSolutionRelationships, long NodeEvidenceRelationships, long MetricEvidenceRelationships, long MetricTargetRelationships);
     }
 }

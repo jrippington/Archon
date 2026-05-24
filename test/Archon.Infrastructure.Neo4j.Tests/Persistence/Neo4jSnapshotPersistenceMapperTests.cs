@@ -289,6 +289,9 @@ namespace Archon.Infrastructure.Neo4j.Tests.Persistence
             Assert.Equal(12.5m, parameters["numericValue"]);
             Assert.Equal("twelve point five", parameters["textValue"]);
             Assert.Equal("relationships", parameters["unit"]);
+            Assert.Equal(0.75m, parameters["confidence"]);
+            Assert.Equal(true, parameters["hasUnknownData"]);
+            Assert.Equal("Partial relationship evidence.", parameters["unknownReason"]);
             Assert.Equal("sha256:metric", parameters["fingerprint"]);
         }
 
@@ -635,6 +638,8 @@ namespace Archon.Infrastructure.Neo4j.Tests.Persistence
                 12.5m,
                 "twelve point five",
                 "relationships",
+                new Confidence(0.75m),
+                UnknownState.Unknown("Partial relationship evidence."),
                 GraphMetadata.Empty,
                 new Fingerprint("sha256:metric"));
         }

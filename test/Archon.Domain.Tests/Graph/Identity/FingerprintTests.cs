@@ -145,6 +145,68 @@ namespace Archon.Domain.Tests.Graph.Identity
         }
 
         /// <summary>
+        /// Verifies metric fingerprint generation changes when the computed value changes for the same stable metric identity.
+        /// </summary>
+        [Fact]
+        public void MetricFingerprintChangesWhenComputedValueChanges()
+        {
+            // WP013 metric diffs depend on the stable key remaining fixed while changed values produce a new fingerprint.
+            Fingerprint original = FingerprintGenerator.ForMetric(
+                "SnapshotNodeCount",
+                MetricScopeKind.Snapshot,
+                "Snapshot",
+                numericValue: 2,
+                textValue: null,
+                unit: "nodes",
+                hasUnknownData: false,
+                unknownReason: null,
+                GraphMetadata.Empty);
+            Fingerprint changed = FingerprintGenerator.ForMetric(
+                "SnapshotNodeCount",
+                MetricScopeKind.Snapshot,
+                "Snapshot",
+                numericValue: 3,
+                textValue: null,
+                unit: "nodes",
+                hasUnknownData: false,
+                unknownReason: null,
+                GraphMetadata.Empty);
+
+            Assert.NotEqual(original, changed);
+        }
+
+        /// <summary>
+        /// Verifies metric fingerprint generation includes unknown-state context when inputs are incomplete.
+        /// </summary>
+        [Fact]
+        public void MetricFingerprintIncludesUnknownState()
+        {
+            // Unknown state is part of the persisted metric meaning, so known and incomplete metrics must not hash identically.
+            Fingerprint known = FingerprintGenerator.ForMetric(
+                "SnapshotNodeCount",
+                MetricScopeKind.Snapshot,
+                "Snapshot",
+                numericValue: 0,
+                textValue: null,
+                unit: "nodes",
+                hasUnknownData: false,
+                unknownReason: null,
+                GraphMetadata.Empty);
+            Fingerprint unknown = FingerprintGenerator.ForMetric(
+                "SnapshotNodeCount",
+                MetricScopeKind.Snapshot,
+                "Snapshot",
+                numericValue: 0,
+                textValue: null,
+                unit: "nodes",
+                hasUnknownData: true,
+                unknownReason: "No graph facts were available.",
+                GraphMetadata.Empty);
+
+            Assert.NotEqual(known, unknown);
+        }
+
+        /// <summary>
         /// Verifies fingerprint generation methods exist for every required graph record category.
         /// </summary>
         [Fact]
@@ -155,7 +217,7 @@ namespace Archon.Domain.Tests.Graph.Identity
             Fingerprint edge = FingerprintGenerator.ForEdge(EdgeKind.DependsOn, StableKeyGenerator.ForProject("src/Customer.Api/Customer.Api.csproj"), StableKeyGenerator.ForProject("src/Customer.Application/Customer.Application.csproj"), true, KnowledgeKind.Fact, GraphMetadata.Empty);
             Fingerprint evidence = FingerprintGenerator.ForEvidence(EvidenceKind.ProjectFile, "src/Customer.Api/Customer.Api.csproj", 1, 1, "ProjectReference", KnowledgeKind.Fact, GraphMetadata.Empty);
             Fingerprint finding = FingerprintGenerator.ForFinding("ARCHON001", "1.0.0", FindingSeverity.High, FindingStatus.Open, "Unsupported framework", KnowledgeKind.Fact, GraphMetadata.Empty);
-            Fingerprint metric = FingerprintGenerator.ForMetric("ProjectCount", MetricScopeKind.Graph, "snapshot://current", GraphMetadata.Empty);
+            Fingerprint metric = FingerprintGenerator.ForMetric("ProjectCount", MetricScopeKind.Graph, "snapshot://current", numericValue: 1, textValue: null, unit: "projects", hasUnknownData: false, unknownReason: null, GraphMetadata.Empty);
             Fingerprint summary = FingerprintGenerator.ForGeneratedSummary(SummaryKind.Graph, "Architecture Overview", "Markdown", "Current graph summary", GraphMetadata.Empty);
 
             Assert.All(new[] { node, edge, evidence, finding, metric, summary }, fingerprint => Assert.StartsWith("sha256:", fingerprint.Value, StringComparison.Ordinal));

@@ -248,12 +248,22 @@ dotnet test .\test\Archon.Application.Tests\Archon.Application.Tests.csproj --fi
 dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj --filter "FullyQualifiedName~Neo4jRuleCatalogStoreTests|FullyQualifiedName~Neo4jServiceCollectionExtensionsTests"
 ```
 
-Run the query API tests after changing rule catalog query DTOs, hotlist filters, paging, deterministic ordering, finding detail, finding history, route/query-parameter stable-key behavior, suppression endpoint validation, response-size limits, metadata redaction, or endpoint metadata:
+Run the query API tests after changing rule catalog query DTOs, hotlist filters, WP013 metric/cycle/hotspot/architecture-rule/snapshot-diff filters, paging, deterministic ordering, finding detail, finding history, route/query-parameter stable-key behavior, suppression endpoint validation, response-size limits, metadata redaction, logging diagnostics, validation-problem shaping, or endpoint metadata:
 
 ```powershell
 dotnet test .\test\Archon.Api.Query.Tests\Archon.Api.Query.Tests.csproj --filter "FullyQualifiedName~QueryEndpointTests|FullyQualifiedName~ArchonApiQueryProjectReferenceTests"
 dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj --filter "FullyQualifiedName~Neo4jRuleCatalogStoreTests|FullyQualifiedName~Neo4jServiceCollectionExtensionsTests"
 ```
+
+For WP013 query hardening changes and final WP013 readiness checks, also run the focused application and infrastructure projects that own metric, cycle, hotspot, architecture-rule, diff, metadata-safety, and persistence-adapter behavior:
+
+```powershell
+dotnet test .\test\Archon.Api.Query.Tests\Archon.Api.Query.Tests.csproj
+dotnet test .\test\Archon.Application.Tests\Archon.Application.Tests.csproj
+dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj
+```
+
+These targeted projects validate that snapshot metric, graph metric, modernization metric, dependency cycle, hotspot, architecture-rule result, and snapshot diff endpoints keep consistent stable identities, confidence fields, unknown-state fields, evidence references, sanitized metadata, deterministic ordering, bounded paging, validation-problem responses, and no-arbitrary-query boundaries. They also cover the final WP013 readiness path because the application tests own metric calculation, cycle detection, hotspot detection, architecture-rule evaluation, and diff comparison; the API query tests own HTTP contract consistency and validation shaping; and the Neo4j infrastructure tests own snapshot-owned metric persistence and adapter composition. They do not start the Aspire AppHost and they do not create an Archon Discovery UI, dashboard, graph explorer, prompt panel, or any other human-facing product surface.
 
 Then run the solution build gate:
 

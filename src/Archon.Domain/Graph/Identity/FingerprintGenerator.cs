@@ -123,19 +123,43 @@ namespace Archon.Domain.Graph.Identity
         /// <summary>
         /// Generates a metric fingerprint from normalized metric fields.
         /// </summary>
-        /// <param name="metricName">The metric name.</param>
+        /// <param name="metricKind">The stable metric kind.</param>
+        /// <param name="scopeKind">The metric scope kind.</param>
+        /// <param name="scopeIdentity">The stable scope identity or discriminator.</param>
+        /// <param name="numericValue">The optional numeric metric value.</param>
+        /// <param name="textValue">The optional textual metric value.</param>
+        /// <param name="unit">The optional metric unit.</param>
+        /// <param name="hasUnknownData">A value indicating whether the metric carries explicit unknown-state context.</param>
+        /// <param name="unknownReason">The optional reason explaining unknown or incomplete metric input.</param>
+        /// <param name="metadata">The canonical metadata payload for diff-relevant metric details.</param>
+        /// <returns>A deterministic metric fingerprint.</returns>
+        public static Fingerprint ForMetric(string? metricKind, MetricScopeKind scopeKind, string? scopeIdentity, decimal? numericValue, string? textValue, string? unit, bool hasUnknownData, string? unknownReason, GraphMetadata metadata)
+        {
+            // Metric fingerprints include value, unit, scope, unknown state, and metadata so changed computed results can be detected later.
+            return FromInput(FingerprintInput.Create("Metric")
+                .AddField("metricKind", RequireText(metricKind, nameof(metricKind)))
+                .AddField("scopeKind", RequireValue(scopeKind, nameof(scopeKind)).Value)
+                .AddField("scopeIdentity", RequireText(scopeIdentity, nameof(scopeIdentity)))
+                .AddField("numericValue", numericValue)
+                .AddField("textValue", textValue)
+                .AddField("unit", unit)
+                .AddField("hasUnknownData", hasUnknownData)
+                .AddField("unknownReason", unknownReason)
+                .AddMetadata(metadata));
+        }
+
+        /// <summary>
+        /// Generates a legacy metric fingerprint from normalized metric identity fields.
+        /// </summary>
+        /// <param name="metricName">The legacy metric name or metric kind.</param>
         /// <param name="scopeKind">The metric scope kind.</param>
         /// <param name="scopeIdentity">The stable scope identity or discriminator.</param>
         /// <param name="metadata">The canonical metadata payload for diff-relevant metric details.</param>
         /// <returns>A deterministic metric fingerprint.</returns>
         public static Fingerprint ForMetric(string? metricName, MetricScopeKind scopeKind, string? scopeIdentity, GraphMetadata metadata)
         {
-            // Metric fingerprints include scope and metadata so changed computed values or classifications can be detected later.
-            return FromInput(FingerprintInput.Create("Metric")
-                .AddField("metricName", RequireText(metricName, nameof(metricName)))
-                .AddField("scopeKind", RequireValue(scopeKind, nameof(scopeKind)).Value)
-                .AddField("scopeIdentity", RequireText(scopeIdentity, nameof(scopeIdentity)))
-                .AddMetadata(metadata));
+            // Existing callers that only know identity and metadata retain deterministic behavior while richer WP013 paths use the overload above.
+            return ForMetric(metricName, scopeKind, scopeIdentity, numericValue: null, textValue: null, unit: null, hasUnknownData: false, unknownReason: null, metadata);
         }
 
         /// <summary>

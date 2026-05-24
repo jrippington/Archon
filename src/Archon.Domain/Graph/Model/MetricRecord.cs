@@ -23,6 +23,8 @@ namespace Archon.Domain.Graph.Model
         /// <param name="numericValue">The optional numeric metric value.</param>
         /// <param name="textValue">The optional textual metric value.</param>
         /// <param name="unit">The optional unit associated with the metric value.</param>
+        /// <param name="confidence">The confidence associated with the computed metric value.</param>
+        /// <param name="unknownState">The explicit unknown-state information for incomplete metric input.</param>
         /// <param name="metadata">Deterministic metadata for metric details that are not normalized fields.</param>
         /// <param name="fingerprint">The deterministic fingerprint for diff-relevant metric content.</param>
         /// <exception cref="ArgumentException">Thrown when neither <paramref name="numericValue"/> nor <paramref name="textValue"/> is supplied.</exception>
@@ -38,6 +40,8 @@ namespace Archon.Domain.Graph.Model
             decimal? numericValue,
             string? textValue,
             string? unit,
+            Confidence confidence,
+            UnknownState unknownState,
             GraphMetadata metadata,
             Fingerprint fingerprint)
         {
@@ -61,8 +65,60 @@ namespace Archon.Domain.Graph.Model
             NumericValue = numericValue;
             TextValue = normalizedTextValue;
             Unit = GraphFactValidation.OptionalString(unit);
+            Confidence = confidence;
+            UnknownState = unknownState ?? throw new ArgumentNullException(nameof(unknownState));
             Metadata = metadata;
             Fingerprint = fingerprint;
+        }
+
+        /// <summary>
+        /// Initializes a validated metric record model with default known-state confidence for legacy callers.
+        /// </summary>
+        /// <param name="snapshotStableKey">The stable key of the snapshot that scopes the metric.</param>
+        /// <param name="stableKey">The deterministic stable key that identifies the metric within the snapshot contract.</param>
+        /// <param name="metricKind">The metric kind or metric family name.</param>
+        /// <param name="scopeKind">The controlled metric scope kind.</param>
+        /// <param name="nodeStableKey">The optional node stable key scoped by the metric.</param>
+        /// <param name="edgeStableKey">The optional edge stable key scoped by the metric.</param>
+        /// <param name="primaryEvidenceStableKey">The optional primary evidence stable key explaining the metric.</param>
+        /// <param name="name">The developer-facing metric name.</param>
+        /// <param name="numericValue">The optional numeric metric value.</param>
+        /// <param name="textValue">The optional textual metric value.</param>
+        /// <param name="unit">The optional unit associated with the metric value.</param>
+        /// <param name="metadata">Deterministic metadata for metric details that are not normalized fields.</param>
+        /// <param name="fingerprint">The deterministic fingerprint for diff-relevant metric content.</param>
+        public MetricRecord(
+            StableKey snapshotStableKey,
+            StableKey stableKey,
+            string? metricKind,
+            MetricScopeKind scopeKind,
+            StableKey? nodeStableKey,
+            StableKey? edgeStableKey,
+            StableKey? primaryEvidenceStableKey,
+            string? name,
+            decimal? numericValue,
+            string? textValue,
+            string? unit,
+            GraphMetadata metadata,
+            Fingerprint fingerprint)
+            : this(
+                snapshotStableKey,
+                stableKey,
+                metricKind,
+                scopeKind,
+                nodeStableKey,
+                edgeStableKey,
+                primaryEvidenceStableKey,
+                name,
+                numericValue,
+                textValue,
+                unit,
+                Confidence.Certain,
+                UnknownState.Known,
+                metadata,
+                fingerprint)
+        {
+            // The overload preserves existing construction paths while new WP013 metrics can provide explicit confidence and unknown state.
         }
 
         /// <summary>
@@ -119,6 +175,16 @@ namespace Archon.Domain.Graph.Model
         /// Gets the optional unit associated with the metric value.
         /// </summary>
         public string? Unit { get; }
+
+        /// <summary>
+        /// Gets the confidence associated with the computed metric value.
+        /// </summary>
+        public Confidence Confidence { get; }
+
+        /// <summary>
+        /// Gets the explicit unknown-state information for incomplete metric input.
+        /// </summary>
+        public UnknownState UnknownState { get; }
 
         /// <summary>
         /// Gets deterministic metadata for metric details that are not normalized fields.

@@ -1,6 +1,7 @@
 using Archon.Api.Extraction;
 using Archon.Api.Extraction.Contracts;
 using Archon.Application.Extraction.Contracts;
+using Archon.Application.Extraction.Metrics;
 using Archon.Application.Extraction.Pipeline;
 using Archon.Application.Graph.Persistence;
 using Archon.Application.Rules;
@@ -74,10 +75,10 @@ namespace Archon.Api.Extraction.Tests
         }
 
         /// <summary>
-            /// Verifies extraction API service registration composes project, semantic, WP007, WP008, WP009, WP010, unified WP011, and WP012 rule stages instead of the WP004 placeholder stage.
+        /// Verifies extraction API service registration composes project, semantic, WP007, WP008, WP009, WP010, unified WP011, WP012 rule, and WP013 metric stages instead of the WP004 placeholder stage.
         /// </summary>
         [Fact]
-        public void AddArchonExtractionApi_WhenServicesAreBuilt_ShouldRegisterProjectSemanticWp007Wp008Wp009Wp010Wp011AndWp012ExtractionStages()
+        public void AddArchonExtractionApi_WhenServicesAreBuilt_ShouldRegisterProjectSemanticWp007Wp008Wp009Wp010Wp011Wp012AndWp013ExtractionStages()
         {
             // The API module is the existing composition boundary for the extraction pipeline, so this test guards the ordered stage registration path.
             ServiceCollection services = new();
@@ -127,6 +128,11 @@ namespace Archon.Api.Extraction.Tests
                 {
                     Assert.IsType<RuleEvaluationExtractionStage>(stage);
                     Assert.Equal("wp012-rule-catalog-evaluation", stage.StageId);
+                },
+                stage =>
+                {
+                    Assert.IsType<SnapshotMetricExtractionStage>(stage);
+                    Assert.Equal("WP013.SnapshotMetrics", stage.StageId);
                 });
         }
 
@@ -652,7 +658,11 @@ namespace Archon.Api.Extraction.Tests
                 Assert.Equal(100, progress.GetProperty("percentage").GetInt32());
                 Assert.NotEqual(default, progress.GetProperty("lastUpdatedUtc").GetDateTimeOffset());
 
-                Assert.Empty(statusBody.RootElement.GetProperty("warnings").EnumerateArray());
+                Assert.All(statusBody.RootElement.GetProperty("warnings").EnumerateArray(), warning =>
+                {
+                    Assert.Equal("PipelineWarning", warning.GetProperty("code").GetString());
+                    Assert.False(string.IsNullOrWhiteSpace(warning.GetProperty("message").GetString()));
+                });
                 Assert.Empty(statusBody.RootElement.GetProperty("errors").EnumerateArray());
             }
         }
