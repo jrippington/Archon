@@ -4,16 +4,18 @@
 
 This document uses [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md), canonical workspace path `D:\Dev\Archon\docs\foundation\archon_full_concept_brief.md`, as the mandatory source brief for Archon.
 
-The sequence below is mandatory and complete for the API-first and MCP-first delivery of Archon. Every work package must be completed in order. No item in a work package may be deferred, postponed, treated as optional, or left for a later unspecified phase. A work package is complete only when its source-brief requirements, tests, documentation, and acceptance criteria are satisfied.
+The sequence below is mandatory and complete for the API-first and MCP-first delivery of Archon, except for the explicitly deferred WP016 markdown export package described below. Every active work package must be completed in order. No item in an active work package may be deferred, postponed, treated as optional, or left for a later unspecified phase. An active work package is complete only when its source-brief requirements, tests, documentation, and acceptance criteria are satisfied.
 
 This document intentionally contains **no Archon Discovery UI work packages**. The source brief describes a human-facing Discovery UI in [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md) sections 8.1, 28, 35 phases 1, 6, and 7, 36 UI epic, and 41, but the current delivery direction is to complete the full API and MCP product capability before any user-interface delivery is considered. Therefore:
 
 - no `ArchonUi` host is implemented by this work-package sequence;
 - no dashboard, explorer, graph view, evidence viewer, hotlist viewer, prompt panel, or other human-facing UI page is implemented by this work-package sequence;
-- all query, traversal, evidence, hotlist, diff, markdown, and architecture-intelligence capability must instead be exposed through API and MCP surfaces;
+- all query, traversal, evidence, hotlist, diff, and architecture-intelligence capability must instead be exposed through API and MCP surfaces;
 - backend extraction of .NET UI technologies remains in scope because [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md) treats Blazor, Razor, Windows Forms, WPF, WinUI, .NET MAUI, and Avalonia as architecture facts that must be available to API and MCP consumers, not as Archon's own product UI.
 
-The final package in this sequence completes the full API and MCP product capability described by [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md). No API, MCP, extraction, graph, rule, evidence, metric, markdown, or operational capability described by [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md) is left as future work.
+WP016 markdown export is intentionally deferred from this sequence. Markdown generation is likely to change once the Discovery UI information architecture and user workflows are planned, so the sequence now proceeds from WP015 directly to WP017. This deferral applies only to markdown export and generated architecture knowledge-base delivery; it does not defer the underlying deterministic facts, evidence, query, traversal, hotlist, metric, diff, API, MCP, security, or operational capabilities that a future markdown or UI experience would consume.
+
+The final package in this sequence completes the full API and MCP product capability described by [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md), excluding the intentionally deferred WP016 markdown export capability and excluding the already-out-of-scope human-facing Discovery UI. No API, MCP, extraction, graph, rule, evidence, metric, diff, security, or operational capability described by [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md) is left as future work.
 
 ## Source brief reference map
 
@@ -29,9 +31,9 @@ Each work package below references the relevant [`docs/foundation/archon_full_co
 - Extraction domains: [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md) sections 15 through 24 and Appendix E section E.6.
 - Hotlist, rules, findings, and rule catalog: [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md) sections 25 through 27 and Appendices A and B.
 - MCP and Copilot workflows: [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md) sections 29 and 30 and Appendix C.
-- Markdown export: [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md) section 31.
+- Markdown export: [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md) section 31, intentionally deferred as WP016 until after UI direction and information architecture are clearer.
 - Quality, classification, metrics, and architecture rules: [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md) sections 32 through 34.
-- Existing phase and backlog guidance: [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md) sections 35 through 37, adjusted only to remove Archon Discovery UI work packages.
+- Existing phase and backlog guidance: [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md) sections 35 through 37, adjusted to remove Archon Discovery UI work packages and to defer WP016 markdown export until after UI direction and information architecture are clearer.
 - Risks and mitigations: [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md) section 39.
 - Full graph persistence and extraction specification: [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md) Appendix E.
 
@@ -490,14 +492,14 @@ Implement persisted architecture metrics, coupling/hotspot calculations, moderni
 
 ## Objective
 
-Implement the complete API query and management product surface required for non-UI consumers: project catalogue, project details, dependency traversal, dependents, dependency paths, symbol lookup, evidence drill-down, endpoint lookup, worker lookup, UI-technology fact lookup, data-access lookup, configuration usage, integration lookup, hotlist reports, metrics, snapshot diff, markdown export access, repository/solution management, rule catalog visibility, retention, health, readiness, and controlled maintenance.
+Implement the complete API query and management product surface required for non-UI consumers: project catalogue, project details, dependency traversal, dependents, dependency paths, symbol lookup, evidence drill-down, endpoint lookup, worker lookup, UI-technology fact lookup, data-access lookup, configuration usage, integration lookup, hotlist reports, metrics, snapshot diff, repository/solution management, rule catalog visibility, retention, health, readiness, and controlled maintenance. Markdown export access is excluded from WP014 because WP016 markdown generation is intentionally deferred until after UI direction and information architecture are clearer.
 
 ## Mandatory source brief references
 
 - [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md) section 8.1: API Query Module and API Management Module responsibilities.
 - [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md) sections 28.1 through 28.11: informational needs originally described for UI must be satisfied through API responses in this API-first sequence, without UI pages.
 - [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md) section 29.2: MCP tools depend on query capability.
-- [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md) section 31: markdown export access.
+- [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md) section 31: markdown export access, now intentionally deferred with WP016 rather than implemented in WP014.
 - [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md) Appendix E sections E.5.8 and E.9: query model and acceptance criteria.
 
 ## Required implementation
@@ -556,9 +558,15 @@ Implement the complete read-only MCP server product capability for Copilot and o
 
 # WP016 - Markdown Export and Generated Architecture Knowledge Base
 
+## Status
+
+WP016 is intentionally deferred and is not required before proceeding to WP017. Markdown export and generated architecture knowledge-base behavior should be redesigned after the Discovery UI direction, information architecture, and user workflows are better understood. The deferral avoids building a markdown structure that may not match the eventual UI navigation, evidence-drilldown, snapshot-comparison, or report-sharing model.
+
+This deferral does not reduce or postpone the deterministic architecture facts, persisted evidence, API query capabilities, MCP tools/resources/prompts, hotlist, metrics, snapshot diff, security, or operational behavior required by WP001 through WP015 and WP017 through WP018. Those capabilities remain required because they are the data and workflow foundation that both a future markdown generator and a future UI will consume.
+
 ## Objective
 
-Implement generated markdown export as an output of the deterministic architecture model, with persisted generated summaries and API/MCP access to exported architecture knowledge.
+Deferred objective: implement generated markdown export as an output of the deterministic architecture model, with persisted generated summaries and API/MCP access to exported architecture knowledge, after UI direction and information architecture are clearer.
 
 ## Mandatory source brief references
 
@@ -570,6 +578,8 @@ Implement generated markdown export as an output of the deterministic architectu
 
 ## Required implementation
 
+Deferred until this package is reactivated:
+
 - Generate markdown under the structure described by [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md) section 31, including index, system overview, solution inventory, project catalogue, dependency map, runtime map, data access, integration map, modernization hotlist, coupling hotspots, and snapshot diff.
 - Ensure markdown is generated from persisted Neo4j facts, not from AI-invented content or unpersisted transient state.
 - Persist generated summaries as snapshot-owned generated summary nodes.
@@ -578,6 +588,8 @@ Implement generated markdown export as an output of the deterministic architectu
 - Include evidence links, confidence, unknowns, snapshot identity, and generation metadata in exported content.
 
 ## Completion criteria
+
+Not applicable while WP016 remains deferred. When reactivated, this package must satisfy the following criteria or an updated replacement set derived from the then-current UI and product direction:
 
 - Markdown export can be regenerated deterministically for a snapshot.
 - Exported content traces back to persisted graph facts and evidence.
@@ -609,12 +621,12 @@ Harden the full API and MCP product capability for realistic repository use: per
 - Implement retention behavior for snapshots and extraction run history.
 - Implement health and readiness checks for API, MCP, Neo4j, rule loading, extraction dependencies, and query services.
 - Implement audit logging for extraction requests, management operations, and MCP tool calls.
-- Verify no secrets are exposed through evidence, metadata, API responses, MCP responses, or markdown exports.
+- Verify no secrets are exposed through evidence, metadata, API responses, or MCP responses.
 - Validate the full system against representative modern, legacy, mixed-language, data-heavy, runtime-heavy, and UI-technology-containing .NET repositories.
 
 ## Completion criteria
 
-- Full end-to-end extraction, persistence, query, MCP, diff, hotlist, metrics, and markdown export succeeds against representative repositories.
+- Full end-to-end extraction, persistence, query, MCP, diff, hotlist, and metrics succeeds against representative repositories.
 - Failures are captured as warnings, errors, unknowns, or failed run states without corrupting persisted graph state.
 - API and MCP satisfy security, audit, and response-size requirements.
 - Performance tests demonstrate acceptable behavior for large solutions and document limits.
@@ -626,7 +638,7 @@ Harden the full API and MCP product capability for realistic repository use: per
 
 ## Objective
 
-Perform a strict final verification that the API-first and MCP-first Archon implementation satisfies every non-Discovery-UI requirement in [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md) and that no extraction, graph, evidence, API, MCP, rule, finding, metric, diff, markdown, operational, or testing capability is left incomplete.
+Perform a strict final verification that the API-first and MCP-first Archon implementation satisfies every non-Discovery-UI requirement in [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md), excluding the intentionally deferred WP016 markdown export capability, and that no extraction, graph, evidence, API, MCP, rule, finding, metric, diff, operational, or testing capability remains incomplete.
 
 ## Mandatory source brief references
 
@@ -636,20 +648,20 @@ Perform a strict final verification that the API-first and MCP-first Archon impl
 
 ## Required implementation
 
-- Create a traceability matrix mapping every non-Discovery-UI requirement from [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md) to implemented code, tests, API endpoint, MCP tool/resource/prompt, markdown export, or operational documentation.
-- Confirm that every required node kind, edge kind, evidence kind, rule field, finding field, metric, generated summary field, stable-key prefix, extraction domain, query family, MCP tool, MCP resource, MCP prompt, and security requirement is implemented.
-- Confirm that no work item is labeled as future, later, optional, stretch, deferred, or pending within the API/MCP scope.
+- Create a traceability matrix mapping every non-Discovery-UI and non-WP016 requirement from [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md) to implemented code, tests, API endpoint, MCP tool/resource/prompt, or operational documentation.
+- Confirm that every required node kind, edge kind, evidence kind, rule field, finding field, metric, stable-key prefix, extraction domain, query family, MCP tool, MCP resource, MCP prompt, and security requirement is implemented.
+- Confirm that no work item is labeled as future, later, optional, stretch, deferred, or pending within the active API/MCP scope, except for the explicitly deferred WP016 markdown export capability.
 - Confirm that Discovery UI work is absent by instruction and that no accidental UI host/page/component implementation was introduced.
 - Run full build and relevant full test validation for the completed API/MCP product capability.
 - Resolve every failing test or build issue unless it is conclusively proven unrelated to this work and documented.
 
 ## Completion criteria
 
-- The traceability matrix proves complete implementation of the full API and MCP product capability described by [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md).
-- The final validation report contains no deferred API, MCP, extraction, graph, evidence, rule, finding, metric, diff, markdown, or operational capability.
+- The traceability matrix proves complete implementation of the full API and MCP product capability described by [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md), excluding the intentionally deferred WP016 markdown export capability.
+- The final validation report contains no deferred API, MCP, extraction, graph, evidence, rule, finding, metric, diff, or operational capability.
 - The repository contains no Archon Discovery UI implementation from this sequence.
 - Build and test validation succeed, or any unrelated environment failure is documented with evidence and no product completeness gap remains.
 
 ## Final strict completion statement
 
-When WP018 is complete, the Archon API and MCP product capability described by [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md) is fully implemented. There must be no remaining API, MCP, extraction, persistence, evidence, query, rule, finding, metric, diff, markdown, security, operational, or documentation capability left for later. Human-facing Archon Discovery UI delivery is not represented in this document because it is explicitly excluded until after the full API and MCP product capability is available.
+When WP018 is complete, the Archon API and MCP product capability described by [`docs/foundation/archon_full_concept_brief.md`](./archon_full_concept_brief.md) is fully implemented, excluding only the intentionally deferred WP016 markdown export capability. There must be no remaining API, MCP, extraction, persistence, evidence, query, rule, finding, metric, diff, security, operational, or documentation capability left for later. Human-facing Archon Discovery UI delivery is not represented in this document because it is explicitly excluded until after the full API and MCP product capability is available.

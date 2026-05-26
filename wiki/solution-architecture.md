@@ -16,7 +16,7 @@ The main project families are:
 - Core projects, including `src/Archon.Domain` and `src/Archon.Application`.
 - API module projects, which provide future homes for extraction, query, and management endpoints without putting feature logic directly into the API host.
 - Roslyn and extractor projects, which provide analysis and source-evidence extraction areas. The current Roslyn slice places language-neutral semantic contracts in `src/Archon.Roslyn` and C# compiler-backed declaration extraction in `src/Archon.Roslyn.CSharp`.
-- Infrastructure projects, including Roslyn workspace loading, Neo4j persistence, and markdown export adapters.
+- Infrastructure projects, including Roslyn workspace loading and Neo4j persistence. Markdown export adapters are intentionally deferred until the Discovery UI direction and information architecture are clearer.
 
 The Discovery UI is intentionally absent in the current foundation. No `ArchonUi` or `ArchonUi.Tests` project exists, and no AppHost resource composes a UI. Missing UI behavior is a correctness condition for the current foundation, not an accidental omission.
 
