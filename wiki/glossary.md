@@ -54,6 +54,14 @@ A finding history key is the cross-snapshot logical identity for equivalent find
 
 Suppression is a lifecycle overlay that records why a finding is intentionally hidden, accepted, or deferred without deleting the underlying finding. WP012 suppressions target finding history key, rule identity, and primary node identity, and they preserve reason and suppressed-by audit fields.
 
+## Architecture rule result
+
+An architecture rule result is a controlled query DTO produced by built-in architecture checks over persisted graph facts, metrics, findings, runtime facts, and evidence. Results expose stable rule identity, target stable keys, status, severity-like review meaning, contributing metrics, edges, findings, evidence references, confidence, unknown state, metadata, and fingerprint without accepting custom rule expressions through the query API.
+
+## Fingerprint
+
+A fingerprint is a deterministic hash-like value that summarizes the public comparison-relevant content of a persisted graph record, metric, finding, cycle, hotspot, architecture-rule result, or diff item. Query APIs expose fingerprints so clients can detect content drift while continuing to use stable keys as durable logical identities.
+
 ## Hotlist
 
 The hotlist is the controlled product-facing list of persisted findings. It returns bounded, deterministically ordered finding summaries with approved filters rather than exposing arbitrary graph queries or raw Neo4j records.
@@ -61,6 +69,158 @@ The hotlist is the controlled product-facing list of persisted findings. It retu
 ## Controlled query
 
 A controlled query is an API read operation whose filters, page bounds, ordering, and response shape are defined by Archon code. Controlled queries protect the graph by accepting only approved values instead of caller-provided Cypher, SQL, JSONPath, or unrestricted predicate text.
+
+## Dashboard summary
+
+A dashboard summary is a compact, non-visual query response over one repository, optional solution, and resolved snapshot. It reports high-level counts, bounded top-hotspot rows, latest-change summary rows, warnings, and explicit unknowns so API and future MCP consumers can start architecture review without arbitrary graph access.
+
+## Project catalogue
+
+A project catalogue is the bounded WP014 query response that lists project architecture nodes for one repository, optional solution, and resolved snapshot. It supports approved search, filters, deterministic sorting, pagination, stable project keys, aggregate dependency and package counts, endpoint counts, data-access indicators, hotlist counts, risk indicators, confidence, unknown state, and evidence references without exposing Neo4j internal IDs or unrestricted graph traversal.
+
+## Project detail
+
+A project detail response expands one exact project stable key or one unambiguous project display name into a controlled project-level view. It includes the project summary, responsibilities, evidence references, direct references, dependents, packages, application type, endpoints, workers, data-access indicators, configuration keys, integrations, hotlist findings, scoped graph summary, warnings, unknowns, and sanitized metadata.
+
+## Stable project key
+
+A stable project key is the durable `project://...` identity for a project architecture node. It is usually based on the repository-relative project path, such as `project://src/Customer.Api/Customer.Api.csproj`, and is the identity clients should use when following project catalogue rows to project detail responses.
+
+## Scoped graph summary
+
+A scoped graph summary is a compact aggregate over one selected project and its directly owned or directly related graph facts. In the project detail API it reports counts such as owned node count, outgoing dependency count, incoming dependency count, endpoint count, data-access count, and integration count; it is intentionally narrower than an arbitrary graph traversal.
+
+## Bounded graph traversal
+
+Bounded graph traversal is the WP014 query API pattern for walking approved architecture graph relationships from one stable node identity under explicit depth, direction, edge-kind, and result-size limits. It returns stable node and edge DTOs with evidence references and truncation metadata rather than accepting arbitrary Cypher or exporting raw graph records.
+
+## Dependent
+
+A dependent is a graph node that has an incoming dependency-like relationship to a selected node. If `project://src/Customer.Api/Customer.Api.csproj` has a `REFERENCES` edge to `project://src/Customer.Domain/Customer.Domain.csproj`, then the API project is a dependent of the domain project.
+
+## Dependency path
+
+A dependency path is an ordered sequence of stable graph nodes and stable graph edges showing how one source node reaches one target node by following outgoing dependency-like relationships within a bounded depth. WP014 path responses distinguish a found path, a no-path result, and unavailable graph data.
+
+## Edge kind
+
+An edge kind is the controlled graph vocabulary value that classifies a relationship, such as `REFERENCES`, `USES_PACKAGE`, `CALLS`, or `DEPENDS_ON`. Traversal endpoints accept only registered edge kinds so clients can narrow graph exploration without submitting arbitrary predicates.
+
+## Graph neighbourhood
+
+A graph neighbourhood is the bounded set of incoming, outgoing, or both-direction graph edges around one selected node, together with the stable nodes required to explain those edges. WP014 neighbourhood reads default to one hop and report truncation when the bounded result limit omits additional matches.
+
+## Symbol query
+
+A symbol query is the WP014 controlled API surface over persisted Roslyn semantic facts. It exposes bounded search, detail, and usage reads for namespace, type, method, property, and field nodes by stable public identities rather than by Neo4j internal IDs or arbitrary source-code search.
+
+## Fully qualified name
+
+A fully qualified name is the compiler-style symbol name that includes namespace and containing-type context when available. Symbol query responses include it so clients can distinguish symbols that share a short display name.
+
+## Source context
+
+Source context is the safe location information associated with a semantic fact or usage. In the symbol query API it can include repository-relative file path, line range, and a bounded snippet preview, but it is not a full source-code export.
+
+## Symbol usage
+
+Symbol usage is a persisted semantic relationship showing that one symbol references, calls, implements, inherits from, or handles another symbol. WP014 usage reads expose incoming and outgoing relationships with evidence, confidence, line-range, and unknown-state metadata.
+
+## Unresolved symbol
+
+An unresolved symbol is a semantic fact whose complete compiler target identity could not be proven from the available compilation references or source context. Archon reports unresolved symbol state as explicit unknown metadata instead of implying that the symbol or its usages are complete.
+
+## Runtime query
+
+A runtime query is the WP014 controlled API surface over persisted runtime facts. It exposes bounded endpoint, controller/handler, entry-point, and worker reads by stable public identities rather than by Neo4j internal IDs, runtime reflection, or target-application startup.
+
+## Fact query
+
+A fact query is the WP014 controlled API surface over persisted architecture facts that are not themselves runtime endpoint or worker records. It exposes bounded data-access, configuration usage, external integration, and backend UI-technology reads with stable public identities, safe metadata, confidence, unknown state, and evidence references rather than arbitrary graph access.
+
+## Evidence drill-down
+
+Evidence drill-down is the WP014 controlled API surface that resolves a stable evidence key, or evidence related to a stable node, edge, finding, metric, or rule identity, into source-location explanation data. It exposes repository-relative file path, line range, symbol context, bounded snippet preview, confidence, classification, unknown reason, and related stable records without reading additional source files or exposing Neo4j internals.
+
+## Snippet preview
+
+A snippet preview is the short source or configuration text persisted with an evidence record for explanation. Query APIs treat previews as untrusted display text, bound their length, report truncation metadata when they are shortened, and redact previews that look secret-like.
+
+## Unknown reason
+
+An unknown reason is the safe explanatory text attached to explicit unknown state. It tells contributors why a graph fact, evidence record, metric, finding, or query result is incomplete, inferred, or unavailable instead of leaving clients to interpret missing data as known absence.
+
+## Classification
+
+Classification is the controlled knowledge category that explains how Archon knows a graph fact or evidence record is valid, such as an established fact or an explicit unknown. In evidence query responses, classification comes from the evidence record's knowledge kind and helps clients distinguish proven source context from incomplete or inferred context.
+
+## Data-access fact
+
+A data-access fact is a persisted graph fact about a persistence technology or persistence usage site, such as a LINQ to SQL DataContext, Entity Framework DbContext, ADO.NET command, typed DataSet TableAdapter, raw SQL call, stored procedure, entity, database table, or table read/write relationship. WP014 data-access fact reads expose stable identities and safe operation indicators without returning connection strings or unbounded SQL text.
+
+## Configuration provider
+
+A configuration provider is the source family that supplies application settings, such as JSON files, environment variables, user secrets, or another extractor-recorded provider. WP014 configuration usage reads report provider names and source evidence paths when known, but they do not expose the configuration values supplied by those providers.
+
+## External integration
+
+An external integration is a dependency on a system, service, or transport outside the local code unit, such as an HTTP service, broker queue, publish-subscribe topic, storage endpoint, email service, payment provider, or generated service client. Archon exposes integration facts with safe host or service metadata and omits credentials, tokens, connection strings, paths, and query-string secrets.
+
+## Protocol
+
+A protocol is the communication family or transport hint associated with an integration, such as HTTP, gRPC, SOAP, WCF, Azure Service Bus, SMTP, or another extractor-provided value. Protocol values help contributors group integration behavior without requiring live external calls.
+
+## UI-technology fact
+
+A UI-technology fact is a persisted static fact about a UI application, component, page, view, route, layout, control, resource, style, binding, command, or view model. WP014 UI-technology reads expose these facts as backend API data for Blazor, Razor, Windows Forms, WPF, WinUI, .NET MAUI, and Avalonia without rendering UI, loading designers, starting dispatchers, or adding Discovery UI assets.
+
+## Runtime endpoint
+
+A runtime endpoint is an HTTP or service-facing runtime fact such as an ASP.NET Core route. Archon query responses can include method, route, owning project, controller or handler, action or implementation method, request and response DTO names, authorization attributes, service/data-access/configuration indicators, evidence stable keys, confidence, and unknown state.
+
+## Controller or handler
+
+A controller or handler is a runtime implementation node that owns or handles an endpoint, message, scheduled job, or related runtime action. Stable-key lookup is preferred because display names can repeat across projects, generated sources, or partial declarations.
+
+## Runtime entry point
+
+A runtime entry point is the project or runtime artifact that starts an application process or host loop, such as an API bootstrap, worker host, console `Program.Main`, or service-host configuration artifact. WP014 entry-point reads connect that bootstrap to hosted services, endpoint stable keys, safe configuration key names, and evidence references.
+
+## Hosted service
+
+A hosted service is a .NET background component registered with the application host lifetime. Archon records hosted-service facts statically and query responses expose them as worker-oriented runtime data without starting the target application.
+
+## Background service
+
+A background service is the common long-running .NET hosted-service pattern based on `BackgroundService`. In runtime query responses, background services appear as worker records with hosted-service identity, project context, data-access or integration indicators, evidence, and unknown-state metadata.
+
+## Queue consumer
+
+A queue consumer is a message-driven runtime fact that represents code consuming messages from a queue. WP014 worker reads expose safe queue names, transport hints, handler stable keys, evidence stable keys, confidence, and unknowns when the target was inferred or incomplete.
+
+## Topic consumer
+
+A topic consumer is a message-driven runtime fact that represents code consuming messages from a publish-subscribe topic, optionally through a subscription. Archon exposes safe topic and subscription metadata without secrets or live broker access.
+
+## Scheduled job
+
+A scheduled job is timer- or cron-like runtime behavior discovered statically from source or configuration. Runtime query responses can report a safe schedule description and handler identity, while unknown metadata remains explicit when schedule extraction was partial.
+
+## Response envelope
+
+A response envelope is the outer API object that carries endpoint data together with cross-cutting metadata. WP014 dashboard summary responses include scope metadata, snapshot metadata, non-paged metadata, truncation metadata, warnings, unknowns, and request trace metadata in the envelope.
+
+## Scalar API reference
+
+A Scalar API reference is the interactive browser documentation surface that reads Archon's generated OpenAPI document. The API host maps Scalar at `/scalar/v1` in the Development environment so contributors can inspect implemented route metadata, request shapes, response schemas, validation responses, and safe error contracts without introducing Swagger UI or a product Discovery UI.
+
+## OpenAPI document
+
+An OpenAPI document is the machine-readable HTTP API description generated from ASP.NET Core endpoint metadata. Archon serves the development document at `/openapi/v1.json`, and Scalar uses that document to render the API reference for query, extraction, management, health, and readiness endpoints.
+
+## Snapshot selector
+
+A snapshot selector is the request value that chooses which snapshot state powers a query. WP014 dashboard summary supports exact `snapshot://...` stable keys and a deterministic `latest` selector resolved within the required repository and optional solution scope.
 
 ## Dependency cycle
 
@@ -70,13 +230,57 @@ A dependency cycle is a directed path through dependency-like architecture edges
 
 A snapshot diff is a deterministic comparison between two persisted architecture snapshots. Archon matches records by stable key, compares fingerprints, and classifies nodes, edges, findings, and metrics as added, removed, changed, or unchanged.
 
+## Latest-to-previous diff
+
+Latest-to-previous diff is the snapshot diff mode that resolves the two newest comparable snapshots inside one repository and optional solution scope before comparing them. It supports the same stable-key and fingerprint classification as explicit diff while saving callers from listing snapshots for the common “what changed since the last extraction?” question.
+
 ## Changed record
 
 A changed record is a snapshot diff row whose stable key exists in both compared snapshots but whose normalized fingerprints differ. The stable key preserves logical continuity, while the fingerprint difference signals content drift.
 
+## Cross-domain search
+
+Cross-domain search is the WP014 controlled query surface that searches safe public fields across supported result families such as projects, symbols, runtime endpoints, facts, evidence, findings, and metrics. It returns stable keys, confidence, evidence references, unknown state, related nodes, and deterministic follow-up affordances instead of raw graph predicates or direct Neo4j access.
+
+## Follow-up affordance
+
+A follow-up affordance is a machine-readable next query suggestion returned with a search result. It contains a label, a controlled API route, and stable query parameters so API and future MCP clients can continue from a broad search hit into a more specific endpoint without inventing graph queries.
+
+## Controlled management operation
+
+A controlled management operation is an allowlisted operational read or write exposed by the WP014 management API. It validates a defined request shape, records audit-ready metadata when state changes, and rejects arbitrary graph mutation, database commands, shell execution, filesystem mutation, and code modification.
+
+## Metadata allowlist
+
+A metadata allowlist is the approved set of management metadata fields that callers may set on supported targets. Archon uses an allowlist so operational annotations can be useful without turning metadata updates into unrestricted graph property edits.
+
+## Snapshot lifecycle row
+
+A snapshot lifecycle row is the management API view of one snapshot header. It exposes stable snapshot and repository identities, optional solution identity, lifecycle status, branch or commit metadata, timestamps, and diagnostic counts without exposing database-local identifiers or infrastructure details.
+
+## Retention boundary
+
+A retention boundary is the explicit scope and rule set that limits snapshot cleanup. In the current management API it includes repository scope, optional solution scope, `keepLatest`, optional `deleteBeforeUtc`, and dry-run state so cleanup candidates cannot escape the intended lifecycle scope.
+
+## Audit-ready metadata
+
+Audit-ready metadata is the small operational record attached to accepted management actions. It contains a normalized actor, UTC timestamp, and correlation identity so a later review can connect API responses and logs without storing secrets or arbitrary request payloads.
+
+## Controlled maintenance
+
+Controlled maintenance is the management API pattern for operational commands chosen from an explicit allowlist, such as validating a rule cache or compacting local management state. It returns outcome, warnings, errors, and audit-ready metadata, and it rejects raw Cypher, SQL, shell commands, filesystem mutation commands, and code modification requests.
+
+## Readiness
+
+Readiness is the sanitized operational status that tells automation whether required dependencies are available for the management and query surface. Archon readiness reports public dependency names and coarse states, not connection strings, credentials, raw exception details, or infrastructure endpoint secrets.
+
+## Health
+
+Health is the sanitized operational status that tells local development and monitoring whether the management module can respond. It is intentionally less detailed than readiness and should not expose dependency internals or secrets.
+
 ## Truncation metadata
 
-Truncation metadata describes how many matching detail rows existed for a bounded query, how many were returned, which skip/take bounds were applied, and whether rows were omitted before or after the returned page.
+Truncation metadata describes when a bounded query omitted matching data because of a configured page, nested-section, traversal-depth, or result-size limit. For paged detail rows it records how many rows matched, how many were returned, and which skip/take bounds applied; for traversal responses it records whether edge results were cut down by the applied limit and gives a safe reason.
 
 ## Validation problem
 

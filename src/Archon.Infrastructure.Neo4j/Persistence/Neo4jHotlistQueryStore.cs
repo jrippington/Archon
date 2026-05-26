@@ -141,6 +141,13 @@ namespace Archon.Infrastructure.Neo4j.Persistence
                 ["status"] = query.Status,
                 ["projectStableKey"] = query.ProjectStableKey,
                 ["affectedNodeStableKey"] = query.AffectedNodeStableKey,
+                ["criticalOnly"] = query.CriticalOnly,
+                ["legacyDataAccess"] = query.LegacyDataAccess,
+                ["outOfSupport"] = query.OutOfSupport,
+                ["securitySensitive"] = query.SecuritySensitive,
+                ["frameworkOnly"] = query.FrameworkOnly,
+                ["technology"] = query.Technology,
+                ["ruleCode"] = query.RuleCode,
                 ["skip"] = query.Skip,
                 ["take"] = query.Take
             };
@@ -387,9 +394,16 @@ OPTIONAL MATCH (finding)-[:CLASSIFIED_BY_RULE]->(rule:ArchonRule)
 WHERE ($snapshotStableKey IS NULL OR finding.snapshotStableKey = $snapshotStableKey)
   AND ($category IS NULL OR rule.category = $category)
   AND ($severity IS NULL OR finding.severity = $severity)
+  AND ($criticalOnly IS NULL OR $criticalOnly = false OR finding.severity = 'Critical')
   AND ($status IS NULL OR finding.status = $status)
+  AND ($ruleCode IS NULL OR finding.ruleCode = $ruleCode)
   AND ($affectedNodeStableKey IS NULL OR $affectedNodeStableKey IN coalesce(finding.affectedNodeStableKeys, []))
   AND ($projectStableKey IS NULL OR finding.projectStableKey = $projectStableKey)
+  AND ($legacyDataAccess IS NULL OR coalesce(finding.legacyDataAccess, false) = $legacyDataAccess)
+  AND ($outOfSupport IS NULL OR coalesce(finding.outOfSupport, false) = $outOfSupport)
+  AND ($securitySensitive IS NULL OR coalesce(finding.securitySensitive, false) = $securitySensitive)
+  AND ($frameworkOnly IS NULL OR coalesce(finding.frameworkOnly, false) = $frameworkOnly)
+  AND ($technology IS NULL OR finding.technology = $technology OR finding.technologyFamily = $technology)
 RETURN properties(finding) AS finding
 ORDER BY finding.severity DESC, finding.ruleCode, finding.stableKey
 SKIP $skip
@@ -404,9 +418,16 @@ OPTIONAL MATCH (finding)-[:CLASSIFIED_BY_RULE]->(rule:ArchonRule)
 WHERE ($snapshotStableKey IS NULL OR finding.snapshotStableKey = $snapshotStableKey)
   AND ($category IS NULL OR rule.category = $category)
   AND ($severity IS NULL OR finding.severity = $severity)
+  AND ($criticalOnly IS NULL OR $criticalOnly = false OR finding.severity = 'Critical')
   AND ($status IS NULL OR finding.status = $status)
+  AND ($ruleCode IS NULL OR finding.ruleCode = $ruleCode)
   AND ($affectedNodeStableKey IS NULL OR $affectedNodeStableKey IN coalesce(finding.affectedNodeStableKeys, []))
   AND ($projectStableKey IS NULL OR finding.projectStableKey = $projectStableKey)
+  AND ($legacyDataAccess IS NULL OR coalesce(finding.legacyDataAccess, false) = $legacyDataAccess)
+  AND ($outOfSupport IS NULL OR coalesce(finding.outOfSupport, false) = $outOfSupport)
+  AND ($securitySensitive IS NULL OR coalesce(finding.securitySensitive, false) = $securitySensitive)
+  AND ($frameworkOnly IS NULL OR coalesce(finding.frameworkOnly, false) = $frameworkOnly)
+  AND ($technology IS NULL OR finding.technology = $technology OR finding.technologyFamily = $technology)
 RETURN count(finding) AS totalCount";
 
         /// <summary>

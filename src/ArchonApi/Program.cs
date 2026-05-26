@@ -1,4 +1,5 @@
 ﻿using Archon.Api.Extraction;
+using Archon.Api.Management;
 using Archon.Api.Query;
 using Archon.ServiceDefaults;
 using Scalar.AspNetCore;
@@ -32,7 +33,7 @@ namespace ArchonApi
         /// Builds the Archon API web application without starting the HTTP listener.
         /// </summary>
         /// <param name="args">Command-line arguments used by ASP.NET Core configuration and hosting.</param>
-        /// <returns>A configured <see cref="WebApplication"/> that maps only WP001 probe endpoints.</returns>
+        /// <returns>A configured <see cref="WebApplication"/> that maps the implemented Archon API modules and probe endpoints.</returns>
         public static WebApplication BuildApplication(string[] args)
         {
             // Production startup does not need to customize the builder before service registration or endpoint mapping.
@@ -44,16 +45,17 @@ namespace ArchonApi
         /// </summary>
         /// <param name="args">Command-line arguments used by ASP.NET Core configuration and hosting.</param>
         /// <param name="configureBuilder">An optional callback that can adjust the web builder before the application is built.</param>
-        /// <returns>A configured <see cref="WebApplication"/> that maps only WP001 probe endpoints.</returns>
+        /// <returns>A configured <see cref="WebApplication"/> that maps the implemented Archon API modules and probe endpoints.</returns>
         public static WebApplication BuildApplication(string[] args, Action<WebApplicationBuilder>? configureBuilder)
         {
-            // The API host is a thin delivery process in WP001; all cross-cutting runtime behavior comes from ServiceDefaults.
+            // The API host is a thin delivery process; all cross-cutting runtime behavior comes from ServiceDefaults while feature modules own their services.
             WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
             configureBuilder?.Invoke(builder);
             builder.AddServiceDefaults();
             builder.Services.AddOpenApi();
             builder.Services.AddArchonExtractionApi();
             builder.Services.AddArchonQueryApi();
+            builder.Services.AddArchonManagementApi();
 
             WebApplication app = builder.Build();
 
@@ -73,6 +75,7 @@ namespace ArchonApi
             app.MapDefaultEndpoints();
             app.MapArchonExtractionApi();
             app.MapArchonQueryApi();
+            app.MapArchonManagementApi();
 
             return app;
         }

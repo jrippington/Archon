@@ -37,9 +37,7 @@ namespace Archon.Application.Diff
             // Validation happens before comparison so missing snapshots and unsupported filters return deterministic client-correctable errors.
             ArgumentNullException.ThrowIfNull(query);
             cancellationToken.ThrowIfCancellationRequested();
-            IReadOnlyList<ExtractedArchitectureSnapshot> snapshots = _snapshotWriter is InMemoryArchitectureSnapshotWriter writer
-                ? writer.GetSnapshotsSnapshotForDiagnostics()
-                : [];
+            IReadOnlyList<ExtractedArchitectureSnapshot> snapshots = GetSnapshots();
             ExtractedArchitectureSnapshot? current = snapshots.FirstOrDefault(snapshot => StringComparer.Ordinal.Equals(snapshot.SnapshotHeader?.StableKey.Value, query.CurrentSnapshotStableKey));
             ExtractedArchitectureSnapshot? previous = snapshots.FirstOrDefault(snapshot => StringComparer.Ordinal.Equals(snapshot.SnapshotHeader?.StableKey.Value, query.PreviousSnapshotStableKey));
             List<SnapshotDiffValidationError> validationErrors = Validate(query, current, previous);
@@ -75,6 +73,10 @@ namespace Archon.Application.Diff
             SnapshotDiffItemDto[] filteredItems = allItems
                 .Where(item => includedDomains.Contains(item.Domain))
                 .Where(item => includedChangeKinds.Contains(item.ChangeKind))
+                .Where(item => MatchesOptional(item.ProjectStableKey, query.ProjectStableKey))
+                .Where(item => MatchesAny(item.TargetStableKeys, query.TargetStableKey) || MatchesOptional(item.StableKey, query.TargetStableKey))
+                .Where(item => MatchesOptional(item.Kind, query.RecordKind))
+                .Where(item => MatchesOptional(item.Severity, query.Severity))
                 .OrderBy(item => DomainOrder(item.Domain))
                 .ThenBy(item => ChangeKindOrder(item.ChangeKind))
                 .ThenBy(item => item.StableKey, StringComparer.Ordinal)
@@ -89,6 +91,67 @@ namespace Archon.Application.Diff
             string comparisonScope = currentSnapshot.SnapshotHeader!.RepositoryStableKey.Value;
             SnapshotDiffResult result = new(query.CurrentSnapshotStableKey, query.PreviousSnapshotStableKey, comparisonScope, filteredSummaries, page, truncation);
             return Task.FromResult(result);
+        }
+
+        /// <summary>
+        /// Compares the latest completed snapshot with its previous comparable snapshot inside a repository and optional solution scope.
+        /// </summary>
+        /// <param name="query">The controlled latest-to-previous snapshot diff request.</param>
+        /// <param name="cancellationToken">The token that can cancel scope resolution and comparison before snapshot data is read.</param>
+        /// <returns>A snapshot diff result containing summaries, bounded details, truncation metadata, or validation errors.</returns>
+        public Task<SnapshotDiffResult> CompareLatestToPreviousAsync(SnapshotDiffLatestQuery query, CancellationToken cancellationToken)
+        {
+            // Latest-to-previous resolution is deterministic and then delegates to explicit comparison so classification stays identical.
+            ArgumentNullException.ThrowIfNull(query);
+            cancellationToken.ThrowIfCancellationRequested();
+            List<SnapshotDiffValidationError> validationErrors = ValidateLatestQuery(query);
+            if (validationErrors.Count > 0)
+            {
+                return Task.FromResult(new SnapshotDiffResult(string.Empty, string.Empty, validationErrors));
+            }
+
+            ExtractedArchitectureSnapshot[] repositorySnapshots = GetSnapshots()
+                .Where(snapshot => StringComparer.Ordinal.Equals(snapshot.SnapshotHeader?.RepositoryStableKey.Value, query.RepositoryStableKey))
+                .ToArray();
+            if (repositorySnapshots.Length == 0)
+            {
+                SnapshotDiffValidationError error = new(SnapshotDiffValidationCodes.RepositoryNotFound, "The requested repository scope was not found.");
+                return Task.FromResult(new SnapshotDiffResult(string.Empty, string.Empty, [error]));
+            }
+
+            ExtractedArchitectureSnapshot[] scopedSnapshots = ApplySolutionScope(repositorySnapshots, query.SolutionStableKey);
+            if (query.SolutionStableKey is not null && scopedSnapshots.Length == 0)
+            {
+                SnapshotDiffValidationError error = new(SnapshotDiffValidationCodes.SolutionNotFound, "The requested solution scope was not found for the repository.");
+                return Task.FromResult(new SnapshotDiffResult(string.Empty, string.Empty, [error]));
+            }
+
+            ExtractedArchitectureSnapshot[] orderedSnapshots = scopedSnapshots
+                .Where(static snapshot => snapshot.SnapshotHeader is not null)
+                .OrderByDescending(static snapshot => snapshot.SnapshotHeader!.CompletedUtc ?? snapshot.SnapshotHeader.StartedUtc)
+                .ThenByDescending(static snapshot => snapshot.SnapshotHeader!.StartedUtc)
+                .ThenByDescending(static snapshot => snapshot.SnapshotHeader!.StableKey.Value, StringComparer.Ordinal)
+                .ToArray();
+            if (orderedSnapshots.Length < 2)
+            {
+                SnapshotDiffValidationError error = new(SnapshotDiffValidationCodes.PreviousComparableSnapshotNotFound, "At least two comparable snapshots are required for latest-to-previous snapshot diff.");
+                return Task.FromResult(new SnapshotDiffResult(orderedSnapshots.FirstOrDefault()?.SnapshotHeader?.StableKey.Value, string.Empty, [error]));
+            }
+
+            SnapshotDiffQuery explicitQuery = query.ToExplicitQuery(orderedSnapshots[0].SnapshotHeader!.StableKey.Value, orderedSnapshots[1].SnapshotHeader!.StableKey.Value);
+            return CompareSnapshotsAsync(explicitQuery, cancellationToken);
+        }
+
+        /// <summary>
+        /// Reads snapshots from the in-memory fallback writer when that diagnostic path is available.
+        /// </summary>
+        /// <returns>The snapshots available to application-layer diff services.</returns>
+        private IReadOnlyList<ExtractedArchitectureSnapshot> GetSnapshots()
+        {
+            // Infrastructure-backed stores can replace this service later; the current slice uses the repository-standard in-memory query seam.
+            return _snapshotWriter is InMemoryArchitectureSnapshotWriter writer
+                ? writer.GetSnapshotsSnapshotForDiagnostics()
+                : [];
         }
 
         /// <summary>
@@ -155,6 +218,65 @@ namespace Archon.Application.Diff
         }
 
         /// <summary>
+        /// Validates latest-to-previous request filters and paging before snapshot scope resolution starts.
+        /// </summary>
+        /// <param name="query">The controlled latest-to-previous diff request.</param>
+        /// <returns>A deterministic list of validation errors.</returns>
+        private static List<SnapshotDiffValidationError> ValidateLatestQuery(SnapshotDiffLatestQuery query)
+        {
+            // Latest-to-previous validation mirrors explicit diff validation while checking repository scope instead of snapshot keys.
+            List<SnapshotDiffValidationError> errors = [];
+            if (string.IsNullOrWhiteSpace(query.RepositoryStableKey))
+            {
+                errors.Add(new SnapshotDiffValidationError(SnapshotDiffValidationCodes.RepositoryStableKeyRequired, "A repository stable key is required for latest-to-previous snapshot diff."));
+            }
+
+            foreach (string domain in query.Domains)
+            {
+                if (!SnapshotDiffDomains.All.Contains(domain, StringComparer.Ordinal))
+                {
+                    errors.Add(new SnapshotDiffValidationError(SnapshotDiffValidationCodes.UnsupportedDomain, $"Unsupported snapshot diff domain '{domain}'."));
+                }
+            }
+
+            foreach (string changeKind in query.ChangeKinds)
+            {
+                if (!SnapshotDiffChangeKind.All.Contains(changeKind, StringComparer.Ordinal))
+                {
+                    errors.Add(new SnapshotDiffValidationError(SnapshotDiffValidationCodes.UnsupportedChangeKind, $"Unsupported snapshot diff change kind '{changeKind}'."));
+                }
+            }
+
+            if (query.Skip < 0)
+            {
+                errors.Add(new SnapshotDiffValidationError(SnapshotDiffValidationCodes.SkipInvalid, "Skip must be greater than or equal to zero."));
+            }
+
+            if (query.Take < 1 || query.Take > QueryPagingOptions.MaximumPageSize)
+            {
+                errors.Add(new SnapshotDiffValidationError(SnapshotDiffValidationCodes.TakeInvalid, "Take must be between 1 and 500."));
+            }
+
+            return errors;
+        }
+
+        /// <summary>
+        /// Applies the optional solution scope to repository snapshots.
+        /// </summary>
+        /// <param name="repositorySnapshots">The snapshots already matched to the requested repository.</param>
+        /// <param name="solutionStableKey">The optional solution stable key that narrows repository scope.</param>
+        /// <returns>The snapshots matching the optional solution scope.</returns>
+        private static ExtractedArchitectureSnapshot[] ApplySolutionScope(IEnumerable<ExtractedArchitectureSnapshot> repositorySnapshots, string? solutionStableKey)
+        {
+            // Solution scope is resolved through snapshot-level solution facts so diff behavior stays independent of persistence internals.
+            return solutionStableKey is null
+                ? repositorySnapshots.ToArray()
+                : repositorySnapshots
+                    .Where(snapshot => snapshot.Solutions.Any(solution => StringComparer.Ordinal.Equals(solution.StableKey.Value, solutionStableKey)))
+                    .ToArray();
+        }
+
+        /// <summary>
         /// Compares one domain and appends summary and detail rows to the aggregate result buffers.
         /// </summary>
         /// <param name="summaries">The mutable summary buffer.</param>
@@ -210,6 +332,30 @@ namespace Archon.Application.Diff
         }
 
         /// <summary>
+        /// Applies an optional exact filter to a nullable scalar value.
+        /// </summary>
+        /// <param name="value">The value emitted by a diff item.</param>
+        /// <param name="filter">The optional caller-supplied filter.</param>
+        /// <returns><see langword="true"/> when the filter is absent or the value matches exactly.</returns>
+        private static bool MatchesOptional(string? value, string? filter)
+        {
+            // Exact ordinal matching keeps stable-key and kind filters deterministic and avoids culture-specific comparisons.
+            return string.IsNullOrWhiteSpace(filter) || StringComparer.Ordinal.Equals(value, filter);
+        }
+
+        /// <summary>
+        /// Applies an optional exact filter to a stable-key list.
+        /// </summary>
+        /// <param name="values">The stable-key values emitted by a diff item.</param>
+        /// <param name="filter">The optional caller-supplied filter.</param>
+        /// <returns><see langword="true"/> when the filter is absent or one value matches exactly.</returns>
+        private static bool MatchesAny(IReadOnlyList<string> values, string? filter)
+        {
+            // List matching supports target filters across edge endpoints, finding targets, and metric targets.
+            return string.IsNullOrWhiteSpace(filter) || values.Contains(filter, StringComparer.Ordinal);
+        }
+
+        /// <summary>
         /// Converts comparable records into a deterministic stable-key dictionary.
         /// </summary>
         /// <param name="records">The comparable records to index.</param>
@@ -253,6 +399,9 @@ namespace Archon.Application.Diff
                 representative.StableKey,
                 representative.DisplayName,
                 representative.Kind,
+                representative.ProjectStableKey,
+                representative.TargetStableKeys,
+                representative.Severity,
                 previousFingerprint,
                 currentFingerprint,
                 changedFields,
@@ -307,6 +456,9 @@ namespace Archon.Application.Diff
                 node.DisplayName,
                 node.NodeKind.Value,
                 node.Fingerprint.Value,
+                node.ProjectStableKey?.Value,
+                ToTargetKeys(node.StableKey, node.ProjectStableKey, node.ParentNodeStableKey),
+                null,
                 ToEvidenceKeys(node.PrimaryEvidenceStableKey),
                 ToUnknownSnapshotState(node.UnknownState));
         }
@@ -325,6 +477,9 @@ namespace Archon.Application.Diff
                 displayName,
                 edge.EdgeKind.Value,
                 edge.Fingerprint.Value,
+                null,
+                ToTargetKeys(edge.SourceNodeStableKey, edge.TargetNodeStableKey),
+                null,
                 ToEvidenceKeys(edge.PrimaryEvidenceStableKey),
                 ToUnknownSnapshotState(edge.UnknownState));
         }
@@ -342,6 +497,9 @@ namespace Archon.Application.Diff
                 finding.Title,
                 finding.RuleCode,
                 finding.Fingerprint.Value,
+                finding.PrimaryNodeStableKey?.Value,
+                finding.AffectedNodeStableKeys.Select(static stableKey => stableKey.Value).ToArray(),
+                finding.Severity.Value,
                 finding.EvidenceStableKeys.Select(static stableKey => stableKey.Value).ToArray(),
                 ToUnknownSnapshotState(finding.UnknownState));
         }
@@ -359,6 +517,9 @@ namespace Archon.Application.Diff
                 metric.Name,
                 metric.MetricKind,
                 metric.Fingerprint.Value,
+                metric.NodeStableKey?.Value,
+                ToTargetKeys(metric.NodeStableKey, metric.EdgeStableKey),
+                null,
                 ToEvidenceKeys(metric.PrimaryEvidenceStableKey),
                 ToUnknownSnapshotState(metric.UnknownState));
         }
@@ -372,6 +533,22 @@ namespace Archon.Application.Diff
         {
             // Null evidence is represented as an empty list so API consumers never see placeholder IDs.
             return stableKey.HasValue ? [stableKey.Value.Value] : [];
+        }
+
+        /// <summary>
+        /// Converts optional stable keys into deterministic target-key output.
+        /// </summary>
+        /// <param name="stableKeys">The optional stable keys to normalize.</param>
+        /// <returns>A deterministic list of stable-key values.</returns>
+        private static IReadOnlyList<string> ToTargetKeys(params StableKey?[] stableKeys)
+        {
+            // Target lists are deduplicated so filters and API assertions behave consistently across domains.
+            return stableKeys
+                .Where(static stableKey => stableKey.HasValue)
+                .Select(static stableKey => stableKey!.Value.Value)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(static stableKey => stableKey, StringComparer.Ordinal)
+                .ToArray();
         }
 
         /// <summary>
@@ -435,6 +612,9 @@ namespace Archon.Application.Diff
             string? DisplayName,
             string Kind,
             string Fingerprint,
+            string? ProjectStableKey,
+            IReadOnlyList<string> TargetStableKeys,
+            string? Severity,
             IReadOnlyList<string> EvidenceStableKeys,
             UnknownSnapshotState UnknownState);
 

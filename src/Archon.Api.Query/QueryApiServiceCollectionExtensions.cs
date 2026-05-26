@@ -1,10 +1,18 @@
 using Archon.Application.ArchitectureRules;
 using Archon.Application.Cycles;
+using Archon.Application.Dashboard;
 using Archon.Application.Diff;
+using Archon.Application.Evidence;
+using Archon.Application.Facts;
 using Archon.Application.Graph.Persistence;
 using Archon.Application.Hotspots;
 using Archon.Application.Metrics;
+using Archon.Application.Projects;
 using Archon.Application.Rules;
+using Archon.Application.Runtime;
+using Archon.Application.Search;
+using Archon.Application.Symbols;
+using Archon.Application.Traversal;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -36,6 +44,14 @@ namespace Archon.Api.Query
             services.TryAddSingleton<IHotspotQueryService, HotspotQueryService>();
             services.TryAddSingleton<IArchitectureRuleQueryService, ArchitectureRuleQueryService>();
             services.TryAddSingleton<ISnapshotDiffService, SnapshotDiffService>();
+            services.TryAddSingleton<ISearchQueryService, SearchQueryService>();
+            services.TryAddSingleton<IDashboardSummaryQueryService, DashboardSummaryQueryService>();
+            services.TryAddSingleton<IProjectQueryService, ProjectQueryService>();
+            services.TryAddSingleton<IGraphTraversalQueryService, GraphTraversalQueryService>();
+            services.TryAddSingleton<ISymbolQueryService, SymbolQueryService>();
+            services.TryAddSingleton<IRuntimeQueryService, RuntimeQueryService>();
+            services.TryAddSingleton<IFactQueryService, FactQueryService>();
+            services.TryAddSingleton<IEvidenceQueryService, EvidenceQueryService>();
             return services;
         }
     }

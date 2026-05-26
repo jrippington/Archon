@@ -1,3 +1,4 @@
+using Archon.Domain.Graph.ControlledValues;
 using Archon.Domain.Graph.Model;
 
 namespace Archon.Application.Rules
@@ -85,8 +86,15 @@ namespace Archon.Application.Rules
             FindingRecord[] matches = source
                 .Where(finding => MatchesOptional(GetRuleCategory(ruleIndex, finding), query.Category))
                 .Where(finding => MatchesOptional(finding.Severity.Value, query.Severity))
+                .Where(finding => !query.CriticalOnly.HasValue || !query.CriticalOnly.Value || StringComparer.Ordinal.Equals(finding.Severity.Value, FindingSeverity.Critical.Value))
                 .Where(finding => MatchesOptional(finding.Status.Value, query.Status))
+                .Where(finding => MatchesOptional(finding.RuleCode, query.RuleCode))
                 .Where(finding => MatchesOptional(ReadMetadataText(finding, "projectStableKey"), query.ProjectStableKey))
+                .Where(finding => MatchesMetadataIndicator(finding, "legacyDataAccess", query.LegacyDataAccess))
+                .Where(finding => MatchesMetadataIndicator(finding, "outOfSupport", query.OutOfSupport))
+                .Where(finding => MatchesMetadataIndicator(finding, "securitySensitive", query.SecuritySensitive))
+                .Where(finding => MatchesMetadataIndicator(finding, "frameworkOnly", query.FrameworkOnly))
+                .Where(finding => MatchesOptional(ReadMetadataText(finding, "technology"), query.Technology) || MatchesOptional(ReadMetadataText(finding, "technologyFamily"), query.Technology))
                 .Where(finding => query.AffectedNodeStableKey is null || finding.AffectedNodeStableKeys.Any(key => StringComparer.Ordinal.Equals(key.Value, query.AffectedNodeStableKey)))
                 .OrderByDescending(static finding => finding.Severity.Value, StringComparer.Ordinal)
                 .ThenBy(static finding => finding.RuleCode, StringComparer.Ordinal)
@@ -145,6 +153,32 @@ namespace Archon.Application.Rules
         {
             // All WP012 filters are exact controlled filters; substring and arbitrary pattern matching are intentionally not supported here.
             return expected is null || StringComparer.Ordinal.Equals(actual, expected);
+        }
+
+        /// <summary>
+        /// Compares an optional boolean indicator filter against a finding metadata value.
+        /// </summary>
+        /// <param name="finding">The finding whose metadata should be inspected.</param>
+        /// <param name="metadataName">The lower camel case metadata property name to inspect.</param>
+        /// <param name="expected">The optional expected boolean value.</param>
+        /// <returns><see langword="true"/> when the filter is absent or the metadata indicator matches the requested value.</returns>
+        private static bool MatchesMetadataIndicator(FindingRecord finding, string metadataName, bool? expected)
+        {
+            // Work Item 8 uses specific modernization indicator filters rather than arbitrary metadata predicate evaluation.
+            return !expected.HasValue || ReadMetadataBoolean(finding, metadataName) == expected.Value;
+        }
+
+        /// <summary>
+        /// Reads a lower camel case boolean metadata value from a finding.
+        /// </summary>
+        /// <param name="finding">The finding containing metadata JSON.</param>
+        /// <param name="metadataName">The stable lower camel case metadata property name.</param>
+        /// <returns>The metadata boolean value, or <see langword="false"/> when absent or not a boolean.</returns>
+        private static bool ReadMetadataBoolean(FindingRecord finding, string metadataName)
+        {
+            // Boolean filters are intentionally limited to known indicator fields used by the public hotlist API.
+            using System.Text.Json.JsonDocument document = System.Text.Json.JsonDocument.Parse(finding.Metadata.ToCanonicalJson());
+            return document.RootElement.TryGetProperty(metadataName, out System.Text.Json.JsonElement value) && value.ValueKind == System.Text.Json.JsonValueKind.True;
         }
 
         /// <summary>

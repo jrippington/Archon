@@ -12,5 +12,13 @@ namespace Archon.Application.Diff
         /// <param name="cancellationToken">The token that can cancel comparison before snapshot data is read.</param>
         /// <returns>A snapshot diff result containing summaries, bounded details, truncation metadata, or validation errors.</returns>
         Task<SnapshotDiffResult> CompareSnapshotsAsync(SnapshotDiffQuery query, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Compares the latest completed snapshot with its previous comparable snapshot inside a repository and optional solution scope.
+        /// </summary>
+        /// <param name="query">The controlled latest-to-previous snapshot diff request.</param>
+        /// <param name="cancellationToken">The token that can cancel scope resolution and comparison before snapshot data is read.</param>
+        /// <returns>A snapshot diff result containing summaries, bounded details, truncation metadata, or validation errors.</returns>
+        Task<SnapshotDiffResult> CompareLatestToPreviousAsync(SnapshotDiffLatestQuery query, CancellationToken cancellationToken);
     }
 }

@@ -49,5 +49,25 @@ namespace Archon.Application.Diff
         /// Indicates that the request included an invalid take value.
         /// </summary>
         public const string TakeInvalid = "TakeInvalid";
+
+        /// <summary>
+        /// Indicates that a repository stable key was not supplied for latest-to-previous comparison.
+        /// </summary>
+        public const string RepositoryStableKeyRequired = "RepositoryStableKeyRequired";
+
+        /// <summary>
+        /// Indicates that the requested repository scope was not found.
+        /// </summary>
+        public const string RepositoryNotFound = "RepositoryNotFound";
+
+        /// <summary>
+        /// Indicates that the requested solution scope was not found within the repository scope.
+        /// </summary>
+        public const string SolutionNotFound = "SolutionNotFound";
+
+        /// <summary>
+        /// Indicates that the requested repository or solution scope does not contain two comparable snapshots.
+        /// </summary>
+        public const string PreviousComparableSnapshotNotFound = "PreviousComparableSnapshotNotFound";
     }
 }

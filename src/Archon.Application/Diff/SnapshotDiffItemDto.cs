@@ -10,6 +10,9 @@ namespace Archon.Application.Diff
     /// <param name="Kind">The domain-specific kind, such as node kind, edge kind, rule code, or metric kind.</param>
     /// <param name="PreviousFingerprint">The previous snapshot fingerprint when the record existed previously.</param>
     /// <param name="CurrentFingerprint">The current snapshot fingerprint when the record exists currently.</param>
+    /// <param name="ProjectStableKey">The owning or related project stable key when known for filtering and follow-up.</param>
+    /// <param name="TargetStableKeys">Stable target identities associated with the row, such as edge endpoints or finding targets.</param>
+    /// <param name="Severity">The finding severity when the compared row is a finding.</param>
     /// <param name="ChangedFields">A deterministic summary of fields known to differ for changed records.</param>
     /// <param name="EvidenceStableKeys">Stable evidence identities that explain the compared record where available.</param>
     /// <param name="HasUnknownData">Indicates whether the compared record carries explicit unknown-state context.</param>
@@ -20,6 +23,9 @@ namespace Archon.Application.Diff
         string StableKey,
         string? DisplayName,
         string Kind,
+        string? ProjectStableKey,
+        IReadOnlyList<string> TargetStableKeys,
+        string? Severity,
         string? PreviousFingerprint,
         string? CurrentFingerprint,
         IReadOnlyList<string> ChangedFields,

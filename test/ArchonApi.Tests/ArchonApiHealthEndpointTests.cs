@@ -64,23 +64,145 @@ namespace ArchonApi.Tests
         }
 
         /// <summary>
-        /// Confirms feature endpoints still outside WP004 are not accidentally exposed by the API host.
+        /// Confirms the WP014 query and management endpoints are present in the development OpenAPI document with discoverable metadata.
+        /// </summary>
+        /// <returns>A task that completes after representative API documentation operations have been validated.</returns>
+        [Fact]
+        public async Task DocumentationEndpoint_WhenDevelopmentHostStarts_ShouldDescribeWp014QueryAndManagementSurface()
+        {
+            // The development OpenAPI document is the machine-readable input behind Scalar, so it must describe representative query and management routes.
+            await using WebApplication app = Program.BuildApplication(["--environment", "Development"], builder => builder.WebHost.UseTestServer());
+            await app.StartAsync();
+
+            using HttpClient client = app.GetTestClient();
+
+            using JsonDocument document = await GetOpenApiDocumentAsync(client);
+            JsonElement paths = document.RootElement.GetProperty("paths");
+
+            // Representative routes cover non-paged envelopes, paged envelopes, traversal, search, management commands, and operations probes.
+            AssertOperationHasMetadata(paths, "/dashboard-summary", "get", "Get dashboard summary data", "Dashboard");
+            AssertOperationHasMetadata(paths, "/projects", "get", "List projects in a selected architecture snapshot", "Projects");
+            AssertOperationHasMetadata(paths, "/graph-neighbourhood", "get", "Get a bounded graph neighbourhood around one node", "GraphTraversal");
+            AssertOperationHasMetadata(paths, "/search", "get", "Search supported architecture records in a selected snapshot", "Search");
+            AssertOperationHasMetadata(paths, "/management/repositories", "post", "Register repository metadata", "Management");
+            AssertOperationHasMetadata(paths, "/management/retention", "post", "Validate or apply snapshot retention", "Management");
+            AssertOperationHasMetadata(paths, "/ready", "get", "Get management module readiness", "Operations");
+        }
+
+        /// <summary>
+        /// Confirms representative WP014 documented operations expose shared success and safe error response metadata.
+        /// </summary>
+        /// <returns>A task that completes after representative OpenAPI response metadata has been validated.</returns>
+        [Fact]
+        public async Task DocumentationEndpoint_WhenDevelopmentHostStarts_ShouldDescribeSharedResponseAndErrorContracts()
+        {
+            // Contract consistency tests protect automation clients by proving common route families advertise success, validation, and safe error shapes.
+            await using WebApplication app = Program.BuildApplication(["--environment", "Development"], builder => builder.WebHost.UseTestServer());
+            await app.StartAsync();
+
+            using HttpClient client = app.GetTestClient();
+
+            using JsonDocument document = await GetOpenApiDocumentAsync(client);
+            JsonElement paths = document.RootElement.GetProperty("paths");
+
+            // Non-paged query endpoints should describe the common envelope plus validation and safe server-error responses.
+            JsonElement dashboardResponses = GetOperation(paths, "/dashboard-summary", "get").GetProperty("responses");
+            AssertResponseContentReferencesSchema(dashboardResponses, "200", "QueryApiResponseOfDashboardSummaryDto");
+            Assert.True(dashboardResponses.TryGetProperty("400", out _));
+            AssertResponseContentReferencesSchema(dashboardResponses, "500", "QueryErrorResponse");
+
+            // Paged query endpoints should describe the paged envelope plus validation and safe server-error responses.
+            JsonElement projectsResponses = GetOperation(paths, "/projects", "get").GetProperty("responses");
+            AssertResponseContentReferencesSchema(projectsResponses, "200", "QueryPagedApiResponseOfProjectCatalogueItemDto");
+            Assert.True(projectsResponses.TryGetProperty("400", out _));
+            AssertResponseContentReferencesSchema(projectsResponses, "500", "QueryErrorResponse");
+
+            // Management command endpoints should document success, validation failure, and server failure boundaries.
+            JsonElement repositoryResponses = GetOperation(paths, "/management/repositories", "post").GetProperty("responses");
+            AssertResponseContentReferencesSchema(repositoryResponses, "200", "RepositoryRegistrationResponse");
+            Assert.True(repositoryResponses.TryGetProperty("400", out _));
+            Assert.True(repositoryResponses.TryGetProperty("500", out _));
+        }
+
+        /// <summary>
+        /// Confirms excluded documentation and UI endpoints are not accidentally exposed by the API host.
         /// </summary>
         /// <returns>A task that completes after representative excluded endpoint paths have been checked.</returns>
         [Fact]
-        public async Task FeatureEndpointsOutsideWp004AreNotMapped()
+        public async Task SwaggerAndDiscoveryUiEndpointsAreNotMapped()
         {
-            // WP004 adds extraction routes, but unrelated query, management, documentation, and UI routes remain absent.
+            // WP014 requires Scalar for interactive documentation and still excludes Swagger UI and product Discovery UI routes.
             await using WebApplication app = Program.BuildApplication(Array.Empty<string>(), builder => builder.WebHost.UseTestServer());
             await app.StartAsync();
 
             using HttpClient client = app.GetTestClient();
 
-            // Representative query, management, Swagger, and human UI paths should remain absent until their own work packages.
+            // Representative Swagger and human UI paths should remain absent from the production-style host.
             Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/query")).StatusCode);
-            Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/management")).StatusCode);
             Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/swagger")).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/swagger/index.html")).StatusCode);
             Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/")).StatusCode);
+        }
+
+        /// <summary>
+        /// Reads and parses the generated OpenAPI document from a development test host.
+        /// </summary>
+        /// <param name="client">The in-memory HTTP client that sends requests to the test host.</param>
+        /// <returns>The parsed JSON document returned by the OpenAPI endpoint.</returns>
+        private static async Task<JsonDocument> GetOpenApiDocumentAsync(HttpClient client)
+        {
+            // Centralizing OpenAPI reads keeps documentation tests consistent and ensures failed document generation surfaces as HTTP failures.
+            HttpResponseMessage response = await client.GetAsync("/openapi/v1.json");
+            response.EnsureSuccessStatusCode();
+            string openApiJson = await response.Content.ReadAsStringAsync();
+            return JsonDocument.Parse(openApiJson);
+        }
+
+        /// <summary>
+        /// Asserts that one documented operation has summary, description, and tag metadata suitable for Scalar display.
+        /// </summary>
+        /// <param name="paths">The OpenAPI paths object that contains all documented route operations.</param>
+        /// <param name="path">The exact route template to inspect.</param>
+        /// <param name="method">The lowercase HTTP method to inspect.</param>
+        /// <param name="expectedSummary">The expected operation summary from route metadata.</param>
+        /// <param name="expectedTag">The expected Scalar grouping tag from route metadata.</param>
+        private static void AssertOperationHasMetadata(JsonElement paths, string path, string method, string expectedSummary, string expectedTag)
+        {
+            // Scalar renders these OpenAPI fields directly, so each representative operation must carry human-readable metadata.
+            JsonElement operation = GetOperation(paths, path, method);
+            Assert.Equal(expectedSummary, operation.GetProperty("summary").GetString());
+            Assert.False(string.IsNullOrWhiteSpace(operation.GetProperty("description").GetString()));
+            Assert.Contains(operation.GetProperty("tags").EnumerateArray(), tag => tag.GetString() == expectedTag);
+        }
+
+        /// <summary>
+        /// Gets one operation object from the generated OpenAPI paths section.
+        /// </summary>
+        /// <param name="paths">The OpenAPI paths object that contains route templates.</param>
+        /// <param name="path">The exact route template to inspect.</param>
+        /// <param name="method">The lowercase HTTP method to inspect.</param>
+        /// <returns>The OpenAPI operation object for the requested route and method.</returns>
+        private static JsonElement GetOperation(JsonElement paths, string path, string method)
+        {
+            // Explicit assertion messages make route-documentation regressions easier to diagnose than a raw KeyNotFound-style failure.
+            Assert.True(paths.TryGetProperty(path, out JsonElement pathItem), $"OpenAPI path '{path}' was not documented.");
+            Assert.True(pathItem.TryGetProperty(method, out JsonElement operation), $"OpenAPI method '{method}' for path '{path}' was not documented.");
+            return operation;
+        }
+
+        /// <summary>
+        /// Asserts that a documented response has JSON content that references the expected component schema.
+        /// </summary>
+        /// <param name="responses">The OpenAPI responses object for one operation.</param>
+        /// <param name="statusCode">The response status code to inspect.</param>
+        /// <param name="schemaNameFragment">The schema-name fragment expected in the JSON schema reference.</param>
+        private static void AssertResponseContentReferencesSchema(JsonElement responses, string statusCode, string schemaNameFragment)
+        {
+            // The schema reference is the stable OpenAPI bridge from route metadata to the DTO contract displayed in Scalar.
+            Assert.True(responses.TryGetProperty(statusCode, out JsonElement response), $"Response '{statusCode}' was not documented.");
+            JsonElement content = response.GetProperty("content").GetProperty("application/json");
+            string? schemaReference = content.GetProperty("schema").GetProperty("$ref").GetString();
+            Assert.Contains(schemaNameFragment, schemaReference, StringComparison.Ordinal);
         }
     }
 }
