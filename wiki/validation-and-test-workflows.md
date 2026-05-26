@@ -297,6 +297,24 @@ dotnet build .\Archon.slnx --no-restore
 
 These commands do not start the Aspire AppHost, do not render Razor components or views, do not launch Playwright or a browser, do not call live APIs, do not instantiate target Blazor, ASP.NET Core, Windows Forms, WPF, WinUI, MAUI, or Avalonia applications, do not execute Razor Page handlers or MVC actions, do not evaluate tag helpers, do not load Windows Forms designers, do not load XAML or AXAML, do not run MAUI platform heads, do not start Avalonia desktop lifetimes, do not instantiate controls, do not open database connections, do not require Neo4j credentials, and do not invoke MCP tools. When package or project references have changed, run `dotnet restore .\Archon.slnx` first; otherwise use the focused test commands and the no-restore build gate so failures point to compile, extraction, or graph-contract behavior rather than package acquisition. Contributor-facing details for supported Blazor, Razor Pages, MVC Razor, Windows Forms, WPF, WinUI, MAUI, and Avalonia facts, stable keys, evidence, confidence, unknown state, redaction, current exclusions, and extension guidance live in [.NET UI and client extraction](dotnet-ui-client-extraction.md).
 
+## WP015 MCP server validation
+
+The current WP015 validation path covers the read-only MCP host product surface: runtime catalog readiness, common response envelopes, security and audit seams, bounded limits, tools, resources, prompts, forbidden-capability rejection, prompt-injection handling, redaction, cancellation, and representative host-level verification endpoints. MCP validation is intentionally test-led. It does not require a running Aspire AppHost, does not require a live MCP client, does not open Neo4j directly from MCP handlers, does not execute shell commands, does not execute SQL or Cypher, does not mutate files, and does not modify source repositories.
+
+Use this focused command when changing MCP tools, resources, prompts, security behavior, response envelopes, catalog registration, verification endpoints, or MCP documentation examples that should be checked against current behavior:
+
+```powershell
+dotnet test .\test\ArchonMcp.Tests\ArchonMcp.Tests.csproj
+```
+
+Use the MCP host build gate after the focused tests pass:
+
+```powershell
+dotnet build .\src\ArchonMcp\ArchonMcp.csproj
+```
+
+The MCP test project validates the host without treating manual startup as an automated gate. Runtime baseline tests cover mandatory catalog registration, conservative limit defaults, forbidden names, readiness, and probe behavior. Search, project, dependency, path, symbol, data-access, impact, rule, hotlist, snapshot-diff, resource, parameterized-resource, and prompt tests verify request validation, authorization ordering, query abstraction delegation, stable-key output, evidence references, unknowns, warnings, truncation, safe follow-ups, and structured error categories. Security and integration tests verify that unsupported command, SQL, Cypher, graph-query, file/source mutation, rule mutation, finding mutation, and snapshot mutation paths fail closed; that prompt-injection content remains untrusted evidence; that representative secrets are redacted; that cancellation reaches query-backed handlers; and that host-level verification calls preserve common envelope shape. Contributor-facing setup, security, and troubleshooting guidance lives in [runtime foundation](runtime-foundation.md), while exact MCP tool, resource, and prompt contracts live in [MCP tool reference](mcp-tool-reference.md).
+
 ## WP003 Neo4j validation and Testcontainers
 
 Neo4j integration tests use Testcontainers instead of the Aspire AppHost. **Testcontainers** starts short-lived Docker containers under test control and removes them after the test run. Docker Desktop or another OCI-compatible runtime must be running for these tests.

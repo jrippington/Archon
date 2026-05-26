@@ -3,6 +3,11 @@
   <ItemGroup>
     <ProjectReference Include="..\Archon.ServiceDefaults\Archon.ServiceDefaults.csproj" />
     <ProjectReference Include="..\Archon.Application\Archon.Application.csproj" />
+    <ProjectReference Include="..\Archon.Api.Query\Archon.Api.Query.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Prompts\**\*.md" />
   </ItemGroup>
 
   <PropertyGroup>

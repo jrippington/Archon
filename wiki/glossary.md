@@ -70,6 +70,138 @@ The hotlist is the controlled product-facing list of persisted findings. It retu
 
 A controlled query is an API read operation whose filters, page bounds, ordering, and response shape are defined by Archon code. Controlled queries protect the graph by accepting only approved values instead of caller-provided Cypher, SQL, JSONPath, or unrestricted predicate text.
 
+## MCP registration catalog
+
+The MCP registration catalog is the Archon MCP host's internal allow-list of stable capability names. A capability can represent a tool, resource, prompt, or operational registration. The current catalog registers the read-only `archon.health` operational capability, read-only tool capabilities such as `archon.search`, `archon.describe_project`, `archon.get_dependencies`, `archon.get_dependents`, `archon.find_dependency_paths`, `archon.describe_symbol`, `archon.find_symbol_usages`, `archon.get_data_access_usage`, `archon.assess_change_impact`, `archon.get_architecture_rules`, `archon.get_hotlist_findings`, and `archon.get_snapshot_diff`, the read-only resource-reader capability `archon.read_resource`, prompt operation capabilities `archon.list_prompts` and `archon.get_prompt`, and prompt template capabilities such as `impact-analysis`, `modernization-brief`, `refactoring-preflight`, `new-feature-placement`, `legacy-data-access-review`, `hotlist-summary`, and `architecture-rule-check`. Readiness uses the catalog to fail closed when mandatory registrations are missing, when a registration is not read-only, or when a capability name suggests unsafe behavior such as arbitrary shell execution, SQL, Cypher, unrestricted graph querying, direct Neo4j access, filesystem mutation, or code modification.
+
+## MCP tool
+
+An MCP tool is a named read-only operation exposed by the Archon MCP host for AI-assistant workflows. Current tools include `archon.search`, `archon.describe_project`, `archon.get_dependencies`, `archon.get_dependents`, `archon.find_dependency_paths`, `archon.describe_symbol`, `archon.find_symbol_usages`, `archon.get_data_access_usage`, `archon.assess_change_impact`, `archon.get_architecture_rules`, `archon.get_hotlist_findings`, and `archon.get_snapshot_diff`. Each tool validates request input, authorizes the caller, invokes an approved application/query abstraction, and returns the shared MCP envelope without allowing shell commands, arbitrary database queries, filesystem mutation, source-code modification, or direct Neo4j access.
+
+## MCP resource
+
+An MCP resource is a read-only addressable context document identified by a URI. Archon resources use the `archon://` scheme and are read through `archon.read_resource`. The current resource surface supports `archon://snapshot/current`, `archon://rules/current`, `archon://hotlist/current`, `archon://hotspots/current`, `archon://project/{projectKey}`, `archon://symbol/{symbolKey}`, and `archon://snapshot/{snapshotId}/diff/{previousSnapshotId}` with bounded result limits, stable keys, evidence references, unknowns, warnings, and no mutation behavior.
+
+## MCP prompt
+
+An MCP prompt is a versioned read-only workflow template exposed by the Archon MCP host for AI-assistant architecture investigation. Current prompts include `impact-analysis`, `modernization-brief`, `refactoring-preflight`, `new-feature-placement`, `legacy-data-access-review`, `hotlist-summary`, and `architecture-rule-check`. Prompts are embedded markdown resources loaded by the host, retrieved through audited prompt operations, and written to require evidence grounding, unknown reporting, confidence limits, prompt-injection resilience, and no mutation or direct remediation.
+
+## Prompt template
+
+A prompt template is the concrete markdown content returned for one MCP prompt name and version. It guides a client through safe read-only tool and resource sequences, but it is not itself architecture evidence and must not be treated as proof of project state. The supporting evidence remains in Archon tool and resource responses.
+
+## MCP response envelope
+
+An MCP response envelope is the shared outer shape returned by Archon MCP tools and resources. It carries the operation name, optional snapshot identity, summary, confidence, structured facts, evidence references, finding references, unknowns, warnings, limit metadata, and suggested follow-ups so AI clients can preserve evidence, uncertainty, and boundedness consistently across workflows.
+
+## MCP verification endpoint
+
+An MCP verification endpoint is a narrow HTTP route mapped by the Archon MCP host for local development and automated tests, such as `/mcp/tools/archon.search`, `/mcp/resources`, or `/mcp/prompts`. These routes exercise the same read-only handlers used by MCP registration, but they are not a general-purpose HTTP API and must not expose arbitrary shell, SQL, Cypher, filesystem, source-mutation, or database-mutation behavior.
+
+## MCP capability inventory
+
+The MCP capability inventory is the current list of registered operational capabilities, tools, resource URI patterns, prompt operations, and prompt templates that the Archon MCP host supports. The inventory is documented in the MCP reference so contributors can see the complete read-only product surface without reading implementation classes.
+
+## Current snapshot selection
+
+Current snapshot selection is the process of resolving a resource selector such as `archon://snapshot/current` to exactly one concrete `snapshot://` stable key inside an explicit repository and optional solution scope. If no snapshot matches, Archon returns `NotFound`; if multiple snapshots tie for current selection, Archon returns `Ambiguous` with candidate stable keys instead of choosing one arbitrarily.
+
+## Resource URI
+
+A resource URI is the stable address used to read an MCP resource. Archon resource URIs must use the `archon://` scheme, a supported family such as `snapshot`, `rules`, `hotlist`, `hotspots`, `project`, or `symbol`, and only the query parameters supported by that family. Current resources use repository and optional solution scope; parameterized project, symbol, and snapshot diff resources carry percent-encoded stable keys in the path. Duplicate, malformed, unsupported, or ambiguous resource URIs fail before query execution.
+
+## Parameterized MCP resource
+
+A parameterized MCP resource is an `archon://` resource whose path contains an exact stable key rather than the `current` selector. Current parameterized resources include project context by `project://` key, symbol context by `symbol://` key, and explicit snapshot diff context by two `snapshot://` keys. They reuse approved read-only tool workflows and keep the resource operation name `archon.read_resource`.
+
+## MCP snapshot diff resource
+
+An MCP snapshot diff resource is the `archon://snapshot/{snapshotId}/diff/{previousSnapshotId}` resource form of explicit snapshot comparison. It returns summary counts and optional bounded details using stable keys, fingerprints, evidence references, unknowns, and truncation metadata without inferring previous snapshots or exposing raw graph records.
+
+## MCP architecture-rule catalog review
+
+MCP architecture-rule catalog review is the `archon.get_architecture_rules` tool behavior for listing bounded versioned rule catalog records. It returns rule identity, enabled state, category, severity, description, applicable scopes, and explicit unknowns for details not supplied by the current catalog query, without creating, editing, enabling, disabling, deleting, or re-evaluating rules.
+
+## MCP hotlist finding review
+
+MCP hotlist finding review is the `archon.get_hotlist_findings` tool behavior for listing bounded persisted findings with rule identity, severity, status, confidence, affected stable nodes, evidence references, metadata, unknowns, deterministic sorting, and truncation metadata. It is a read-only triage surface and does not expose suppression or finding mutation.
+
+## MCP snapshot diff comparison
+
+MCP snapshot diff comparison is the `archon.get_snapshot_diff` tool behavior for comparing explicit snapshots or latest comparable snapshots through stable keys and fingerprints. It returns summary counts, optional bounded details, fingerprints, evidence references, unknowns, no-change warnings, and truncation metadata without creating snapshots, deleting snapshots, mutating graph records, or accepting arbitrary graph queries.
+
+## MCP project description
+
+MCP project description is the `archon.describe_project` tool behavior that expands a project stable key or unambiguous project name into a bounded project-level response. It returns project identity, path, language, target framework, project format, application type, dependencies, packages, runtime facts, findings, evidence, warnings, and unknowns from the approved project query layer.
+
+## MCP dependency traversal
+
+MCP dependency traversal is the `archon.get_dependencies` and `archon.get_dependents` tool behavior for walking dependency-like graph relationships from one stable node or project identity. It supports direct and transitive modes, bounded depth, controlled edge-kind filters, stable node and relationship records, evidence references, and truncation metadata without accepting arbitrary graph queries.
+
+## MCP dependency path search
+
+MCP dependency path search is the `archon.find_dependency_paths` tool behavior for finding bounded ordered paths between two stable graph node identities. It distinguishes found paths, no-path results, and unavailable graph data while returning stable nodes, stable relationships, evidence references, explicit unknowns, and truncation metadata without accepting arbitrary Cypher or source inspection.
+
+## MCP symbol description
+
+MCP symbol description is the `archon.describe_symbol` tool behavior that expands a stable symbol key, or an exact unambiguous symbol search text, into symbol identity, containment, owning project, source context, semantic relationships, evidence, findings, warnings, and unknowns from the approved symbol query layer.
+
+## MCP symbol usage investigation
+
+MCP symbol usage investigation is the `archon.find_symbol_usages` tool behavior for listing bounded callers, references, calls, and other persisted usage relationships for one stable symbol. It returns stable relationship identities, source and target symbol keys, safe source context, evidence references, confidence, unknowns, and limit metadata without reading source files directly.
+
+## MCP data-access usage review
+
+MCP data-access usage review is the `archon.get_data_access_usage` tool behavior for listing bounded LINQ to SQL, Entity Framework, ADO.NET, typed DataSet, raw SQL, stored procedure, table, entity, and data-context usage facts. It returns stable data-access identities, broad operation kinds, dynamic SQL indicators, confidence, unknowns, evidence references, and truncation metadata without executing SQL, opening database connections, exposing connection strings, or reading source files directly.
+
+## Dynamic SQL indicator
+
+A dynamic SQL indicator is a persisted signal that data-access extraction saw SQL composition, command text, or target selection that could not be resolved deterministically to a complete table, column, entity, or stored-procedure identity. MCP and query responses report this as explicit unknown state so contributors do not treat partial raw SQL evidence as complete impact knowledge.
+
+## MCP change-impact assessment
+
+MCP change-impact assessment is the `archon.assess_change_impact` tool behavior for walking incoming graph relationships from one supported stable target to find direct and transitive consumers. It returns bounded impact records, evidence references, confidence, unknowns, warnings, and safe read-only follow-ups, and it frames output as investigation guidance rather than automatic remediation or code-change instruction.
+
+## Direct impact
+
+A direct impact is a one-hop incoming relationship from an impacted node to the changed target in a bounded impact assessment. Direct impact is useful for identifying immediate consumers, but it is not proof of the full blast radius when traversal limits, dynamic dispatch, or unsupported extraction families apply.
+
+## Transitive impact
+
+A transitive impact is a broader incoming relationship discovered through one or more intermediate graph nodes within a bounded depth. Transitive impact helps contributors reason about downstream consumers, but it must be read together with traversal depth, edge filters, truncation metadata, confidence, and unknowns.
+
+## Result-type filter
+
+A result-type filter is a controlled `archon.search` value that narrows broad search output to approved record families such as `Project`, `Symbol`, `RuntimeEndpoint`, `Fact`, `Evidence`, `Finding`, or `Metric`. It is not an arbitrary predicate language and cannot be used to submit Cypher, SQL, regular expressions, or filesystem search expressions.
+
+## Suggested follow-up
+
+A suggested follow-up is a safe next investigation path included in an MCP or query response. It may point to a supported Archon MCP operation, resource, controlled API route, or user question with stable-key parameters; it must not tell the caller to run arbitrary commands, edit code, inspect local files directly, or bypass Archon's query boundaries.
+
+## Caller context
+
+A caller context is the provider-neutral identity record used by the MCP host before executing an operation. It can include a stable caller identifier, display name, and role names, but it deliberately excludes access tokens, bearer credentials, passwords, raw claims payloads, and identity-provider-specific objects.
+
+## Allow-list
+
+An allow-list is a configuration-defined set of operation names or resource families that are permitted to run. In the MCP host, an omitted operation is treated as disabled once an explicit allow-list is configured, and disabled operations fail before application/query dependencies are invoked.
+
+## Fail closed
+
+Fail closed means Archon denies work when security state is missing, malformed, disabled, or uncertain. For MCP operations, missing authentication maps to an unauthorized error and disabled operations map to a forbidden error before the operation delegate can query architecture data.
+
+## Audit trail
+
+An audit trail is the safe sequence of operation-attempt records used to understand security-relevant activity. MCP audit events include caller identity when available, operation name, sanitized parameter metadata, result status, truncation state, error category, and duration while excluding secrets, credentials, raw evidence snippets, stack traces, and connection strings.
+
+## Redaction
+
+Redaction is the process of replacing sensitive values with a safe marker such as `[redacted]`. Archon applies redaction to MCP evidence snippets and audit parameter values that look like passwords, tokens, API keys, account keys, credentials, private keys, certificates, or connection strings, including nested secret-like fragments inside otherwise ordinary text.
+
+## Prompt injection
+
+Prompt injection is untrusted analyzed content that attempts to override an AI client's higher-priority instructions or trick it into revealing secrets, executing commands, mutating files, or treating source comments, markdown, string literals, configuration text, or rule metadata as authority. Archon labels extracted MCP evidence as untrusted repository data and keeps privileged instruction text separate from that evidence.
+
 ## Dashboard summary
 
 A dashboard summary is a compact, non-visual query response over one repository, optional solution, and resolved snapshot. It reports high-level counts, bounded top-hotspot rows, latest-change summary rows, warnings, and explicit unknowns so API and future MCP consumers can start architecture review without arbitrary graph access.
@@ -208,7 +340,19 @@ A scheduled job is timer- or cron-like runtime behavior discovered statically fr
 
 ## Response envelope
 
-A response envelope is the outer API object that carries endpoint data together with cross-cutting metadata. WP014 dashboard summary responses include scope metadata, snapshot metadata, non-paged metadata, truncation metadata, warnings, unknowns, and request trace metadata in the envelope.
+A response envelope is the outer object that carries endpoint, tool, or resource data together with cross-cutting metadata. WP014 API responses use envelopes for scope metadata, snapshot metadata, pagination or non-paged metadata, truncation metadata, warnings, unknowns, and request trace metadata. WP015 MCP responses use a related shared envelope with operation identity, optional snapshot identity, summary, confidence, facts, evidence, findings, unknowns, warnings, limits, and suggested follow-ups so AI clients receive bounded and evidence-backed context.
+
+## MCP response envelope
+
+An MCP response envelope is the common Archon MCP success shape returned by future tools and resources. It keeps natural-language summary text grounded in structured facts, evidence references, findings, explicit unknowns, warnings, and limit metadata rather than allowing an AI client to infer unsupported architecture claims.
+
+## Structured MCP error
+
+A structured MCP error is the common failure shape for validation, unsupported operation, not-found, ambiguity, unauthorized, forbidden, dependency unavailable, query-layer failure, and server error cases. It exposes stable category, code, safe message, warnings, and suggested follow-ups while omitting stack traces, exception type names, credentials, connection strings, raw sensitive evidence, and Neo4j internal IDs.
+
+## Suggested follow-up
+
+A suggested follow-up is a safe next investigation step carried by an MCP response. For MCP, follow-ups must point to supported Archon operations, supported resources, controlled API routes, or safe user questions; they must not suggest arbitrary shell execution, SQL, Cypher, filesystem access, code modification, or direct Neo4j browsing.
 
 ## Scalar API reference
 
