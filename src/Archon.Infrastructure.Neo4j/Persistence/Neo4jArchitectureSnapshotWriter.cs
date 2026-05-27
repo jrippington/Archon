@@ -53,29 +53,31 @@ namespace Archon.Infrastructure.Neo4j.Persistence
             // The writer validates application input before any Neo4j transaction so invalid snapshots do not produce partial data.
             ArgumentNullException.ThrowIfNull(snapshot);
             string? snapshotStableKey = snapshot.SnapshotHeader?.StableKey.Value;
+            Neo4jPersistenceDiagnosticCollector diagnostics = new(snapshot);
             _stageLogger.LogStageStarting(PersistenceStage.SnapshotPersistence, snapshotStableKey);
 
             try
             {
-                SnapshotValidationResult validation = ValidateSnapshot(snapshot);
+                SnapshotValidationResult validation = diagnostics.Measure("Persistence.PrepareSnapshot", () => ValidateSnapshot(snapshot));
                 if (!validation.Succeeded)
                 {
-                    return SnapshotPersistenceResult.Failure(snapshotStableKey, validation.Error!);
+                    return SnapshotPersistenceResult.Failure(snapshotStableKey, validation.Error!, diagnostics: diagnostics.Complete(completed: false));
                 }
 
-                GraphInitializationResult initializationResult = await _graphInitializer.InitializeAsync(cancellationToken).ConfigureAwait(false);
+                GraphInitializationResult initializationResult = await diagnostics.MeasureAsync("Persistence.Indexing", () => _graphInitializer.InitializeAsync(cancellationToken)).ConfigureAwait(false);
                 if (!initializationResult.Succeeded)
                 {
                     PersistenceError error = initializationResult.Errors.FirstOrDefault()
                         ?? new PersistenceError(PersistenceStage.SchemaInitialization, "GraphInitializationFailed", "Graph initialization failed before snapshot persistence.");
-                    return SnapshotPersistenceResult.Failure(snapshotStableKey, error, initializationResult.Warnings);
+                    return SnapshotPersistenceResult.Failure(snapshotStableKey, error, initializationResult.Warnings, diagnostics.Complete(completed: false));
                 }
 
-                CanonicalEvidenceSet canonicalEvidence = BuildCanonicalEvidence(snapshot.Evidence);
-                SnapshotPersistenceCounts counts = await PersistValidatedSnapshotAsync(snapshot, canonicalEvidence, cancellationToken).ConfigureAwait(false);
+                CanonicalEvidenceSet canonicalEvidence = diagnostics.Measure("Persistence.MaterializePayload", () => BuildCanonicalEvidence(snapshot.Evidence));
+                diagnostics.RecordAlreadyMaterializedStage("Persistence.NormalizeIdentities");
+                SnapshotPersistenceCounts counts = await PersistValidatedSnapshotAsync(snapshot, canonicalEvidence, diagnostics, cancellationToken).ConfigureAwait(false);
 
                 _stageLogger.LogStageCompleted(PersistenceStage.SnapshotPersistence, snapshotStableKey);
-                return SnapshotPersistenceResult.Success(snapshotStableKey!, counts, initializationResult.Warnings);
+                return SnapshotPersistenceResult.Success(snapshotStableKey!, counts, initializationResult.Warnings, diagnostics.Complete(completed: true));
             }
             catch (OperationCanceledException exception) when (cancellationToken.IsCancellationRequested)
             {
@@ -83,7 +85,8 @@ namespace Archon.Infrastructure.Neo4j.Persistence
                 _stageLogger.LogStageFailed(exception, PersistenceStage.SnapshotPersistence, snapshotStableKey);
                 return SnapshotPersistenceResult.Failure(
                     snapshotStableKey,
-                    new PersistenceError(PersistenceStage.SnapshotPersistence, "SnapshotPersistenceCanceled", "Snapshot persistence was canceled."));
+                    new PersistenceError(PersistenceStage.SnapshotPersistence, "SnapshotPersistenceCanceled", "Snapshot persistence was canceled."),
+                    diagnostics: diagnostics.Complete(completed: false));
             }
             catch (Neo4jException exception)
             {
@@ -91,7 +94,17 @@ namespace Archon.Infrastructure.Neo4j.Persistence
                 _stageLogger.LogStageFailed(exception, PersistenceStage.SnapshotPersistence, snapshotStableKey);
                 return SnapshotPersistenceResult.Failure(
                     snapshotStableKey,
-                    new PersistenceError(PersistenceStage.SnapshotPersistence, "SnapshotPersistenceFailed", "Neo4j snapshot persistence failed."));
+                    new PersistenceError(PersistenceStage.SnapshotPersistence, "SnapshotPersistenceFailed", "Neo4j snapshot persistence failed."),
+                    diagnostics: diagnostics.Complete(completed: false));
+            }
+            catch (Exception exception)
+            {
+                // Infrastructure failures outside the Neo4j exception hierarchy are still translated so diagnostic capture never masks the original persistence attempt.
+                _stageLogger.LogStageFailed(exception, PersistenceStage.SnapshotPersistence, snapshotStableKey);
+                return SnapshotPersistenceResult.Failure(
+                    snapshotStableKey,
+                    new PersistenceError(PersistenceStage.SnapshotPersistence, "SnapshotPersistenceFailed", "Snapshot persistence failed. Review server logs for details."),
+                    diagnostics: diagnostics.Complete(completed: false));
             }
         }
 
@@ -172,90 +185,127 @@ namespace Archon.Infrastructure.Neo4j.Persistence
         /// </summary>
         /// <param name="snapshot">The validated snapshot to persist.</param>
         /// <param name="canonicalEvidence">The canonical evidence records and duplicate-stable-key remapping.</param>
+        /// <param name="diagnostics">The diagnostic collector that measures nested persistence sub-stages and final count values.</param>
         /// <param name="cancellationToken">A token that cancels before transaction execution starts.</param>
         /// <returns>The aggregate persisted counts for the transaction.</returns>
-        private async Task<SnapshotPersistenceCounts> PersistValidatedSnapshotAsync(ExtractedArchitectureSnapshot snapshot, CanonicalEvidenceSet canonicalEvidence, CancellationToken cancellationToken)
+        private async Task<SnapshotPersistenceCounts> PersistValidatedSnapshotAsync(ExtractedArchitectureSnapshot snapshot, CanonicalEvidenceSet canonicalEvidence, Neo4jPersistenceDiagnosticCollector diagnostics, CancellationToken cancellationToken)
         {
             // A single write transaction prevents a completed result from being returned for partially persisted minimal snapshots.
             cancellationToken.ThrowIfCancellationRequested();
             await using IAsyncSession session = _sessionProvider.OpenSession(AccessMode.Write);
+            int operationCount = 0;
 
-            return await session.ExecuteWriteAsync(
+            SnapshotPersistenceCounts counts = await diagnostics.MeasureAsync(
+                "Persistence.Commit",
+                () => session.ExecuteWriteAsync(
                 async transaction =>
                 {
-                    foreach (RepositoryModel repository in snapshot.Repositories)
+                    await diagnostics.MeasureAsync("Persistence.WriteRepositories", async () =>
                     {
-                        await RunAsync(transaction, RepositoryMergeCypher, _mapper.MapRepository(repository)).ConfigureAwait(false);
-                    }
-
-                    foreach (SolutionModel solution in snapshot.Solutions)
-                    {
-                        await RunAsync(transaction, SolutionMergeCypher, _mapper.MapSolution(solution)).ConfigureAwait(false);
-                    }
-
-                    await RunAsync(transaction, SnapshotMergeCypher, _mapper.MapSnapshot(snapshot.SnapshotHeader!)).ConfigureAwait(false);
-
-                    foreach (ArchitectureNode node in snapshot.Nodes)
-                    {
-                        await RunAsync(transaction, NodeMergeCypher, _mapper.MapNode(node)).ConfigureAwait(false);
-                    }
-
-                    foreach (MetricRecord metric in snapshot.Metrics)
-                    {
-                        await RunAsync(transaction, MetricMergeCypher, _mapper.MapMetric(metric)).ConfigureAwait(false);
-                    }
-
-                    foreach (EvidenceRecord evidence in canonicalEvidence.Records)
-                    {
-                        await RunAsync(transaction, EvidenceMergeCypher, _mapper.MapEvidence(evidence)).ConfigureAwait(false);
-                    }
-
-                    foreach (SolutionModel solution in snapshot.Solutions)
-                    {
-                        await RunAsync(transaction, SnapshotSolutionRelationshipCypher, new Dictionary<string, object?>(StringComparer.Ordinal)
+                        foreach (RepositoryModel repository in snapshot.Repositories)
                         {
-                            ["snapshotStableKey"] = snapshot.SnapshotHeader!.StableKey.Value,
-                            ["solutionStableKey"] = solution.StableKey.Value
-                        }).ConfigureAwait(false);
-                    }
+                            await RunAsync(transaction, RepositoryMergeCypher, _mapper.MapRepository(repository)).ConfigureAwait(false);
+                            operationCount++;
+                        }
+                    }).ConfigureAwait(false);
 
-                    int nodeEvidenceRelationships = 0;
-                    foreach (ArchitectureNode node in snapshot.Nodes.Where(node => node.PrimaryEvidenceStableKey is not null))
+                    await diagnostics.MeasureAsync("Persistence.WriteSolutions", async () =>
                     {
-                        string canonicalEvidenceStableKey = canonicalEvidence.CanonicalStableKeyByInputStableKey[node.PrimaryEvidenceStableKey!.Value.Value];
-                        await RunAsync(transaction, NodeEvidenceRelationshipCypher, new Dictionary<string, object?>(StringComparer.Ordinal)
+                        foreach (SolutionModel solution in snapshot.Solutions)
                         {
-                            ["snapshotStableKey"] = snapshot.SnapshotHeader!.StableKey.Value,
-                            ["nodeStableKey"] = node.StableKey.Value,
-                            ["evidenceStableKey"] = canonicalEvidenceStableKey
-                        }).ConfigureAwait(false);
-                        nodeEvidenceRelationships++;
-                    }
+                            await RunAsync(transaction, SolutionMergeCypher, _mapper.MapSolution(solution)).ConfigureAwait(false);
+                            operationCount++;
+                        }
+                    }).ConfigureAwait(false);
 
-                    int metricEvidenceRelationships = 0;
-                    foreach (MetricRecord metric in snapshot.Metrics.Where(metric => metric.PrimaryEvidenceStableKey is not null))
+                    await diagnostics.MeasureAsync("Persistence.WriteSnapshotHeader", async () =>
                     {
-                        string canonicalEvidenceStableKey = canonicalEvidence.CanonicalStableKeyByInputStableKey[metric.PrimaryEvidenceStableKey!.Value.Value];
-                        await RunAsync(transaction, MetricEvidenceRelationshipCypher, new Dictionary<string, object?>(StringComparer.Ordinal)
-                        {
-                            ["snapshotStableKey"] = snapshot.SnapshotHeader!.StableKey.Value,
-                            ["metricStableKey"] = metric.StableKey.Value,
-                            ["evidenceStableKey"] = canonicalEvidenceStableKey
-                        }).ConfigureAwait(false);
-                        metricEvidenceRelationships++;
-                    }
+                        await RunAsync(transaction, SnapshotMergeCypher, _mapper.MapSnapshot(snapshot.SnapshotHeader!)).ConfigureAwait(false);
+                        operationCount++;
+                    }).ConfigureAwait(false);
 
-                    int metricTargetRelationships = 0;
-                    foreach (MetricRecord metric in snapshot.Metrics.Where(metric => metric.NodeStableKey is not null))
+                    await diagnostics.MeasureAsync("Persistence.WriteNodes", async () =>
                     {
-                        await RunAsync(transaction, MetricNodeTargetRelationshipCypher, new Dictionary<string, object?>(StringComparer.Ordinal)
+                        foreach (ArchitectureNode node in snapshot.Nodes)
                         {
-                            ["snapshotStableKey"] = snapshot.SnapshotHeader!.StableKey.Value,
-                            ["metricStableKey"] = metric.StableKey.Value,
-                            ["nodeStableKey"] = metric.NodeStableKey!.Value.Value
-                        }).ConfigureAwait(false);
-                        metricTargetRelationships++;
-                    }
+                            await RunAsync(transaction, NodeMergeCypher, _mapper.MapNode(node)).ConfigureAwait(false);
+                            operationCount++;
+                        }
+                    }).ConfigureAwait(false);
+
+                    await diagnostics.MeasureAsync("Persistence.WriteMetrics", async () =>
+                    {
+                        foreach (MetricRecord metric in snapshot.Metrics)
+                        {
+                            await RunAsync(transaction, MetricMergeCypher, _mapper.MapMetric(metric)).ConfigureAwait(false);
+                            operationCount++;
+                        }
+                    }).ConfigureAwait(false);
+
+                    await diagnostics.MeasureAsync("Persistence.WriteEvidence", async () =>
+                    {
+                        foreach (EvidenceRecord evidence in canonicalEvidence.Records)
+                        {
+                            await RunAsync(transaction, EvidenceMergeCypher, _mapper.MapEvidence(evidence)).ConfigureAwait(false);
+                            operationCount++;
+                        }
+                    }).ConfigureAwait(false);
+
+                    RelationshipWriteCounts relationshipWriteCounts = await diagnostics.MeasureAsync("Persistence.WriteRelationships", async () =>
+                    {
+                        foreach (SolutionModel solution in snapshot.Solutions)
+                        {
+                            await RunAsync(transaction, SnapshotSolutionRelationshipCypher, new Dictionary<string, object?>(StringComparer.Ordinal)
+                            {
+                                ["snapshotStableKey"] = snapshot.SnapshotHeader!.StableKey.Value,
+                                ["solutionStableKey"] = solution.StableKey.Value
+                            }).ConfigureAwait(false);
+                            operationCount++;
+                        }
+
+                        int nodeEvidenceRelationships = 0;
+                        foreach (ArchitectureNode node in snapshot.Nodes.Where(node => node.PrimaryEvidenceStableKey is not null))
+                        {
+                            string canonicalEvidenceStableKey = canonicalEvidence.CanonicalStableKeyByInputStableKey[node.PrimaryEvidenceStableKey!.Value.Value];
+                            await RunAsync(transaction, NodeEvidenceRelationshipCypher, new Dictionary<string, object?>(StringComparer.Ordinal)
+                            {
+                                ["snapshotStableKey"] = snapshot.SnapshotHeader!.StableKey.Value,
+                                ["nodeStableKey"] = node.StableKey.Value,
+                                ["evidenceStableKey"] = canonicalEvidenceStableKey
+                            }).ConfigureAwait(false);
+                            operationCount++;
+                            nodeEvidenceRelationships++;
+                        }
+
+                        int metricEvidenceRelationships = 0;
+                        foreach (MetricRecord metric in snapshot.Metrics.Where(metric => metric.PrimaryEvidenceStableKey is not null))
+                        {
+                            string canonicalEvidenceStableKey = canonicalEvidence.CanonicalStableKeyByInputStableKey[metric.PrimaryEvidenceStableKey!.Value.Value];
+                            await RunAsync(transaction, MetricEvidenceRelationshipCypher, new Dictionary<string, object?>(StringComparer.Ordinal)
+                            {
+                                ["snapshotStableKey"] = snapshot.SnapshotHeader!.StableKey.Value,
+                                ["metricStableKey"] = metric.StableKey.Value,
+                                ["evidenceStableKey"] = canonicalEvidenceStableKey
+                            }).ConfigureAwait(false);
+                            operationCount++;
+                            metricEvidenceRelationships++;
+                        }
+
+                        int metricTargetRelationships = 0;
+                        foreach (MetricRecord metric in snapshot.Metrics.Where(metric => metric.NodeStableKey is not null))
+                        {
+                            await RunAsync(transaction, MetricNodeTargetRelationshipCypher, new Dictionary<string, object?>(StringComparer.Ordinal)
+                            {
+                                ["snapshotStableKey"] = snapshot.SnapshotHeader!.StableKey.Value,
+                                ["metricStableKey"] = metric.StableKey.Value,
+                                ["nodeStableKey"] = metric.NodeStableKey!.Value.Value
+                            }).ConfigureAwait(false);
+                            operationCount++;
+                            metricTargetRelationships++;
+                        }
+
+                        return new RelationshipWriteCounts(nodeEvidenceRelationships, metricEvidenceRelationships, metricTargetRelationships);
+                    }).ConfigureAwait(false);
 
                     return new SnapshotPersistenceCounts(
                         snapshot.Repositories.Count,
@@ -265,13 +315,15 @@ namespace Archon.Infrastructure.Neo4j.Persistence
                         canonicalEvidence.Records.Count,
                         architectureRelationships: 0,
                         snapshotSolutionRelationships: snapshot.Solutions.Count,
-                        nodeEvidenceRelationships: nodeEvidenceRelationships,
+                        nodeEvidenceRelationships: relationshipWriteCounts.NodeEvidenceRelationships,
                         relationshipEndpointRelationships: 0,
                         relationshipEvidenceRelationships: 0,
                         metrics: snapshot.Metrics.Count,
-                        metricEvidenceRelationships: metricEvidenceRelationships,
-                        metricTargetRelationships: metricTargetRelationships);
-                }).ConfigureAwait(false);
+                        metricEvidenceRelationships: relationshipWriteCounts.MetricEvidenceRelationships,
+                        metricTargetRelationships: relationshipWriteCounts.MetricTargetRelationships);
+                })).ConfigureAwait(false);
+            diagnostics.UpdateCompletedCounts(snapshot, counts, operationCount, batchCount: 1);
+            return counts;
         }
 
         /// <summary>
@@ -425,5 +477,13 @@ MERGE (metric)-[:MEASURES_NODE]->(node)";
         /// <param name="Records">The canonical evidence records that should be persisted.</param>
         /// <param name="CanonicalStableKeyByInputStableKey">The mapping from every input evidence stable key to its canonical persisted stable key.</param>
         private sealed record CanonicalEvidenceSet(IReadOnlyList<EvidenceRecord> Records, IReadOnlyDictionary<string, string> CanonicalStableKeyByInputStableKey);
+
+        /// <summary>
+        /// Holds relationship counters produced while relationship statements are executed.
+        /// </summary>
+        /// <param name="NodeEvidenceRelationships">The number of node-to-evidence support relationships written.</param>
+        /// <param name="MetricEvidenceRelationships">The number of metric-to-evidence support relationships written.</param>
+        /// <param name="MetricTargetRelationships">The number of metric-to-node target relationships written.</param>
+        private sealed record RelationshipWriteCounts(int NodeEvidenceRelationships, int MetricEvidenceRelationships, int MetricTargetRelationships);
     }
 }

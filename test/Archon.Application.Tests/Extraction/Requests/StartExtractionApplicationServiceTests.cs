@@ -379,6 +379,7 @@ namespace Archon.Application.Tests.Extraction.Requests
                 errors: [new ExtractionRunError("Extraction.Error", "A controlled error was recorded.", "Resolving", progressUpdatedUtc)],
                 completedUtc: null,
                 snapshotIdentity: null,
+                persistenceDiagnostics: null,
                 CancellationToken.None);
 
             ExtractionRun? status = await service.GetStatusAsync(startResult.Run.RunId, CancellationToken.None);
@@ -408,6 +409,7 @@ namespace Archon.Application.Tests.Extraction.Requests
                 errors: null,
                 completedUtc: null,
                 snapshotIdentity: null,
+                persistenceDiagnostics: null,
                 CancellationToken.None);
 
             Assert.False(updated);

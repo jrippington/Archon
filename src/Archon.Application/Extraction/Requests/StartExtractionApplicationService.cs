@@ -115,6 +115,7 @@ namespace Archon.Application.Extraction.Requests
         /// <param name="errors">The optional error diagnostics to append to the run.</param>
         /// <param name="completedUtc">The optional terminal timestamp when the run has completed, failed, or been cancelled.</param>
         /// <param name="snapshotIdentity">The optional stable snapshot identity returned after persistence succeeds.</param>
+        /// <param name="persistenceDiagnostics">The optional persistence-specific diagnostic breakdown to retain with the run.</param>
         /// <param name="cancellationToken">The cancellation token for the read-modify-write operation.</param>
         /// <returns><see langword="true"/> when the run was found and updated; otherwise <see langword="false"/>.</returns>
         public async Task<bool> UpdateRunProgressAsync(
@@ -125,6 +126,7 @@ namespace Archon.Application.Extraction.Requests
             IEnumerable<ExtractionRunError>? errors,
             DateTimeOffset? completedUtc,
             string? snapshotIdentity,
+            ExtractionRunPersistenceDiagnostics? persistenceDiagnostics,
             CancellationToken cancellationToken)
         {
             // Background orchestration will use this read-modify-write seam to expose progress without mutating run snapshots in place.
@@ -138,7 +140,8 @@ namespace Archon.Application.Extraction.Requests
             }
 
             ExtractionRun updatedRun = currentRun.WithStatus(status, progress, completedUtc, snapshotIdentity)
-                .WithDiagnostics(warnings, errors);
+                .WithDiagnostics(warnings, errors)
+                .WithPersistenceDiagnostics(persistenceDiagnostics ?? currentRun.PersistenceDiagnostics);
             await _runHistory.UpdateAsync(updatedRun, cancellationToken).ConfigureAwait(false);
             _logger.LogInformation(
                 "Extraction run {RunId} progress updated to {Status} at stage {Stage}.",

@@ -3,6 +3,7 @@ using Archon.Api.Extraction.Contracts;
 using Archon.Application.Extraction.Contracts;
 using Archon.Application.Extraction.Metrics;
 using Archon.Application.Extraction.Pipeline;
+using Archon.Application.Extraction.Runs;
 using Archon.Application.Graph.Persistence;
 using Archon.Application.Rules;
 using Archon.Domain.Graph.ControlledValues;
@@ -670,6 +671,136 @@ namespace Archon.Api.Extraction.Tests
         }
 
         /// <summary>
+        /// Verifies GET /extractions/{runId} returns the completed persistence diagnostic section exactly as application persistence supplied it.
+        /// </summary>
+        /// <returns>A task that completes after the completed diagnostics JSON response has been validated.</returns>
+        [Fact]
+        public async Task GetExtractionStatus_WhenRunCompletesWithPersistenceDiagnostics_ShouldReturnSerializedDiagnosticBreakdown()
+        {
+            // The API host must serialize application-owned diagnostics instead of recomputing Neo4j or writer-specific details at the HTTP boundary.
+            string repositoryRoot = CreateRepositoryRoot();
+            CreateSolutionFile(repositoryRoot, "CustomerSuite.sln");
+            ExtractionRunPersistenceDiagnostics diagnostics = CreatePersistenceDiagnostics(completed: true);
+            RecordingSnapshotWriter writer = new("snapshot://wp016-api-diagnostics", diagnostics);
+            await using WebApplication app = await CreateApplicationAsync(services => services.AddSingleton<IArchitectureSnapshotWriter>(writer));
+            using HttpClient client = app.GetTestClient();
+            HttpResponseMessage startResponse = await client.PostAsJsonAsync(
+                "/extractions",
+                new StartExtractionApiRequest(repositoryRoot, ["CustomerSuite.sln"], null, null, null, null));
+            using JsonDocument startBody = await JsonDocument.ParseAsync(await startResponse.Content.ReadAsStreamAsync());
+            string runId = startBody.RootElement.GetProperty("runId").GetString()!;
+
+            JsonDocument statusBody = await PollForTerminalStatusAsync(client, runId);
+
+            using (statusBody)
+            {
+                Assert.Equal("Completed", statusBody.RootElement.GetProperty("status").GetString());
+                JsonElement persistenceDiagnostics = statusBody.RootElement.GetProperty("persistenceDiagnostics");
+                Assert.Equal(JsonValueKind.Object, persistenceDiagnostics.ValueKind);
+                Assert.True(persistenceDiagnostics.GetProperty("completed").GetBoolean());
+
+                JsonElement diagnosticTimings = persistenceDiagnostics.GetProperty("timings");
+                Assert.Collection(
+                    diagnosticTimings.EnumerateArray(),
+                    timing => AssertPersistenceTiming(timing, "Persistence.PrepareSnapshot", 12),
+                    timing => AssertPersistenceTiming(timing, "Persistence.Commit", 34),
+                    timing => AssertPersistenceTiming(timing, "Persistence.Total", 46));
+
+                JsonElement counts = persistenceDiagnostics.GetProperty("counts");
+                Assert.Equal(1, counts.GetProperty("repositoryCount").GetInt32());
+                Assert.Equal(2, counts.GetProperty("solutionCount").GetInt32());
+                Assert.Equal(3, counts.GetProperty("projectCount").GetInt32());
+                Assert.Equal(4, counts.GetProperty("fileCount").GetInt32());
+                Assert.Equal(5, counts.GetProperty("nodeCount").GetInt32());
+                Assert.Equal(6, counts.GetProperty("relationshipCount").GetInt32());
+                Assert.Equal(7, counts.GetProperty("evidenceCount").GetInt32());
+                Assert.Equal(8, counts.GetProperty("findingCount").GetInt32());
+                Assert.Equal(9, counts.GetProperty("warningCount").GetInt32());
+                Assert.Equal(10, counts.GetProperty("errorCount").GetInt32());
+                Assert.Equal(11, counts.GetProperty("metricCount").GetInt32());
+                Assert.Equal(12, counts.GetProperty("generatedSummaryCount").GetInt32());
+                Assert.Equal(13, counts.GetProperty("metadataEntryCount").GetInt32());
+                Assert.Equal(14, counts.GetProperty("persistenceOperationCount").GetInt32());
+                Assert.Equal(15, counts.GetProperty("persistenceBatchCount").GetInt32());
+                Assert.Equal(16, counts.GetProperty("serializedPayloadBytes").GetInt64());
+
+                JsonElement topLevelTimings = statusBody.RootElement.GetProperty("timings");
+                Assert.Contains(topLevelTimings.EnumerateArray(), timing => timing.GetProperty("stage").GetString() == "Persistence");
+                Assert.DoesNotContain(topLevelTimings.EnumerateArray(), timing => timing.GetProperty("stage").GetString() == "Persistence.PrepareSnapshot");
+            }
+        }
+
+        /// <summary>
+        /// Verifies GET /extractions/{runId} returns partial persistence diagnostics when the persistence writer fails after collecting measurements.
+        /// </summary>
+        /// <returns>A task that completes after the failed diagnostics JSON response has been validated.</returns>
+        [Fact]
+        public async Task GetExtractionStatus_WhenPersistenceFailsWithPartialDiagnostics_ShouldReturnPartialDiagnosticBreakdown()
+        {
+            // Failed persistence runs still expose safe partial measurements so consumers can diagnose which sub-stage completed before failure.
+            string repositoryRoot = CreateRepositoryRoot();
+            CreateSolutionFile(repositoryRoot, "CustomerSuite.sln");
+            ExtractionRunPersistenceDiagnostics diagnostics = CreatePersistenceDiagnostics(completed: false);
+            await using WebApplication app = await CreateApplicationAsync(services => services.AddSingleton<IArchitectureSnapshotWriter>(new FailingSnapshotWriter("Password=PartialDiagnosticSecret", diagnostics)));
+            using HttpClient client = app.GetTestClient();
+            HttpResponseMessage startResponse = await client.PostAsJsonAsync(
+                "/extractions",
+                new StartExtractionApiRequest(repositoryRoot, ["CustomerSuite.sln"], null, null, null, null));
+            using JsonDocument startBody = await JsonDocument.ParseAsync(await startResponse.Content.ReadAsStreamAsync());
+            string runId = startBody.RootElement.GetProperty("runId").GetString()!;
+
+            JsonDocument statusBody = await PollForTerminalStatusAsync(client, runId);
+
+            using (statusBody)
+            {
+                string rawStatus = statusBody.RootElement.GetRawText();
+                Assert.Equal("Failed", statusBody.RootElement.GetProperty("status").GetString());
+                JsonElement persistenceDiagnostics = statusBody.RootElement.GetProperty("persistenceDiagnostics");
+                Assert.Equal(JsonValueKind.Object, persistenceDiagnostics.ValueKind);
+                Assert.False(persistenceDiagnostics.GetProperty("completed").GetBoolean());
+                Assert.Collection(
+                    persistenceDiagnostics.GetProperty("timings").EnumerateArray(),
+                    timing => AssertPersistenceTiming(timing, "Persistence.PrepareSnapshot", 12),
+                    timing => AssertPersistenceTiming(timing, "Persistence.Commit", 34),
+                    timing => AssertPersistenceTiming(timing, "Persistence.Total", 46));
+                Assert.Equal(14, persistenceDiagnostics.GetProperty("counts").GetProperty("persistenceOperationCount").GetInt32());
+                Assert.DoesNotContain("PartialDiagnosticSecret", rawStatus, StringComparison.Ordinal);
+                Assert.DoesNotContain("Neo4j.Driver", rawStatus, StringComparison.Ordinal);
+            }
+        }
+
+        /// <summary>
+        /// Verifies GET /extractions/{runId} keeps older or not-instrumented runs compatible by returning a null diagnostics section.
+        /// </summary>
+        /// <returns>A task that completes after the no-diagnostics compatibility response has been validated.</returns>
+        [Fact]
+        public async Task GetExtractionStatus_WhenRunHasNoPersistenceDiagnostics_ShouldReturnNullDiagnosticSection()
+        {
+            // Null diagnostics are the additive compatibility path for older run records and writers that have not supplied WP016 measurements.
+            string repositoryRoot = CreateRepositoryRoot();
+            CreateSolutionFile(repositoryRoot, "CustomerSuite.sln");
+            RecordingSnapshotWriter writer = new("snapshot://wp016-api-no-diagnostics");
+            await using WebApplication app = await CreateApplicationAsync(services => services.AddSingleton<IArchitectureSnapshotWriter>(writer));
+            using HttpClient client = app.GetTestClient();
+            HttpResponseMessage startResponse = await client.PostAsJsonAsync(
+                "/extractions",
+                new StartExtractionApiRequest(repositoryRoot, ["CustomerSuite.sln"], null, null, null, null));
+            using JsonDocument startBody = await JsonDocument.ParseAsync(await startResponse.Content.ReadAsStreamAsync());
+            string runId = startBody.RootElement.GetProperty("runId").GetString()!;
+
+            JsonDocument statusBody = await PollForTerminalStatusAsync(client, runId);
+
+            using (statusBody)
+            {
+                Assert.Equal("Completed", statusBody.RootElement.GetProperty("status").GetString());
+                Assert.True(statusBody.RootElement.TryGetProperty("persistenceDiagnostics", out JsonElement persistenceDiagnostics));
+                Assert.Equal(JsonValueKind.Null, persistenceDiagnostics.ValueKind);
+                Assert.NotEqual(JsonValueKind.Undefined, statusBody.RootElement.GetProperty("timings").ValueKind);
+                Assert.False(string.IsNullOrWhiteSpace(statusBody.RootElement.GetProperty("snapshotIdentity").GetString()));
+            }
+        }
+
+        /// <summary>
         /// Verifies GET /extractions/{runId} returns not found for an unknown run identifier.
         /// </summary>
         /// <returns>A task that completes after the not-found response is validated.</returns>
@@ -778,6 +909,7 @@ namespace Archon.Api.Extraction.Tests
         /// <summary>
         /// Creates a test web application with extraction services and endpoints mapped.
         /// </summary>
+        /// <param name="configureServices">The optional service customization callback used by tests to replace persistence or other seams.</param>
         /// <returns>A started in-memory web application.</returns>
         private static async Task<WebApplication> CreateApplicationAsync(Action<IServiceCollection>? configureServices = null)
         {
@@ -819,6 +951,55 @@ namespace Archon.Api.Extraction.Tests
             }
 
             throw new TimeoutException("The extraction run did not reach a terminal status before the test timeout.");
+        }
+
+        /// <summary>
+        /// Creates a stable persistence diagnostics fixture used by status serialization tests.
+        /// </summary>
+        /// <param name="completed">A value indicating whether the diagnostics represent a completed or partial persistence attempt.</param>
+        /// <returns>A persistence diagnostics object with deterministic timings and count values.</returns>
+        private static ExtractionRunPersistenceDiagnostics CreatePersistenceDiagnostics(bool completed)
+        {
+            // The values deliberately differ across properties so JSON assertions prove each stable count name is mapped to the correct source value.
+            DateTimeOffset completedUtc = new(2026, 1, 2, 3, 4, 5, TimeSpan.Zero);
+            ExtractionRunTiming[] timings =
+            [
+                new("Persistence.PrepareSnapshot", 12, completedUtc),
+                new("Persistence.Commit", 34, completedUtc.AddMilliseconds(34)),
+                new("Persistence.Total", 46, completedUtc.AddMilliseconds(46))
+            ];
+            ExtractionRunPersistenceCounts counts = new(
+                RepositoryCount: 1,
+                SolutionCount: 2,
+                ProjectCount: 3,
+                FileCount: 4,
+                NodeCount: 5,
+                RelationshipCount: 6,
+                EvidenceCount: 7,
+                FindingCount: 8,
+                WarningCount: 9,
+                ErrorCount: 10,
+                MetricCount: 11,
+                GeneratedSummaryCount: 12,
+                MetadataEntryCount: 13,
+                PersistenceOperationCount: 14,
+                PersistenceBatchCount: 15,
+                SerializedPayloadBytes: 16);
+            return new ExtractionRunPersistenceDiagnostics(timings, counts, completed);
+        }
+
+        /// <summary>
+        /// Asserts the public JSON shape of one nested persistence timing item.
+        /// </summary>
+        /// <param name="timing">The JSON timing element returned by the status endpoint.</param>
+        /// <param name="expectedStage">The stable stage name expected in the response.</param>
+        /// <param name="expectedElapsedMilliseconds">The elapsed milliseconds expected in the response.</param>
+        private static void AssertPersistenceTiming(JsonElement timing, string expectedStage, long expectedElapsedMilliseconds)
+        {
+            // Nested diagnostics reuse the same timing serialization convention as top-level timings: camel-case names and UTC timestamps.
+            Assert.Equal(expectedStage, timing.GetProperty("stage").GetString());
+            Assert.Equal(expectedElapsedMilliseconds, timing.GetProperty("elapsedMilliseconds").GetInt64());
+            Assert.Equal(TimeSpan.Zero, timing.GetProperty("completedUtc").GetDateTimeOffset().Offset);
         }
 
         /// <summary>
@@ -1162,13 +1343,20 @@ namespace Archon.Api.Extraction.Tests
             private readonly string _snapshotStableKey;
 
             /// <summary>
+            /// Stores optional persistence diagnostics returned with the simulated write result.
+            /// </summary>
+            private readonly ExtractionRunPersistenceDiagnostics? _diagnostics;
+
+            /// <summary>
             /// Initializes a new instance of the <see cref="RecordingSnapshotWriter" /> class.
             /// </summary>
             /// <param name="snapshotStableKey">The stable snapshot identity returned by the test writer.</param>
-            public RecordingSnapshotWriter(string snapshotStableKey)
+            /// <param name="diagnostics">The optional persistence diagnostics returned by the test writer.</param>
+            public RecordingSnapshotWriter(string snapshotStableKey, ExtractionRunPersistenceDiagnostics? diagnostics = null)
             {
                 // The writer uses a caller-supplied identity so endpoint assertions can focus on graph content rather than generated ids.
                 _snapshotStableKey = snapshotStableKey;
+                _diagnostics = diagnostics;
             }
 
             /// <summary>
@@ -1210,7 +1398,7 @@ namespace Archon.Api.Extraction.Tests
                     snapshot.GeneratedSummaries.Count,
                     snapshot.GeneratedSummaries.Count,
                     0);
-                return Task.FromResult(SnapshotPersistenceResult.Success(_snapshotStableKey, counts));
+                return Task.FromResult(SnapshotPersistenceResult.Success(_snapshotStableKey, counts, diagnostics: _diagnostics));
             }
         }
 
@@ -1225,13 +1413,20 @@ namespace Archon.Api.Extraction.Tests
             private readonly string _sensitiveValue;
 
             /// <summary>
+            /// Stores optional partial persistence diagnostics returned with the simulated failure.
+            /// </summary>
+            private readonly ExtractionRunPersistenceDiagnostics? _diagnostics;
+
+            /// <summary>
             /// Initializes a new instance of the <see cref="FailingSnapshotWriter"/> class.
             /// </summary>
             /// <param name="sensitiveValue">The secret-like value used to prove response redaction.</param>
-            public FailingSnapshotWriter(string sensitiveValue)
+            /// <param name="diagnostics">The optional partial persistence diagnostics returned by the test writer.</param>
+            public FailingSnapshotWriter(string sensitiveValue, ExtractionRunPersistenceDiagnostics? diagnostics = null)
             {
                 // The writer keeps the value only for the test assertion; the returned diagnostic deliberately omits it.
                 _sensitiveValue = sensitiveValue;
+                _diagnostics = diagnostics;
             }
 
             /// <summary>
@@ -1249,7 +1444,8 @@ namespace Archon.Api.Extraction.Tests
                     new PersistenceError(
                         PersistenceStage.SnapshotPersistence,
                         "PersistenceUnavailable",
-                        "System.InvalidOperationException: Snapshot persistence failed at Neo4j.Driver with Password=" + _sensitiveValue + " at Infrastructure.Adapter"));
+                        "System.InvalidOperationException: Snapshot persistence failed at Neo4j.Driver with Password=" + _sensitiveValue + " at Infrastructure.Adapter"),
+                    diagnostics: _diagnostics);
                 return Task.FromResult(result);
             }
         }

@@ -126,14 +126,14 @@ namespace Archon.Application.Extraction.Orchestration
                     IReadOnlyList<ExtractionRunWarning> persistenceWarnings = CreateWarnings(persistenceResult.Warnings);
                     IReadOnlyList<ExtractionRunError> persistenceErrors = CreateErrors(persistenceResult.Errors);
                     run = await GetRequiredRunAsync(runId, cancellationToken).ConfigureAwait(false);
-                    await UpdateRunAsync(run, ExtractionRunStatus.Failed, "Persistence", "Snapshot persistence failed.", 100, persistenceWarnings, persistenceErrors, DateTimeOffset.UtcNow, cancellationToken).ConfigureAwait(false);
+                    await UpdateRunAsync(run, ExtractionRunStatus.Failed, "Persistence", "Snapshot persistence failed.", 100, persistenceWarnings, persistenceErrors, DateTimeOffset.UtcNow, cancellationToken, persistenceDiagnostics: persistenceResult.Diagnostics).ConfigureAwait(false);
                     await AppendTimingsAsync(runId, completedTimings.Concat([CreateTiming("Total", totalStopwatch)]), CancellationToken.None).ConfigureAwait(false);
                     return false;
                 }
 
                 run = await GetRequiredRunAsync(runId, cancellationToken).ConfigureAwait(false);
                 IReadOnlyList<ExtractionRunWarning> successWarnings = CreateWarnings(persistenceResult.Warnings);
-                await UpdateRunAsync(run, ExtractionRunStatus.Completed, "Completed", "Extraction snapshot persisted successfully.", 100, successWarnings, null, DateTimeOffset.UtcNow, cancellationToken, persistenceResult.SnapshotStableKey).ConfigureAwait(false);
+                await UpdateRunAsync(run, ExtractionRunStatus.Completed, "Completed", "Extraction snapshot persisted successfully.", 100, successWarnings, null, DateTimeOffset.UtcNow, cancellationToken, persistenceResult.SnapshotStableKey, persistenceResult.Diagnostics).ConfigureAwait(false);
                 await AppendTimingsAsync(runId, completedTimings.Concat([CreateTiming("Total", totalStopwatch)]), cancellationToken).ConfigureAwait(false);
                 _logger.LogInformation("Extraction run {RunId} completed and persisted snapshot {SnapshotStableKey}.", runId.ToString(), persistenceResult.SnapshotStableKey);
                 return true;
@@ -198,6 +198,7 @@ namespace Archon.Application.Extraction.Orchestration
         /// <param name="completedUtc">The optional terminal timestamp.</param>
         /// <param name="cancellationToken">The cancellation token for the update operation.</param>
         /// <param name="snapshotIdentity">The optional stable snapshot identity to record after persistence succeeds.</param>
+        /// <param name="persistenceDiagnostics">The optional persistence-specific diagnostic breakdown to retain with the run.</param>
         /// <returns>A task that completes after the store update has finished.</returns>
         private async Task UpdateRunAsync(
             ExtractionRun run,
@@ -209,11 +210,14 @@ namespace Archon.Application.Extraction.Orchestration
             IEnumerable<ExtractionRunError>? errors,
             DateTimeOffset? completedUtc,
             CancellationToken cancellationToken,
-            string? snapshotIdentity = null)
+            string? snapshotIdentity = null,
+            ExtractionRunPersistenceDiagnostics? persistenceDiagnostics = null)
         {
             // Direct store updates avoid a circular dependency from orchestration back to the start application service.
             ExtractionRunProgress progress = new(stage, message, percentage, DateTimeOffset.UtcNow);
-            ExtractionRun updatedRun = run.WithStatus(status, progress, completedUtc, snapshotIdentity).WithDiagnostics(warnings, errors);
+            ExtractionRun updatedRun = run.WithStatus(status, progress, completedUtc, snapshotIdentity)
+                .WithDiagnostics(warnings, errors)
+                .WithPersistenceDiagnostics(persistenceDiagnostics ?? run.PersistenceDiagnostics);
             await _runHistory.UpdateAsync(updatedRun, cancellationToken).ConfigureAwait(false);
         }
 

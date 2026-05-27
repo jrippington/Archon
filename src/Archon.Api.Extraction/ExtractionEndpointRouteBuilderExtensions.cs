@@ -165,7 +165,44 @@ namespace Archon.Api.Extraction
                 run.Warnings.Count,
                 run.Errors.Count,
                 run.Timings.Select(timing => new ExtractionRunTimingResponse(timing.Stage, timing.ElapsedMilliseconds, timing.CompletedUtc)).ToArray(),
-                run.SnapshotIdentity);
+                run.SnapshotIdentity,
+                ToPersistenceDiagnosticsResponse(run.PersistenceDiagnostics));
+        }
+
+        /// <summary>
+        /// Converts application persistence diagnostics into the public API response section.
+        /// </summary>
+        /// <param name="diagnostics">The optional application diagnostic breakdown attached to the run.</param>
+        /// <returns>The API persistence diagnostics response, or <see langword="null"/> when the run has no diagnostics.</returns>
+        private static ExtractionRunPersistenceDiagnosticsResponse? ToPersistenceDiagnosticsResponse(ExtractionRunPersistenceDiagnostics? diagnostics)
+        {
+            // Keeping persistence details under a dedicated response property preserves the existing top-level timing collection as a summary view.
+            if (diagnostics is null)
+            {
+                return null;
+            }
+
+            ExtractionRunPersistenceCounts counts = diagnostics.Counts;
+            return new ExtractionRunPersistenceDiagnosticsResponse(
+                diagnostics.Timings.Select(timing => new ExtractionRunTimingResponse(timing.Stage, timing.ElapsedMilliseconds, timing.CompletedUtc)).ToArray(),
+                new ExtractionRunPersistenceCountsResponse(
+                    counts.RepositoryCount,
+                    counts.SolutionCount,
+                    counts.ProjectCount,
+                    counts.FileCount,
+                    counts.NodeCount,
+                    counts.RelationshipCount,
+                    counts.EvidenceCount,
+                    counts.FindingCount,
+                    counts.WarningCount,
+                    counts.ErrorCount,
+                    counts.MetricCount,
+                    counts.GeneratedSummaryCount,
+                    counts.MetadataEntryCount,
+                    counts.PersistenceOperationCount,
+                    counts.PersistenceBatchCount,
+                    counts.SerializedPayloadBytes),
+                diagnostics.Completed);
         }
 
         /// <summary>

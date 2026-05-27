@@ -18,6 +18,7 @@ namespace Archon.Application.Extraction.Runs
         /// <param name="errors">The error diagnostics recorded so far.</param>
         /// <param name="timings">The measured extraction step durations recorded so far.</param>
         /// <param name="snapshotIdentity">The optional persisted snapshot stable identity once persistence succeeds.</param>
+        /// <param name="persistenceDiagnostics">The optional persistence-specific diagnostic breakdown for this run.</param>
         public ExtractionRun(
             ExtractionRunId runId,
             ExtractionRunStatus status,
@@ -28,7 +29,8 @@ namespace Archon.Application.Extraction.Runs
             IEnumerable<ExtractionRunWarning>? warnings,
             IEnumerable<ExtractionRunError>? errors,
             IEnumerable<ExtractionRunTiming>? timings,
-            string? snapshotIdentity)
+            string? snapshotIdentity,
+            ExtractionRunPersistenceDiagnostics? persistenceDiagnostics = null)
         {
             // The run object is immutable from consumers' perspective so the store controls lifecycle changes consistently.
             ArgumentNullException.ThrowIfNull(submittedRequest);
@@ -44,6 +46,7 @@ namespace Archon.Application.Extraction.Runs
             Errors = errors?.ToArray() ?? [];
             Timings = timings?.ToArray() ?? [];
             SnapshotIdentity = snapshotIdentity;
+            PersistenceDiagnostics = persistenceDiagnostics;
         }
 
         /// <summary>
@@ -97,6 +100,11 @@ namespace Archon.Application.Extraction.Runs
         public string? SnapshotIdentity { get; }
 
         /// <summary>
+        /// Gets the optional persistence-specific diagnostic breakdown for this run.
+        /// </summary>
+        public ExtractionRunPersistenceDiagnostics? PersistenceDiagnostics { get; }
+
+        /// <summary>
         /// Creates a copy of this run with a new status and progress value.
         /// </summary>
         /// <param name="status">The replacement lifecycle status.</param>
@@ -121,7 +129,8 @@ namespace Archon.Application.Extraction.Runs
                 Warnings,
                 Errors,
                 Timings,
-                snapshotIdentity ?? SnapshotIdentity);
+                snapshotIdentity ?? SnapshotIdentity,
+                PersistenceDiagnostics);
         }
 
         /// <summary>
@@ -145,7 +154,8 @@ namespace Archon.Application.Extraction.Runs
                 Warnings.Concat(warnings ?? []),
                 Errors.Concat(errors ?? []),
                 Timings,
-                SnapshotIdentity);
+                SnapshotIdentity,
+                PersistenceDiagnostics);
         }
 
         /// <summary>
@@ -166,7 +176,30 @@ namespace Archon.Application.Extraction.Runs
                 Warnings,
                 Errors,
                 Timings.Concat(timings ?? []),
-                SnapshotIdentity);
+                SnapshotIdentity,
+                PersistenceDiagnostics);
+        }
+
+        /// <summary>
+        /// Creates a copy of this run with a replacement persistence diagnostic breakdown.
+        /// </summary>
+        /// <param name="persistenceDiagnostics">The persistence diagnostic breakdown to associate with this run.</param>
+        /// <returns>A new run snapshot containing the supplied persistence diagnostics and all existing lifecycle details.</returns>
+        public ExtractionRun WithPersistenceDiagnostics(ExtractionRunPersistenceDiagnostics? persistenceDiagnostics)
+        {
+            // Diagnostics are replaced as a unit because each persistence result represents the latest known breakdown for one persistence attempt.
+            return new ExtractionRun(
+                RunId,
+                Status,
+                SubmittedRequest,
+                StartedUtc,
+                CompletedUtc,
+                Progress,
+                Warnings,
+                Errors,
+                Timings,
+                SnapshotIdentity,
+                persistenceDiagnostics);
         }
     }
 }

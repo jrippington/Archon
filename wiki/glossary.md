@@ -18,6 +18,22 @@ ADO.NET is the .NET data-access API family built around connections, commands, r
 
 The architecture graph is the durable representation of architecture facts, evidence, findings, metrics, and summaries. In the current persistence foundation, Neo4j stores this graph using stable labels, stable keys, fingerprints, and support relationships.
 
+## Persistence diagnostic breakdown
+
+A persistence diagnostic breakdown is the optional run-status section that explains the snapshot persistence handoff for one extraction run. It contains ordered scoped timings, persistence count values, and a completion flag. It is retained with the run lifecycle rather than stored as architecture graph content, and it can be present for completed runs or as partial evidence on failed persistence runs.
+
+## Diagnostic collector
+
+A diagnostic collector is the per-persistence-attempt component that records safe timing and count observations while a snapshot writer runs. The current Neo4j collector uses monotonic elapsed-time measurement, preserves sub-stage completion order, avoids raw Cypher, driver exceptions, credentials, connection strings, and duplicated payload materialization, and converts its observations into the application-owned persistence diagnostic breakdown.
+
+## Sub-stage timing
+
+A sub-stage timing is one scoped diagnostic duration inside a larger workflow stage. Persistence sub-stage timings use display-style names such as `Persistence.WriteRelationships` and `Persistence.Commit` so contributors can compare detailed persistence work without flattening those entries into the top-level extraction `timings` collection.
+
+## Durable write finalization
+
+Durable write finalization is the point at which the persistence adapter has finished the write transaction or equivalent store-specific commit boundary and can report a successful completed persistence result. In the current Neo4j adapter, this is represented by the `Persistence.Commit` diagnostic timing around the write transaction.
+
 ## Rule catalog
 
 The rule catalog is the authored set of versioned JSON rules that describe modernization, lifecycle, security, dependency, configuration, data-access, and architecture concerns. In the current WP012 foundation, Archon loads the catalog from copied runtime output, validates it, upserts versioned catalog records into Neo4j, evaluates enabled rules against accumulated graph facts, constructs deterministic findings, persists finding history and suppression state, and exposes controlled rule and hotlist query output.

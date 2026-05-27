@@ -79,6 +79,46 @@ namespace Archon.Application.Tests.Extraction.Orchestration
         }
 
         /// <summary>
+        /// Verifies successful persistence diagnostics survive the in-memory lifecycle path without replacing top-level timings.
+        /// </summary>
+        /// <returns>A task that completes after completed-run diagnostics and timings have been asserted.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenPersistenceSucceedsWithDiagnostics_ShouldExposeDiagnosticsWithoutFlatteningDetailedTimings()
+        {
+            // The in-memory run history is the smallest status path for WP016: the writer returns diagnostics, orchestration attaches them, and status retrieval reads them back.
+            InMemoryExtractionRunHistory runHistory = new();
+            ResolvedExtractionInput input = CreateResolvedInput();
+            ExtractionRun run = await runHistory.CreateAsync(input, DateTimeOffset.UtcNow, CancellationToken.None);
+            RecordingSnapshotWriter writer = RecordingSnapshotWriter.Success(
+                "snapshot://diagnostics-success",
+                CreatePersistenceDiagnostics(
+                    completed: true,
+                    [
+                        new ExtractionRunTiming("Persistence.PrepareSnapshot", 12, new DateTimeOffset(2026, 5, 27, 8, 0, 1, TimeSpan.Zero)),
+                        new ExtractionRunTiming("Persistence.WriteWarnings", 34, new DateTimeOffset(2026, 5, 27, 8, 0, 2, TimeSpan.Zero)),
+                        new ExtractionRunTiming("Persistence.Commit", 56, new DateTimeOffset(2026, 5, 27, 8, 0, 3, TimeSpan.Zero)),
+                        new ExtractionRunTiming("Persistence.Total", 102, new DateTimeOffset(2026, 5, 27, 8, 0, 4, TimeSpan.Zero))
+                    ]));
+            ExtractionOrchestrator orchestrator = CreateOrchestrator(runHistory, [new RecordingStage("stage", null, null)], writer);
+
+            bool executed = await orchestrator.ExecuteAsync(run.RunId, CancellationToken.None);
+
+            ExtractionRun completedRun = (await runHistory.GetAsync(run.RunId, CancellationToken.None))!;
+            Assert.True(executed);
+            Assert.Equal(ExtractionRunStatus.Completed, completedRun.Status);
+            Assert.NotNull(completedRun.PersistenceDiagnostics);
+            Assert.True(completedRun.PersistenceDiagnostics.Completed);
+            Assert.Equal(4, completedRun.PersistenceDiagnostics.Timings.Count);
+            Assert.Equal("Persistence.PrepareSnapshot", completedRun.PersistenceDiagnostics.Timings[0].Stage);
+            Assert.Equal(1, completedRun.PersistenceDiagnostics.Counts.RepositoryCount);
+            Assert.Equal(0, completedRun.PersistenceDiagnostics.Counts.ProjectCount);
+            Assert.Equal(0, completedRun.PersistenceDiagnostics.Counts.WarningCount);
+            Assert.Contains(completedRun.Timings, timing => timing.Stage == "Persistence");
+            Assert.DoesNotContain(completedRun.Timings, timing => timing.Stage == "Persistence.PrepareSnapshot");
+            Assert.DoesNotContain(completedRun.Timings, timing => timing.Stage == "Persistence.Total");
+        }
+
+        /// <summary>
         /// Verifies orchestration hands WP005 repository and solution graph contributions to snapshot persistence through the existing application path.
         /// </summary>
         /// <returns>A task that completes after the persisted snapshot shape has been asserted.</returns>
@@ -165,6 +205,125 @@ namespace Archon.Application.Tests.Extraction.Orchestration
             Assert.Equal(ExtractionRunStatus.Failed, failedRun.Status);
             Assert.Null(failedRun.SnapshotIdentity);
             Assert.Contains(failedRun.Errors, error => error.Stage == "SnapshotPersistence" && error.Message == "Persistence write failed safely.");
+        }
+
+        /// <summary>
+        /// Verifies failed persistence can retain partial diagnostics without reporting completion.
+        /// </summary>
+        /// <returns>A task that completes after failed-run diagnostics have been asserted.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenPersistenceFailsWithPartialDiagnostics_ShouldRetainDiagnosticsAndRemainFailed()
+        {
+            // Partial diagnostics are most useful on failures, so orchestration must attach them before exposing the terminal failed state.
+            InMemoryExtractionRunHistory runHistory = new();
+            ResolvedExtractionInput input = CreateResolvedInput();
+            ExtractionRun run = await runHistory.CreateAsync(input, DateTimeOffset.UtcNow, CancellationToken.None);
+            RecordingSnapshotWriter writer = RecordingSnapshotWriter.Failure(
+                "snapshot://failed-diagnostics",
+                "Persistence write failed safely.",
+                CreatePersistenceDiagnostics(
+                    completed: false,
+                    [
+                        new ExtractionRunTiming("Persistence.PrepareSnapshot", 11, new DateTimeOffset(2026, 5, 27, 9, 0, 1, TimeSpan.Zero)),
+                        new ExtractionRunTiming("Persistence.WriteWarnings", 22, new DateTimeOffset(2026, 5, 27, 9, 0, 2, TimeSpan.Zero))
+                    ]));
+            ExtractionOrchestrator orchestrator = CreateOrchestrator(runHistory, [new RecordingStage("stage", null, null)], writer);
+
+            bool executed = await orchestrator.ExecuteAsync(run.RunId, CancellationToken.None);
+
+            ExtractionRun failedRun = (await runHistory.GetAsync(run.RunId, CancellationToken.None))!;
+            Assert.False(executed);
+            Assert.Equal(ExtractionRunStatus.Failed, failedRun.Status);
+            Assert.Null(failedRun.SnapshotIdentity);
+            Assert.NotNull(failedRun.PersistenceDiagnostics);
+            Assert.False(failedRun.PersistenceDiagnostics.Completed);
+            Assert.Equal(2, failedRun.PersistenceDiagnostics.Timings.Count);
+            Assert.Contains(failedRun.Errors, error => error.Stage == "SnapshotPersistence");
+        }
+
+        /// <summary>
+        /// Verifies persistence warnings returned with diagnostics append to existing run warnings and do not remove detailed timings.
+        /// </summary>
+        /// <returns>A task that completes after warning merge and diagnostic preservation have been asserted.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenPersistenceSucceedsWithWarningsAndDiagnostics_ShouldMergeWarningsAndRetainDiagnostics()
+        {
+            // Pipeline and persistence warnings travel through different seams; the terminal update must append both without replacing diagnostics.
+            InMemoryExtractionRunHistory runHistory = new();
+            ResolvedExtractionInput input = CreateResolvedInput();
+            ExtractionRun run = await runHistory.CreateAsync(input, DateTimeOffset.UtcNow, CancellationToken.None);
+            ExtractionRunPersistenceDiagnostics diagnostics = CreatePersistenceDiagnostics(
+                completed: true,
+                [
+                    new ExtractionRunTiming("Persistence.PrepareSnapshot", 11, new DateTimeOffset(2026, 5, 27, 10, 0, 1, TimeSpan.Zero)),
+                    new ExtractionRunTiming("Persistence.Commit", 22, new DateTimeOffset(2026, 5, 27, 10, 0, 2, TimeSpan.Zero)),
+                    new ExtractionRunTiming("Persistence.Total", 33, new DateTimeOffset(2026, 5, 27, 10, 0, 3, TimeSpan.Zero))
+                ]);
+            RecordingSnapshotWriter writer = RecordingSnapshotWriter.Success(
+                "snapshot://warning-diagnostics-success",
+                diagnostics,
+                [new PersistenceWarning(PersistenceStage.SnapshotPersistence, "DiagnosticTimingWarning", "A diagnostic timing could not be recorded safely.")]);
+            ExtractionOrchestrator orchestrator = CreateOrchestrator(runHistory, [new RecordingStage("stage", "Pipeline warning retained.", null)], writer);
+
+            bool executed = await orchestrator.ExecuteAsync(run.RunId, CancellationToken.None);
+
+            ExtractionRun completedRun = (await runHistory.GetAsync(run.RunId, CancellationToken.None))!;
+            Assert.True(executed);
+            Assert.Equal(ExtractionRunStatus.Completed, completedRun.Status);
+            Assert.Contains(completedRun.Warnings, warning => warning.Code == "PipelineWarning" && warning.Message == "Pipeline warning retained.");
+            Assert.Contains(completedRun.Warnings, warning => warning.Code == "DiagnosticTimingWarning" && warning.Message == "A diagnostic timing could not be recorded safely.");
+            Assert.NotNull(completedRun.PersistenceDiagnostics);
+            Assert.True(completedRun.PersistenceDiagnostics.Completed);
+            Assert.Equal(3, completedRun.PersistenceDiagnostics.Timings.Count);
+            Assert.Contains(completedRun.Timings, timing => timing.Stage == "Persistence");
+            Assert.Contains(completedRun.Timings, timing => timing.Stage == "Total");
+            Assert.DoesNotContain(completedRun.Errors, error => error.Message.Contains("diagnostic", StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
+        /// Verifies failed persistence without collected sub-stage diagnostics remains compatible and still records top-level persistence progress.
+        /// </summary>
+        /// <returns>A task that completes after no-diagnostic failure compatibility has been asserted.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenPersistenceFailsBeforeDiagnosticsExist_ShouldFailWithoutDiagnosticSection()
+        {
+            // Some older writers or early-failure adapters cannot provide diagnostics; the lifecycle must still expose a safe failed run.
+            InMemoryExtractionRunHistory runHistory = new();
+            ResolvedExtractionInput input = CreateResolvedInput();
+            ExtractionRun run = await runHistory.CreateAsync(input, DateTimeOffset.UtcNow, CancellationToken.None);
+            RecordingSnapshotWriter writer = RecordingSnapshotWriter.Failure("snapshot://failed-without-diagnostics", "Persistence failed before diagnostic capture started.");
+            ExtractionOrchestrator orchestrator = CreateOrchestrator(runHistory, [new RecordingStage("stage", null, null)], writer);
+
+            bool executed = await orchestrator.ExecuteAsync(run.RunId, CancellationToken.None);
+
+            ExtractionRun failedRun = (await runHistory.GetAsync(run.RunId, CancellationToken.None))!;
+            Assert.False(executed);
+            Assert.Equal(ExtractionRunStatus.Failed, failedRun.Status);
+            Assert.Equal("Persistence", failedRun.Progress.Stage);
+            Assert.Equal("Snapshot persistence failed.", failedRun.Progress.Message);
+            Assert.Equal(100, failedRun.Progress.Percentage);
+            Assert.Null(failedRun.PersistenceDiagnostics);
+            Assert.Contains(failedRun.Timings, timing => timing.Stage == "Persistence");
+            Assert.Contains(failedRun.Timings, timing => timing.Stage == "Total");
+            Assert.Contains(failedRun.Errors, error => error.Stage == "SnapshotPersistence" && error.Message == "Persistence failed before diagnostic capture started.");
+        }
+
+        /// <summary>
+        /// Verifies older or manually seeded run records without persistence diagnostics remain readable through run history.
+        /// </summary>
+        /// <returns>A task that completes after a diagnostics-free status record has been asserted.</returns>
+        [Fact]
+        public async Task GetAsync_WhenRunHasNoPersistenceDiagnostics_ShouldReturnReadableRunWithoutDiagnostics()
+        {
+            // Compatibility requires the optional diagnostics section to stay absent for runs created before WP016 data existed.
+            InMemoryExtractionRunHistory runHistory = new();
+            ExtractionRun run = await runHistory.CreateAsync(CreateResolvedInput(), DateTimeOffset.UtcNow, CancellationToken.None);
+
+            ExtractionRun? status = await runHistory.GetAsync(run.RunId, CancellationToken.None);
+
+            Assert.NotNull(status);
+            Assert.Null(status.PersistenceDiagnostics);
+            Assert.Empty(status.Timings);
         }
 
         /// <summary>
@@ -465,13 +624,20 @@ namespace Archon.Application.Tests.Extraction.Orchestration
             /// Creates a writer that returns successful persistence.
             /// </summary>
             /// <param name="snapshotStableKey">The stable snapshot identity to report.</param>
+            /// <param name="diagnostics">The optional persistence diagnostics to return with the simulated success result.</param>
+            /// <param name="warnings">The optional persistence warnings to return with the simulated success result.</param>
             /// <returns>A successful recording writer.</returns>
-            internal static RecordingSnapshotWriter Success(string snapshotStableKey)
+            internal static RecordingSnapshotWriter Success(
+                string snapshotStableKey,
+                ExtractionRunPersistenceDiagnostics? diagnostics = null,
+                IReadOnlyList<PersistenceWarning>? warnings = null)
             {
                 // Counts match the minimal placeholder snapshot shape used by orchestration tests.
                 return new RecordingSnapshotWriter(SnapshotPersistenceResult.Success(
                     snapshotStableKey,
-                    new SnapshotPersistenceCounts(1, 1, 1, 0, 0, 0, 1, 0, 0, 0)));
+                    new SnapshotPersistenceCounts(1, 1, 1, 0, 0, 0, 1, 0, 0, 0),
+                    warnings,
+                    diagnostics: diagnostics));
             }
 
             /// <summary>
@@ -479,13 +645,15 @@ namespace Archon.Application.Tests.Extraction.Orchestration
             /// </summary>
             /// <param name="snapshotStableKey">The stable snapshot identity being persisted.</param>
             /// <param name="message">The safe persistence error message.</param>
+            /// <param name="diagnostics">The optional partial persistence diagnostics to return with the simulated failure result.</param>
             /// <returns>A failing recording writer.</returns>
-            internal static RecordingSnapshotWriter Failure(string snapshotStableKey, string message)
+            internal static RecordingSnapshotWriter Failure(string snapshotStableKey, string message, ExtractionRunPersistenceDiagnostics? diagnostics = null)
             {
                 // The failure result mirrors infrastructure adapters translating database failures into application-owned diagnostics.
                 return new RecordingSnapshotWriter(SnapshotPersistenceResult.Failure(
                     snapshotStableKey,
-                    new PersistenceError(PersistenceStage.SnapshotPersistence, "PersistenceFailed", message)));
+                    new PersistenceError(PersistenceStage.SnapshotPersistence, "PersistenceFailed", message),
+                    diagnostics: diagnostics));
             }
 
             /// <summary>
@@ -502,6 +670,37 @@ namespace Archon.Application.Tests.Extraction.Orchestration
                 WrittenSnapshot = snapshot;
                 return Task.FromResult(_result);
             }
+        }
+
+        /// <summary>
+        /// Creates persistence diagnostics with stable counts for orchestration status tests.
+        /// </summary>
+        /// <param name="completed">A value indicating whether the diagnostics represent a completed persistence attempt.</param>
+        /// <param name="timings">The ordered persistence sub-stage timings to expose.</param>
+        /// <returns>A persistence diagnostic container for a test persistence result.</returns>
+        private static ExtractionRunPersistenceDiagnostics CreatePersistenceDiagnostics(bool completed, IReadOnlyList<ExtractionRunTiming> timings)
+        {
+            // The count values intentionally include zeroes so tests protect the known-empty collection convention from regressing to null.
+            return new ExtractionRunPersistenceDiagnostics(
+                timings,
+                new ExtractionRunPersistenceCounts(
+                    RepositoryCount: 1,
+                    SolutionCount: 1,
+                    ProjectCount: 0,
+                    FileCount: 0,
+                    NodeCount: 0,
+                    RelationshipCount: 0,
+                    EvidenceCount: 0,
+                    FindingCount: 0,
+                    WarningCount: 0,
+                    ErrorCount: 0,
+                    MetricCount: 0,
+                    GeneratedSummaryCount: 0,
+                    MetadataEntryCount: null,
+                    PersistenceOperationCount: 0,
+                    PersistenceBatchCount: 0,
+                    SerializedPayloadBytes: null),
+                completed);
         }
     }
 }

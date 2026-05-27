@@ -72,6 +72,118 @@ namespace Archon.Infrastructure.Neo4j.Tests.Persistence
         }
 
         /// <summary>
+        /// Confirms successful Neo4j snapshot persistence returns the WP016 diagnostic timing and count breakdown.
+        /// </summary>
+        /// <returns>A task that completes after diagnostic details have been collected from a real Neo4j write.</returns>
+        [Fact]
+        public async Task WriteSnapshotAsyncReturnsPersistenceDiagnosticsForSuccessfulWrite()
+        {
+            // The diagnostic contract is asserted from the public writer result so tests do not couple to internal collector types.
+            await using ServiceProvider serviceProvider = CreateServiceProvider();
+            IArchitectureGraphRecreator recreator = serviceProvider.GetRequiredService<IArchitectureGraphRecreator>();
+            IArchitectureSnapshotWriter writer = serviceProvider.GetRequiredService<IArchitectureSnapshotWriter>();
+            await recreator.RecreateGraphAsync(GraphRecreationRequest.CreateAuthorized("persistence diagnostics success test"));
+            ExtractedArchitectureSnapshot snapshot = CreateMinimalSnapshot("diagnostics-success", duplicateEvidence: true);
+
+            SnapshotPersistenceResult result = await writer.WriteSnapshotAsync(snapshot);
+
+            Assert.True(result.Succeeded);
+            Assert.NotNull(result.Diagnostics);
+            Assert.True(result.Diagnostics.Completed);
+            Assert.Equal(1, result.Diagnostics.Counts.RepositoryCount);
+            Assert.Equal(1, result.Diagnostics.Counts.SolutionCount);
+            Assert.Equal(2, result.Diagnostics.Counts.ProjectCount);
+            Assert.Equal(2, result.Diagnostics.Counts.FileCount);
+            Assert.Equal(2, result.Diagnostics.Counts.NodeCount);
+            Assert.Equal(1, result.Diagnostics.Counts.EvidenceCount);
+            Assert.Equal(1, result.Diagnostics.Counts.MetricCount);
+            Assert.Equal(0, result.Diagnostics.Counts.WarningCount);
+            Assert.Equal(1, result.Diagnostics.Counts.MetadataEntryCount);
+            Assert.Equal(12, result.Diagnostics.Counts.PersistenceOperationCount);
+            Assert.Equal(1, result.Diagnostics.Counts.PersistenceBatchCount);
+            Assert.Null(result.Diagnostics.Counts.SerializedPayloadBytes);
+            Assert.Contains(result.Diagnostics.Timings, timing => StringComparer.Ordinal.Equals("Persistence.Total", timing.Stage));
+            Assert.Contains(result.Diagnostics.Timings, timing => StringComparer.Ordinal.Equals("Persistence.PrepareSnapshot", timing.Stage));
+            Assert.Contains(result.Diagnostics.Timings, timing => StringComparer.Ordinal.Equals("Persistence.Indexing", timing.Stage));
+            Assert.Contains(result.Diagnostics.Timings, timing => StringComparer.Ordinal.Equals("Persistence.MaterializePayload", timing.Stage));
+            Assert.Contains(result.Diagnostics.Timings, timing => StringComparer.Ordinal.Equals("Persistence.NormalizeIdentities", timing.Stage));
+            Assert.Contains(result.Diagnostics.Timings, timing => StringComparer.Ordinal.Equals("Persistence.WriteRepositories", timing.Stage));
+            Assert.Contains(result.Diagnostics.Timings, timing => StringComparer.Ordinal.Equals("Persistence.WriteSolutions", timing.Stage));
+            Assert.Contains(result.Diagnostics.Timings, timing => StringComparer.Ordinal.Equals("Persistence.WriteSnapshotHeader", timing.Stage));
+            Assert.Contains(result.Diagnostics.Timings, timing => StringComparer.Ordinal.Equals("Persistence.WriteNodes", timing.Stage));
+            Assert.Contains(result.Diagnostics.Timings, timing => StringComparer.Ordinal.Equals("Persistence.WriteEvidence", timing.Stage));
+            Assert.Contains(result.Diagnostics.Timings, timing => StringComparer.Ordinal.Equals("Persistence.WriteMetrics", timing.Stage));
+            Assert.Contains(result.Diagnostics.Timings, timing => StringComparer.Ordinal.Equals("Persistence.WriteRelationships", timing.Stage));
+            Assert.Contains(result.Diagnostics.Timings, timing => StringComparer.Ordinal.Equals("Persistence.Commit", timing.Stage));
+            Assert.All(result.Diagnostics.Timings, timing => Assert.Equal(TimeSpan.Zero, timing.CompletedUtc.Offset));
+            Assert.DoesNotContain(result.Diagnostics.Timings, timing => timing.Stage.Contains("MATCH", StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(result.Warnings, warning => warning.Message.Contains("bolt", StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
+        /// Confirms validation failures still return partial, safe diagnostics without pretending persistence completed.
+        /// </summary>
+        /// <returns>A task that completes after failed persistence diagnostics have been asserted.</returns>
+        [Fact]
+        public async Task WriteSnapshotAsyncReturnsPartialDiagnosticsForValidationFailure()
+        {
+            // Validation happens before Neo4j statements are executed, but the total and preparation timings should still explain the attempt.
+            await using ServiceProvider serviceProvider = CreateServiceProvider();
+            IArchitectureGraphRecreator recreator = serviceProvider.GetRequiredService<IArchitectureGraphRecreator>();
+            IArchitectureSnapshotWriter writer = serviceProvider.GetRequiredService<IArchitectureSnapshotWriter>();
+            await recreator.RecreateGraphAsync(GraphRecreationRequest.CreateAuthorized("persistence diagnostics failure test"));
+            ExtractedArchitectureSnapshot snapshot = CreateSnapshotWithMissingEvidence("diagnostics-failure");
+
+            SnapshotPersistenceResult result = await writer.WriteSnapshotAsync(snapshot);
+
+            Assert.False(result.Succeeded);
+            Assert.NotNull(result.Diagnostics);
+            Assert.False(result.Diagnostics.Completed);
+            Assert.Equal(1, result.Diagnostics.Counts.RepositoryCount);
+            Assert.Equal(1, result.Diagnostics.Counts.SolutionCount);
+            Assert.Equal(1, result.Diagnostics.Counts.ProjectCount);
+            Assert.Equal(0, result.Diagnostics.Counts.FileCount);
+            Assert.Equal(1, result.Diagnostics.Counts.NodeCount);
+            Assert.Equal(0, result.Diagnostics.Counts.EvidenceCount);
+            Assert.Equal(1, result.Diagnostics.Counts.ErrorCount);
+            Assert.Null(result.Diagnostics.Counts.PersistenceOperationCount);
+            Assert.Contains(result.Diagnostics.Timings, timing => StringComparer.Ordinal.Equals("Persistence.PrepareSnapshot", timing.Stage));
+            Assert.Contains(result.Diagnostics.Timings, timing => StringComparer.Ordinal.Equals("Persistence.Total", timing.Stage));
+            Assert.DoesNotContain(result.Diagnostics.Timings, timing => StringComparer.Ordinal.Equals("Persistence.WriteNodes", timing.Stage));
+            Assert.DoesNotContain(result.Errors, error => error.Message.Contains("MATCH", StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
+        /// Confirms early Neo4j initialization failures return partial diagnostics without exposing database endpoint or driver details.
+        /// </summary>
+        /// <returns>A task that completes after initialization failure diagnostics have been asserted.</returns>
+        [Fact]
+        public async Task WriteSnapshotAsync_WhenSchemaInitializationFails_ShouldReturnSafePartialDiagnosticsWithoutWriteStages()
+        {
+            // The graph recreation step is intentionally skipped so the closed driver produces an initialization failure before any write transaction starts.
+            await using ServiceProvider serviceProvider = CreateServiceProvider();
+            IArchitectureSnapshotWriter writer = serviceProvider.GetRequiredService<IArchitectureSnapshotWriter>();
+            IDriver driver = serviceProvider.GetRequiredService<IDriver>();
+            await driver.DisposeAsync();
+            ExtractedArchitectureSnapshot snapshot = CreateMinimalSnapshot("diagnostics-initialization-failure", duplicateEvidence: false);
+
+            SnapshotPersistenceResult result = await writer.WriteSnapshotAsync(snapshot);
+
+            Assert.False(result.Succeeded);
+            Assert.NotNull(result.Diagnostics);
+            Assert.False(result.Diagnostics.Completed);
+            Assert.Equal(1, result.Diagnostics.Counts.ErrorCount);
+            Assert.Null(result.Diagnostics.Counts.PersistenceOperationCount);
+            Assert.Contains(result.Diagnostics.Timings, timing => timing.Stage == "Persistence.PrepareSnapshot");
+            Assert.Contains(result.Diagnostics.Timings, timing => timing.Stage == "Persistence.Indexing");
+            Assert.Contains(result.Diagnostics.Timings, timing => timing.Stage == "Persistence.Total");
+            Assert.DoesNotContain(result.Diagnostics.Timings, timing => timing.Stage == "Persistence.WriteNodes");
+            Assert.DoesNotContain(result.Diagnostics.Timings, timing => timing.Stage.Contains("bolt", StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(result.Errors, error => error.Message.Contains("bolt", StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(result.Errors, error => error.Message.Contains("Neo4j.Driver", StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
         /// Confirms duplicate evidence payloads in one snapshot collapse to one canonical evidence node while preserving node support links.
         /// </summary>
         /// <returns>A task that completes after evidence deduplication has been verified in Neo4j.</returns>

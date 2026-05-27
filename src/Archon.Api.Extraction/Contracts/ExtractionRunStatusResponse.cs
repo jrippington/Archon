@@ -13,6 +13,7 @@ namespace Archon.Api.Extraction.Contracts
     /// <param name="ErrorCount">The number of error diagnostics recorded so far.</param>
     /// <param name="Timings">The measured extraction stage durations recorded so far.</param>
     /// <param name="SnapshotIdentity">The optional persisted snapshot stable identity.</param>
+    /// <param name="PersistenceDiagnostics">The optional persistence-specific diagnostic breakdown for this run.</param>
     public sealed record ExtractionRunStatusResponse(
         string RunId,
         string Status,
@@ -23,5 +24,6 @@ namespace Archon.Api.Extraction.Contracts
         int WarningCount,
         int ErrorCount,
         IReadOnlyList<ExtractionRunTimingResponse> Timings,
-        string? SnapshotIdentity);
+        string? SnapshotIdentity,
+        ExtractionRunPersistenceDiagnosticsResponse? PersistenceDiagnostics);
 }

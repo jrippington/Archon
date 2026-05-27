@@ -28,7 +28,9 @@ The start endpoint accepts a JSON body with `repositoryRootDirectory`, `solution
 
 A successful start response returns HTTP 202 Accepted. The response body includes the `runId`, current `status`, accepted request summary, timestamps, current progress, warnings, errors, and optional `snapshotIdentity`. The accepted run is queued through a replaceable scheduler seam and the initial status is `Queued`. The HTTP start endpoint still returns after scheduling rather than running extraction stages inline, but the in-process scheduler can move the run to `Running`, `Completed`, or `Failed` almost immediately after the response because the current placeholder pipeline is intentionally lightweight.
 
-The status endpoint returns HTTP 200 with the same run-status response shape when the run exists. It returns HTTP 404 when the run identifier is unknown or malformed. The history endpoint returns HTTP 200 with a `runs` collection ordered newest first. Each history item includes the run identifier, status, accepted and completed timestamps, repository root summary, solution count, warning count, error count, and optional snapshot identity. The endpoint accepts an optional `limit` query parameter for a bounded recent-history view. Status and history responses avoid raw exceptions, stack traces, connection strings, environment variables, and infrastructure implementation details. The API response layer also performs a final diagnostic-sanitization pass before warning, error, or validation messages leave the process. That pass is a defensive boundary for accidental unsafe diagnostic text returned by an inner adapter; it preserves safe user-actionable messages and replaces obvious stack-trace or connection-string fragments with a generic instruction to review server logs.
+The status endpoint returns HTTP 200 with the same run-status response shape when the run exists. It returns HTTP 404 when the run identifier is unknown or malformed. A run that has reached the persistence handoff can now include an optional `persistenceDiagnostics` section beside the existing top-level fields. That section is additive: existing clients still receive the same status, progress, warning count, error count, `timings`, and optional `snapshotIdentity` fields, while diagnostic-aware clients can inspect persistence-specific sub-stage timings and count values. Runs that have not reached persistence, and older in-memory run records created before persistence diagnostics existed, return `persistenceDiagnostics: null` instead of being treated as corrupt.
+
+The history endpoint returns HTTP 200 with a `runs` collection ordered newest first. Each history item includes the run identifier, status, accepted and completed timestamps, repository root summary, solution count, warning count, error count, and optional snapshot identity. The endpoint accepts an optional `limit` query parameter for a bounded recent-history view. Status and history responses avoid raw exceptions, stack traces, connection strings, environment variables, and infrastructure implementation details. The API response layer also performs a final diagnostic-sanitization pass before warning, error, or validation messages leave the process. That pass is a defensive boundary for accidental unsafe diagnostic text returned by an inner adapter; it preserves safe user-actionable messages and replaces obvious stack-trace or connection-string fragments with a generic instruction to review server logs.
 
 ## Validation boundary
 
@@ -54,11 +56,81 @@ Runs are created as `Queued` after validation and scheduling. The scheduler disp
 
 Progress contains a stage name, a human-readable message, an optional percentage, and a UTC last-updated timestamp. The current orchestration path records stages such as validation/context preparation, pipeline execution, snapshot assembly, persistence, and completion or failure. Warnings and errors are appended to run state and become visible through `GET /extractions/{runId}`. The history endpoint intentionally stays compact: it reports warning and error counts rather than returning every diagnostic message for every run.
 
+The top-level `timings` collection remains the summary view for the whole extraction run. It includes display-style stages such as `Validation`, pipeline stage identifiers, `Pipeline`, `Assembly`, `Persistence`, and `Total`. Persistence diagnostics do not flatten their detailed sub-stage timings into that list. Instead, the optional `persistenceDiagnostics.timings` collection carries scoped display-style stage names such as `Persistence.PrepareSnapshot`, `Persistence.WriteWarnings`, `Persistence.Commit`, and `Persistence.Total`. This separation lets a caller compare the existing top-level `Persistence` duration with the detailed breakdown without double-counting those sub-stages as separate top-level workflow steps.
+
+The `persistenceDiagnostics.counts` object reports volume context for the same persistence attempt. Known empty collections are reported as zero; measurements that the writer cannot accurately or cheaply determine remain `null` rather than guessed. That distinction is important during troubleshooting: a zero means Archon knew the collection or operation count was empty, while `null` means the current writer did not measure that value. A failed persistence attempt can still carry partial diagnostics collected before the failure, and the diagnostics section includes a `completed` flag so readers can distinguish a completed persistence breakdown from partial failure evidence.
+
+The public count fields are `repositoryCount`, `solutionCount`, `projectCount`, `fileCount`, `nodeCount`, `relationshipCount`, `evidenceCount`, `findingCount`, `warningCount`, `errorCount`, `metricCount`, `generatedSummaryCount`, `metadataEntryCount`, `persistenceOperationCount`, `persistenceBatchCount`, and `serializedPayloadBytes`. They are descriptive context for interpreting one persistence attempt. They do not change extraction semantics, graph identity, route paths, snapshot content, or client opt-in behavior, and they should not be interpreted as a claim that WP016 optimized persistence throughput. A large `nodeCount` or `relationshipCount` helps explain why a write might take longer, while a `null` optional value means the current writer did not produce that measurement safely or cheaply.
+
+The following non-sensitive fragment shows the public status-response shape for a completed run that returned persistence diagnostics. The top-level `timings` collection still contains the coarse workflow timings, while `persistenceDiagnostics.timings` contains the persistence-only sub-stage timings in completion order. Count fields use lower camel case JSON names and remain grouped under `persistenceDiagnostics.counts` so a client can read volume context without parsing stage names.
+
+```json
+{
+  "runId": "11111111-2222-3333-4444-555555555555",
+  "status": "Completed",
+  "warningCount": 0,
+  "errorCount": 0,
+  "timings": [
+	{
+	  "stage": "Persistence",
+	  "elapsedMilliseconds": 170100,
+	  "completedUtc": "2026-01-02T03:04:05+00:00"
+	},
+	{
+	  "stage": "Total",
+	  "elapsedMilliseconds": 181700,
+	  "completedUtc": "2026-01-02T03:04:06+00:00"
+	}
+  ],
+  "snapshotIdentity": "snapshot://repository/customer-suite/20260102030405",
+  "persistenceDiagnostics": {
+	"completed": true,
+	"timings": [
+	  {
+		"stage": "Persistence.PrepareSnapshot",
+		"elapsedMilliseconds": 120,
+		"completedUtc": "2026-01-02T03:04:02+00:00"
+	  },
+	  {
+		"stage": "Persistence.Commit",
+		"elapsedMilliseconds": 34000,
+		"completedUtc": "2026-01-02T03:04:05+00:00"
+	  },
+	  {
+		"stage": "Persistence.Total",
+		"elapsedMilliseconds": 170100,
+		"completedUtc": "2026-01-02T03:04:05+00:00"
+	  }
+	],
+	"counts": {
+	  "repositoryCount": 1,
+	  "solutionCount": 1,
+	  "projectCount": 60,
+	  "fileCount": 0,
+	  "nodeCount": 1200,
+	  "relationshipCount": 3400,
+	  "evidenceCount": 2500,
+	  "findingCount": 24,
+	  "warningCount": 0,
+	  "errorCount": 0,
+	  "metricCount": 480,
+	  "generatedSummaryCount": 0,
+	  "metadataEntryCount": null,
+	  "persistenceOperationCount": 96,
+	  "persistenceBatchCount": 1,
+	  "serializedPayloadBytes": null
+	}
+  }
+}
+```
+
+For a failed persistence attempt, the same section can appear with `completed: false` and only the timings or counts that were safely collected before the controlled failure. The absence of `snapshotIdentity` on a failed run remains meaningful: diagnostics can explain what happened before failure, but they do not imply that the graph write became durable.
+
 ## Orchestration and persistence handoff
 
 The **orchestrator** is the application-layer component that owns the asynchronous execution sequence after the API has accepted a run. It does not depend on ASP.NET Core endpoint types, Neo4j driver types, or host-specific objects. Instead, it reads the accepted run context from run history, reconstructs the validated execution input from the credential-safe request summary, calls the pipeline runner, calls the snapshot assembler, and finally calls the application-layer `IArchitectureSnapshotWriter` persistence port.
 
-The term **persistence handoff** means the moment when the application layer gives the complete `ExtractedArchitectureSnapshot` to the persistence abstraction. This handoff is intentionally expressed in application-owned contracts. Neo4j infrastructure translates the snapshot into graph writes, but the orchestrator only sees `SnapshotPersistenceResult`, including success, safe warnings, safe errors, counts, and the snapshot stable key. The orchestrator records that snapshot stable key as the run's `snapshotIdentity` only when persistence succeeds. This rule prevents polling clients from seeing a completed run before durable graph storage has accepted the snapshot.
+The term **persistence handoff** means the moment when the application layer gives the complete `ExtractedArchitectureSnapshot` to the persistence abstraction. This handoff is intentionally expressed in application-owned contracts. Neo4j infrastructure translates the snapshot into graph writes, but the orchestrator only sees `SnapshotPersistenceResult`, including success, safe warnings, safe errors, counts, optional persistence diagnostics, and the snapshot stable key. The orchestrator records that snapshot stable key as the run's `snapshotIdentity` only when persistence succeeds. This rule prevents polling clients from seeing a completed run before durable graph storage has accepted the snapshot.
 
 Failure handling is deliberately controlled. A stage can stop the pipeline by returning a blocking error, which becomes a run error without a raw exception or stack trace. A persistence adapter can return a failed `SnapshotPersistenceResult`, which becomes a failed run with the application-owned persistence stage and safe message. Unexpected exceptions are logged for operators, but the run status receives a generic safe error message that tells contributors where to investigate without exposing connection strings, secret values, stack frames, or driver internals.
 
