@@ -65,6 +65,35 @@ namespace Archon.Extractors.Projects.Tests.Solutions
         }
 
         /// <summary>
+        /// Verifies one submitted .slnx solution contributes repository, solution, project membership, and project-file facts.
+        /// </summary>
+        /// <returns>A task that completes after the XML solution output has been asserted.</returns>
+        [Fact]
+        public async Task ExecuteAsync_WhenSlnxSolutionIsSubmitted_ShouldContributeRepositorySolutionProjectFacts()
+        {
+            // .slnx files express projects as XML Project elements, so they must not be parsed with the legacy .sln header reader.
+            string repositoryRoot = CreateRepositoryRoot();
+            string solutionPath = CreateSlnxFile(repositoryRoot, "Mandala.slnx", "src/Mandala.App/Mandala.App.csproj");
+            CreateProjectFile(repositoryRoot, Path.Combine("src", "Mandala.App", "Mandala.App.csproj"));
+            ResolvedExtractionInput input = CreateResolvedInput(repositoryRoot, [solutionPath]);
+            ExtractionRun run = CreateRun(input);
+            ArchitectureSnapshotAccumulator accumulation = new();
+            RepositorySolutionExtractionStage stage = new();
+
+            ExtractionStageResult result = await stage.ExecuteAsync(new ExtractionStageContext(input, run, accumulation), CancellationToken.None);
+            ExtractedArchitectureSnapshot snapshot = accumulation.ToSnapshot();
+
+            Assert.False(result.HasBlockingError);
+            Assert.Single(snapshot.Repositories);
+            Assert.Single(snapshot.Solutions);
+            Assert.Contains(snapshot.Nodes, node => node.NodeKind == NodeKind.Solution && node.StableKey.Value == "solution://Mandala.slnx");
+            Assert.Contains(snapshot.Nodes, node => node.NodeKind == NodeKind.Project && node.StableKey.Value == "project://src/Mandala.App/Mandala.App.csproj");
+            Assert.Contains(snapshot.Edges, edge => edge.EdgeKind == EdgeKind.Contains && edge.SourceNodeStableKey.Value == "solution://Mandala.slnx" && edge.TargetNodeStableKey.Value == "project://src/Mandala.App/Mandala.App.csproj");
+            Assert.Contains(snapshot.Evidence, evidence => evidence.FilePath.Value == "Mandala.slnx" && evidence.SymbolName == "Mandala.App" && evidence.StartLine == 3);
+            Assert.Empty(snapshot.Errors);
+        }
+
+        /// <summary>
         /// Verifies multi-solution submissions preserve each submitted solution as a distinct node and do not scan unsubmitted solution files.
         /// </summary>
         /// <returns>A task that completes after multi-solution extraction output has been asserted.</returns>
@@ -162,6 +191,32 @@ namespace Archon.Extractors.Projects.Tests.Solutions
                         "EndProject",
                         "Global",
                         "EndGlobal"
+                    ]));
+            return solutionPath;
+        }
+
+        /// <summary>
+        /// Creates a minimal XML-based .slnx file that declares one project entry.
+        /// </summary>
+        /// <param name="repositoryRoot">The repository root that contains the solution file.</param>
+        /// <param name="relativeSolutionPath">The repository-relative solution path to create.</param>
+        /// <param name="projectPath">The project path string to declare in the .slnx file.</param>
+        /// <returns>The absolute solution path written to disk.</returns>
+        private static string CreateSlnxFile(string repositoryRoot, string relativeSolutionPath, string projectPath)
+        {
+            // The fixture mirrors the Visual Studio .slnx shape: a Solution root with nested folders and Project Path entries.
+            string solutionPath = Path.Combine(repositoryRoot, relativeSolutionPath);
+            Directory.CreateDirectory(Path.GetDirectoryName(solutionPath)!);
+            File.WriteAllText(
+                solutionPath,
+                string.Join(
+                    Environment.NewLine,
+                    [
+                        "<Solution>",
+                        "  <Folder Name=\"/src/\">",
+                        $"    <Project Path=\"{projectPath}\" />",
+                        "  </Folder>",
+                        "</Solution>"
                     ]));
             return solutionPath;
         }

@@ -43,11 +43,20 @@
                 .WithEnvironment("NEO4J_AUTH", ReferenceExpression.Create($"{neo4jUsername}/{neo4jPassword}"))
                 .WithEnvironment("NEO4J_server_http_advertised__address", "localhost:7474")
                 .WithEnvironment("NEO4J_server_bolt_advertised__address", "localhost:7687")
+                .WithVolume("archon-neo4j-data", "/data")
+                .WithVolume("archon-neo4j-logs", "/logs")
+                .WithVolume("archon-neo4j-import", "/var/lib/neo4j/import")
+                .WithVolume("archon-neo4j-plugins", "/plugins")
                 .WithHttpEndpoint(port: 7474, targetPort: 7474, name: "browser")
                 .WithEndpoint(port: 7687, targetPort: 7687, scheme: "tcp", name: "bolt");
 
             // The API host waits for Neo4j and exposes its Work Item 2 readiness probe to the Aspire dashboard.
             IResourceBuilder<ProjectResource> api = builder.AddProject<Projects.ArchonApi>("ArchonApi")
+                .WithEnvironment("Neo4j__Uri", "bolt://localhost:7687")
+                .WithEnvironment("Neo4j__Database", "neo4j")
+                .WithEnvironment("Neo4j__Username", neo4jUsername)
+                .WithEnvironment("Neo4j__Password", neo4jPassword)
+                .WithEnvironment("Neo4j__EncryptionMode", "Unencrypted")
                 .WaitFor(neo4j)
                 .WithHttpHealthCheck("/health");
 

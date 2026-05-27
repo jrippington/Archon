@@ -68,6 +68,36 @@ namespace Archon.Application.Tests.Extraction.Requests
         }
 
         /// <summary>
+        /// Verifies a valid request can use the modern .slnx solution format required by the Archon work-package sequence.
+        /// </summary>
+        [Fact]
+        public async Task StartAsync_WhenRequestUsesSlnxSolution_ShouldCreateRunAndScheduleWork()
+        {
+            // The extraction contract accepts .slnx as a first-class solution format rather than forcing callers to convert to .sln.
+            string repositoryRoot = CreateRepositoryRoot();
+            string solutionPath = CreateSolutionFile(repositoryRoot, "src", "CustomerSuite.slnx");
+            RecordingExtractionWorkScheduler scheduler = new();
+            InMemoryExtractionRunHistory runHistory = new();
+            StartExtractionApplicationService service = CreateService(runHistory, scheduler);
+            StartExtractionRequest request = new(
+                repositoryRoot,
+                [Path.Combine("src", "CustomerSuite.slnx")],
+                BranchName: "main",
+                CommitSha: null,
+                RequestedBy: "developer@example.invalid",
+                Metadata: null);
+
+            StartExtractionResult result = await service.StartAsync(request, CancellationToken.None);
+
+            Assert.True(result.Accepted);
+            Assert.NotNull(result.Run);
+            Assert.Empty(result.ValidationErrors);
+            Assert.Equal(Path.GetFullPath(solutionPath), result.Run.SubmittedRequest.SolutionPaths.Single());
+            Assert.Single(scheduler.ScheduledRunIds);
+            Assert.Equal(result.Run.RunId, scheduler.ScheduledRunIds.Single());
+        }
+
+        /// <summary>
         /// Verifies missing repository roots are rejected before any run record or scheduled work is created.
         /// </summary>
         [Fact]
@@ -182,7 +212,7 @@ namespace Archon.Application.Tests.Extraction.Requests
         [Fact]
         public async Task StartAsync_WhenSolutionExtensionIsInvalid_ShouldRejectWithoutCreatingRun()
         {
-            // WP004 only accepts .sln files until another supported solution format is explicitly documented.
+            // Only documented solution file formats are accepted so arbitrary files cannot enter the extraction pipeline.
             string repositoryRoot = CreateRepositoryRoot();
             CreateSolutionFile(repositoryRoot, "src", "CustomerSuite.txt");
             RecordingExtractionWorkScheduler scheduler = new();

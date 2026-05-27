@@ -52,6 +52,10 @@ namespace Archon.Tests
             Assert.Contains("WithEnvironment(\"NEO4J_AUTH\"", source);
             Assert.Contains("WithEnvironment(\"NEO4J_server_http_advertised__address\", \"localhost:7474\")", source);
             Assert.Contains("WithEnvironment(\"NEO4J_server_bolt_advertised__address\", \"localhost:7687\")", source);
+            Assert.Contains("WithVolume(\"archon-neo4j-data\", \"/data\")", source);
+            Assert.Contains("WithVolume(\"archon-neo4j-logs\", \"/logs\")", source);
+            Assert.Contains("WithVolume(\"archon-neo4j-import\", \"/var/lib/neo4j/import\")", source);
+            Assert.Contains("WithVolume(\"archon-neo4j-plugins\", \"/plugins\")", source);
             Assert.Contains("WithHttpEndpoint(port: 7474, targetPort: 7474, name: \"browser\")", source);
             Assert.Contains("WithEndpoint(port: 7687, targetPort: 7687, scheme: \"tcp\", name: \"bolt\")", source);
             Assert.DoesNotContain("WithEnvironment(\"NEO4J_AUTH\", \"none\")", source, StringComparison.Ordinal);

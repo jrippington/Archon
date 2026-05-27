@@ -1,6 +1,10 @@
+using Archon.Application.Graph.Persistence;
+using Archon.Infrastructure.Neo4j.Configuration;
+using Archon.Infrastructure.Neo4j.Persistence;
 using Archon.ServiceDefaults;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.TestHost;
 using System.Net;
 using System.Text.Json;
@@ -142,6 +146,28 @@ namespace ArchonApi.Tests
             Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/swagger")).StatusCode);
             Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/swagger/index.html")).StatusCode);
             Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/")).StatusCode);
+        }
+
+        /// <summary>
+        /// Confirms production-style host composition uses Neo4j persistence when Neo4j configuration is supplied.
+        /// </summary>
+        [Fact]
+        public void BuildApplication_WhenNeo4jConfigurationExists_ShouldRegisterNeo4jSnapshotWriter()
+        {
+            // The API host should write extraction snapshots to Neo4j under AppHost configuration rather than silently using memory-only stores.
+            using WebApplication app = Program.BuildApplication(
+                [
+                    $"--{Neo4jOptions.SectionName}:Uri=bolt://localhost:7687",
+                    $"--{Neo4jOptions.SectionName}:Database=neo4j",
+                    $"--{Neo4jOptions.SectionName}:Username=neo4j",
+                    $"--{Neo4jOptions.SectionName}:Password=local-development-password",
+                    $"--{Neo4jOptions.SectionName}:EncryptionMode={nameof(Neo4jEncryptionMode.Unencrypted)}"
+                ],
+                builder => builder.WebHost.UseTestServer());
+
+            IArchitectureSnapshotWriter writer = app.Services.GetRequiredService<IArchitectureSnapshotWriter>();
+
+            Assert.IsType<Neo4jArchitectureSnapshotWriter>(writer);
         }
 
         /// <summary>

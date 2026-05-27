@@ -1,6 +1,8 @@
 ﻿using Archon.Api.Extraction;
 using Archon.Api.Management;
 using Archon.Api.Query;
+using Archon.Infrastructure.Neo4j.Configuration;
+using Archon.Infrastructure.Neo4j.DependencyInjection;
 using Archon.ServiceDefaults;
 using Scalar.AspNetCore;
 
@@ -57,6 +59,12 @@ namespace ArchonApi
             builder.Services.AddArchonQueryApi();
             builder.Services.AddArchonManagementApi();
 
+            if (HasNeo4jConfiguration(builder.Configuration))
+            {
+                // Neo4j is the production/local-AppHost system of record. Register it after module fallbacks so infrastructure adapters win.
+                builder.Services.AddArchonNeo4j(builder.Configuration);
+            }
+
             WebApplication app = builder.Build();
 
             if (app.Environment.IsDevelopment())
@@ -78,6 +86,20 @@ namespace ArchonApi
             app.MapArchonManagementApi();
 
             return app;
+        }
+
+        /// <summary>
+        /// Determines whether the host has enough Neo4j configuration to compose the infrastructure adapter.
+        /// </summary>
+        /// <param name="configuration">The host configuration built from appsettings, environment variables, and command-line arguments.</param>
+        /// <returns><see langword="true" /> when Neo4j infrastructure should be registered; otherwise <see langword="false" />.</returns>
+        private static bool HasNeo4jConfiguration(IConfiguration configuration)
+        {
+            // Tests and lightweight local hosts can continue using in-memory fallbacks, while AppHost-provided settings enable Neo4j persistence.
+            IConfigurationSection section = configuration.GetSection(Neo4jOptions.SectionName);
+            return !string.IsNullOrWhiteSpace(section[nameof(Neo4jOptions.Uri)])
+                || !string.IsNullOrWhiteSpace(section[nameof(Neo4jOptions.Username)])
+                || !string.IsNullOrWhiteSpace(section[nameof(Neo4jOptions.Password)]);
         }
     }
 }

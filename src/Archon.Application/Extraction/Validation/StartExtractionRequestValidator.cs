@@ -116,11 +116,11 @@ namespace Archon.Application.Extraction.Validation
                     continue;
                 }
 
-                if (!string.Equals(Path.GetExtension(normalizedSolutionPath), ".sln", StringComparison.OrdinalIgnoreCase))
+                if (!IsSupportedSolutionFile(normalizedSolutionPath))
                 {
                     errors.Add(new StartExtractionValidationError(
                         StartExtractionValidationErrorCodes.SolutionPathExtensionInvalid,
-                        "Solution path must reference a .sln file."));
+                        "Solution path must reference a .sln or .slnx file."));
                     continue;
                 }
 
@@ -157,6 +157,19 @@ namespace Archon.Application.Extraction.Validation
             // Relative solution paths are interpreted from the accepted repository root, matching the public API contract.
             string trimmedPath = solutionPath.Trim();
             return Path.GetFullPath(Path.IsPathRooted(trimmedPath) ? trimmedPath : Path.Combine(repositoryRoot, trimmedPath));
+        }
+
+        /// <summary>
+        /// Determines whether the normalized path names a supported solution file format.
+        /// </summary>
+        /// <param name="solutionPath">The normalized solution path to inspect.</param>
+        /// <returns><see langword="true" /> when the path uses a supported solution extension; otherwise <see langword="false" />.</returns>
+        private static bool IsSupportedSolutionFile(string solutionPath)
+        {
+            // Extraction accepts both legacy .sln files and newer .slnx files so API-triggered analysis matches repository guidance.
+            string extension = Path.GetExtension(solutionPath);
+            return string.Equals(extension, ".sln", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(extension, ".slnx", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>

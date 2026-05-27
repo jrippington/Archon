@@ -200,6 +200,8 @@ Neo4j is a graph database. Archon uses it as the system of record for determinis
 
 Neo4j starts in secured mode. The AppHost reads the `neo4j-username` and `neo4j-password` Aspire parameters from `src/Archon/appsettings.json` and uses them to set the container's `NEO4J_AUTH` value. The password parameter is marked as secret in the Aspire resource graph so the same parameter flow can later move to user secrets or another secure provider without changing the composition contract.
 
+The local Neo4j container uses named Docker volumes for `/data`, `/logs`, `/var/lib/neo4j/import`, and `/plugins`. The data volume is what keeps extracted Archon graph records available across normal AppHost or container restarts. If a contributor intentionally wants a clean local graph, they should use the guarded graph recreation workflow or explicitly remove the `archon-neo4j-data` Docker volume after stopping the AppHost. Restarting the AppHost alone should not erase persisted graph records.
+
 The AppHost binds Neo4j's HTTP browser endpoint to `localhost:7474`, binds Bolt to `localhost:7687`, and advertises those host-reachable addresses to Neo4j. If you open the Neo4j Browser during manual verification, connect to `bolt://localhost:7687` with the configured `neo4j-username` and `neo4j-password` values. The direct Bolt URL avoids routing-discovery errors that can appear when Browser is pointed at a routing-style `neo4j://` URI for this local single-container instance.
 
 ## Manual AppHost verification
