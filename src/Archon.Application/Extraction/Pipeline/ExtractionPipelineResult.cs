@@ -1,4 +1,5 @@
 using Archon.Application.Extraction.Accumulation;
+using Archon.Application.Extraction.Runs;
 
 namespace Archon.Application.Extraction.Pipeline
 {
@@ -8,10 +9,12 @@ namespace Archon.Application.Extraction.Pipeline
     /// <param name="Succeeded">Whether every executed stage completed without a blocking error.</param>
     /// <param name="Accumulation">The accumulation model containing all stage contributions and diagnostics.</param>
     /// <param name="ExecutedStageIds">The stable identifiers of stages that actually ran.</param>
+    /// <param name="StageTimings">The measured duration for each executed pipeline stage.</param>
     /// <param name="FailedStageId">The optional stable identifier of the stage that stopped the pipeline.</param>
     public sealed record ExtractionPipelineResult(
         bool Succeeded,
         ArchitectureSnapshotAccumulator Accumulation,
         IReadOnlyList<string> ExecutedStageIds,
+        IReadOnlyList<ExtractionRunTiming> StageTimings,
         string? FailedStageId);
 }

@@ -86,6 +86,7 @@ namespace Archon.Api.Extraction.Tests
                 new ExtractionRunProgress("Queued", "Queued for WP011 stage test.", 0, new DateTimeOffset(2026, 5, 20, 8, 0, 0, TimeSpan.Zero)),
                 warnings: null,
                 errors: null,
+                timings: null,
                 snapshotIdentity: null);
 
             return new ExtractionStageContext(input, run, new Archon.Application.Extraction.Accumulation.ArchitectureSnapshotAccumulator());

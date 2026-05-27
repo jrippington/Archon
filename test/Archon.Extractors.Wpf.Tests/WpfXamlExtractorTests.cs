@@ -251,6 +251,55 @@ namespace Sample.Wpf
         }
 
         /// <summary>
+        /// Confirms Avalonia AXAML projects are not treated as WPF projects even when their package metadata and markup contain XAML-related text.
+        /// </summary>
+        /// <returns>A task representing asynchronous fixture creation, extraction, and graph assertion flow.</returns>
+        [Fact]
+        public async Task ExtractAsync_WhenAvaloniaProjectContainsDynamicResource_ShouldNotEmitWpfWarnings()
+        {
+            // Avalonia projects may use AXAML and DynamicResource markup, but those facts belong to the Avalonia extractor rather than the WPF extractor.
+            string repositoryRoot = CreateTemporaryRepositoryRoot();
+            try
+            {
+                string projectDirectory = Path.Combine(repositoryRoot, "src", "Sample.Avalonia");
+                Directory.CreateDirectory(projectDirectory);
+                await File.WriteAllTextAsync(Path.Combine(projectDirectory, "Sample.Avalonia.csproj"), """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.0" />
+    <AvaloniaResource Include="**/*.axaml" />
+  </ItemGroup>
+</Project>
+""");
+                await File.WriteAllTextAsync(Path.Combine(projectDirectory, "MainWindow.axaml"), """
+<Window x:Class="Sample.Avalonia.MainWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <TextBlock Foreground="{DynamicResource RuntimeBrush}" />
+</Window>
+""");
+
+                WpfXamlExtractor extractor = new();
+                WpfXamlExtractionRequest request = new(new StableKey("snapshot://sample/avalonia"), repositoryRoot);
+
+                WpfXamlExtractionResult result = await extractor.ExtractAsync(request, CancellationToken.None);
+
+                Assert.Empty(result.Snapshot.Nodes);
+                Assert.Empty(result.Snapshot.Edges);
+                Assert.Empty(result.Snapshot.Evidence);
+                Assert.DoesNotContain(result.Snapshot.Warnings, warning => warning.Contains("WPF", StringComparison.OrdinalIgnoreCase));
+                Assert.DoesNotContain(result.Snapshot.Warnings, warning => warning.Contains("DynamicResource", StringComparison.OrdinalIgnoreCase));
+            }
+            finally
+            {
+                Directory.Delete(repositoryRoot, recursive: true);
+            }
+        }
+
+        /// <summary>
         /// Creates an empty temporary repository root for a WPF extraction fixture.
         /// </summary>
         /// <returns>The absolute path to the temporary repository root.</returns>

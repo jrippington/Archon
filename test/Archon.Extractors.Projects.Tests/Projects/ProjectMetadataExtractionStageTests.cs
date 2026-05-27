@@ -1336,6 +1336,7 @@ namespace Archon.Extractors.Projects.Tests.Projects
                 new ExtractionRunProgress("Queued", "Queued for test execution.", 0, new DateTimeOffset(2026, 5, 20, 8, 0, 0, TimeSpan.Zero)),
                 warnings: null,
                 errors: null,
+                timings: null,
                 snapshotIdentity: null);
         }
 

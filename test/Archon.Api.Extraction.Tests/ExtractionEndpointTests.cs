@@ -625,7 +625,7 @@ namespace Archon.Api.Extraction.Tests
         }
 
         /// <summary>
-        /// Verifies GET /extractions/{runId} exposes terminal completion details, progress fields, warnings, errors, and snapshot identity.
+        /// Verifies GET /extractions/{runId} exposes terminal completion details, progress fields, diagnostic counts, and snapshot identity.
         /// </summary>
         /// <returns>A task that completes after a completed asynchronous run status response is validated.</returns>
         [Fact]
@@ -658,12 +658,14 @@ namespace Archon.Api.Extraction.Tests
                 Assert.Equal(100, progress.GetProperty("percentage").GetInt32());
                 Assert.NotEqual(default, progress.GetProperty("lastUpdatedUtc").GetDateTimeOffset());
 
-                Assert.All(statusBody.RootElement.GetProperty("warnings").EnumerateArray(), warning =>
-                {
-                    Assert.Equal("PipelineWarning", warning.GetProperty("code").GetString());
-                    Assert.False(string.IsNullOrWhiteSpace(warning.GetProperty("message").GetString()));
-                });
-                Assert.Empty(statusBody.RootElement.GetProperty("errors").EnumerateArray());
+                Assert.True(statusBody.RootElement.GetProperty("warningCount").GetInt32() >= 0);
+                Assert.Equal(0, statusBody.RootElement.GetProperty("errorCount").GetInt32());
+                Assert.False(statusBody.RootElement.TryGetProperty("warnings", out _));
+                Assert.False(statusBody.RootElement.TryGetProperty("errors", out _));
+
+                JsonElement timings = statusBody.RootElement.GetProperty("timings");
+                Assert.Contains(timings.EnumerateArray(), timing => timing.GetProperty("stage").GetString() == "Persistence" && timing.GetProperty("elapsedMilliseconds").GetInt64() >= 0);
+                Assert.Contains(timings.EnumerateArray(), timing => timing.GetProperty("stage").GetString() == "Total" && timing.GetProperty("elapsedMilliseconds").GetInt64() >= 0);
             }
         }
 
@@ -762,10 +764,10 @@ namespace Archon.Api.Extraction.Tests
             {
                 string rawStatus = statusBody.RootElement.GetRawText();
                 Assert.Equal("Failed", statusBody.RootElement.GetProperty("status").GetString());
-                JsonElement error = Assert.Single(statusBody.RootElement.GetProperty("errors").EnumerateArray());
-                Assert.Equal("PersistenceUnavailable", error.GetProperty("code").GetString());
-                Assert.Equal("SnapshotPersistence", error.GetProperty("stage").GetString());
-                Assert.Equal("Diagnostic details were redacted. Review server logs for details.", error.GetProperty("message").GetString());
+                Assert.True(statusBody.RootElement.GetProperty("warningCount").GetInt32() >= 0);
+                Assert.Equal(1, statusBody.RootElement.GetProperty("errorCount").GetInt32());
+                Assert.False(statusBody.RootElement.TryGetProperty("warnings", out _));
+                Assert.False(statusBody.RootElement.TryGetProperty("errors", out _));
                 Assert.DoesNotContain(secretValue, rawStatus, StringComparison.Ordinal);
                 Assert.DoesNotContain("System.", rawStatus, StringComparison.Ordinal);
                 Assert.DoesNotContain(" at ", rawStatus, StringComparison.Ordinal);

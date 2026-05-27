@@ -5,6 +5,7 @@ using Archon.Application.Extraction.Resolution;
 using Archon.Application.Extraction.Runs;
 using Archon.Application.Extraction.Snapshots;
 using Archon.Application.Graph.Persistence;
+using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 
 namespace Archon.Application.Extraction.Orchestration
@@ -81,18 +82,28 @@ namespace Archon.Application.Extraction.Orchestration
 
             try
             {
+                Stopwatch totalStopwatch = Stopwatch.StartNew();
+                List<ExtractionRunTiming> completedTimings = [];
+                Stopwatch validationStopwatch = Stopwatch.StartNew();
                 ResolvedExtractionInput resolvedInput = CreateResolvedInput(run.SubmittedRequest);
+                validationStopwatch.Stop();
+                completedTimings.Add(CreateTiming("Validation", validationStopwatch));
                 await UpdateRunAsync(run, ExtractionRunStatus.Running, "Validation", "Accepted request context is ready for extraction.", 10, null, null, null, cancellationToken).ConfigureAwait(false);
 
                 run = await GetRequiredRunAsync(runId, cancellationToken).ConfigureAwait(false);
                 await UpdateRunAsync(run, ExtractionRunStatus.Running, "Pipeline", "Executing extraction stages.", 35, null, null, null, cancellationToken).ConfigureAwait(false);
 
+                Stopwatch pipelineStopwatch = Stopwatch.StartNew();
                 ExtractionPipelineResult pipelineResult = await _pipelineRunner.ExecuteAsync(resolvedInput, run, cancellationToken).ConfigureAwait(false);
+                pipelineStopwatch.Stop();
+                completedTimings.AddRange(pipelineResult.StageTimings);
+                completedTimings.Add(CreateTiming("Pipeline", pipelineStopwatch));
                 IReadOnlyList<ExtractionRunWarning> pipelineWarnings = CreateWarnings(pipelineResult.Accumulation, pipelineResult.FailedStageId ?? "Pipeline");
                 if (!pipelineResult.Succeeded)
                 {
                     IReadOnlyList<ExtractionRunError> pipelineErrors = CreateErrors(pipelineResult.Accumulation, pipelineResult.FailedStageId ?? "Pipeline");
                     await UpdateRunAsync(run, ExtractionRunStatus.Failed, "Pipeline", "Extraction stage execution failed.", 100, pipelineWarnings, pipelineErrors, DateTimeOffset.UtcNow, cancellationToken).ConfigureAwait(false);
+                    await AppendTimingsAsync(runId, completedTimings.Concat([CreateTiming("Total", totalStopwatch)]), CancellationToken.None).ConfigureAwait(false);
                     return false;
                 }
 
@@ -100,22 +111,30 @@ namespace Archon.Application.Extraction.Orchestration
                 await UpdateRunAsync(run, ExtractionRunStatus.Running, "Assembly", "Assembling generalized architecture snapshot.", 65, pipelineWarnings, null, null, cancellationToken).ConfigureAwait(false);
 
                 run = await GetRequiredRunAsync(runId, cancellationToken).ConfigureAwait(false);
+                Stopwatch assemblyStopwatch = Stopwatch.StartNew();
                 ExtractedArchitectureSnapshot snapshot = _snapshotAssembler.Assemble(run, resolvedInput, pipelineResult.Accumulation);
+                assemblyStopwatch.Stop();
+                completedTimings.Add(CreateTiming("Assembly", assemblyStopwatch));
                 await UpdateRunAsync(run, ExtractionRunStatus.Running, "Persistence", "Persisting architecture snapshot.", 85, null, null, null, cancellationToken).ConfigureAwait(false);
 
+                Stopwatch persistenceStopwatch = Stopwatch.StartNew();
                 SnapshotPersistenceResult persistenceResult = await _snapshotWriter.WriteSnapshotAsync(snapshot, cancellationToken).ConfigureAwait(false);
+                persistenceStopwatch.Stop();
+                completedTimings.Add(CreateTiming("Persistence", persistenceStopwatch));
                 if (!persistenceResult.Succeeded)
                 {
                     IReadOnlyList<ExtractionRunWarning> persistenceWarnings = CreateWarnings(persistenceResult.Warnings);
                     IReadOnlyList<ExtractionRunError> persistenceErrors = CreateErrors(persistenceResult.Errors);
                     run = await GetRequiredRunAsync(runId, cancellationToken).ConfigureAwait(false);
                     await UpdateRunAsync(run, ExtractionRunStatus.Failed, "Persistence", "Snapshot persistence failed.", 100, persistenceWarnings, persistenceErrors, DateTimeOffset.UtcNow, cancellationToken).ConfigureAwait(false);
+                    await AppendTimingsAsync(runId, completedTimings.Concat([CreateTiming("Total", totalStopwatch)]), CancellationToken.None).ConfigureAwait(false);
                     return false;
                 }
 
                 run = await GetRequiredRunAsync(runId, cancellationToken).ConfigureAwait(false);
                 IReadOnlyList<ExtractionRunWarning> successWarnings = CreateWarnings(persistenceResult.Warnings);
                 await UpdateRunAsync(run, ExtractionRunStatus.Completed, "Completed", "Extraction snapshot persisted successfully.", 100, successWarnings, null, DateTimeOffset.UtcNow, cancellationToken, persistenceResult.SnapshotStableKey).ConfigureAwait(false);
+                await AppendTimingsAsync(runId, completedTimings.Concat([CreateTiming("Total", totalStopwatch)]), cancellationToken).ConfigureAwait(false);
                 _logger.LogInformation("Extraction run {RunId} completed and persisted snapshot {SnapshotStableKey}.", runId.ToString(), persistenceResult.SnapshotStableKey);
                 return true;
             }
@@ -196,6 +215,38 @@ namespace Archon.Application.Extraction.Orchestration
             ExtractionRunProgress progress = new(stage, message, percentage, DateTimeOffset.UtcNow);
             ExtractionRun updatedRun = run.WithStatus(status, progress, completedUtc, snapshotIdentity).WithDiagnostics(warnings, errors);
             await _runHistory.UpdateAsync(updatedRun, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Appends completed timing records to the latest run state.
+        /// </summary>
+        /// <param name="runId">The accepted run identifier to update.</param>
+        /// <param name="timings">The timing records to append.</param>
+        /// <param name="cancellationToken">The cancellation token for the update operation.</param>
+        /// <returns>A task that completes after the store update has finished.</returns>
+        private async Task AppendTimingsAsync(ExtractionRunId runId, IEnumerable<ExtractionRunTiming> timings, CancellationToken cancellationToken)
+        {
+            // Timings are appended after terminal state updates so status polling receives one complete performance summary.
+            ExtractionRun run = await GetRequiredRunAsync(runId, cancellationToken).ConfigureAwait(false);
+            ExtractionRun updatedRun = run.WithTimings(timings);
+            await _runHistory.UpdateAsync(updatedRun, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Creates a timing record from a stopped or currently running stopwatch.
+        /// </summary>
+        /// <param name="stage">The measured stage name.</param>
+        /// <param name="stopwatch">The stopwatch containing elapsed duration.</param>
+        /// <returns>A timing record suitable for run status responses.</returns>
+        private static ExtractionRunTiming CreateTiming(string stage, Stopwatch stopwatch)
+        {
+            // Stop defensively so callers can pass the total stopwatch without repeating boilerplate.
+            if (stopwatch.IsRunning)
+            {
+                stopwatch.Stop();
+            }
+
+            return new ExtractionRunTiming(stage, stopwatch.ElapsedMilliseconds, DateTimeOffset.UtcNow);
         }
 
         /// <summary>

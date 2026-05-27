@@ -16,6 +16,7 @@ namespace Archon.Application.Extraction.Runs
         /// <param name="progress">The current progress details exposed through status polling.</param>
         /// <param name="warnings">The warning diagnostics recorded so far.</param>
         /// <param name="errors">The error diagnostics recorded so far.</param>
+        /// <param name="timings">The measured extraction step durations recorded so far.</param>
         /// <param name="snapshotIdentity">The optional persisted snapshot stable identity once persistence succeeds.</param>
         public ExtractionRun(
             ExtractionRunId runId,
@@ -26,6 +27,7 @@ namespace Archon.Application.Extraction.Runs
             ExtractionRunProgress progress,
             IEnumerable<ExtractionRunWarning>? warnings,
             IEnumerable<ExtractionRunError>? errors,
+            IEnumerable<ExtractionRunTiming>? timings,
             string? snapshotIdentity)
         {
             // The run object is immutable from consumers' perspective so the store controls lifecycle changes consistently.
@@ -40,6 +42,7 @@ namespace Archon.Application.Extraction.Runs
             Progress = progress;
             Warnings = warnings?.ToArray() ?? [];
             Errors = errors?.ToArray() ?? [];
+            Timings = timings?.ToArray() ?? [];
             SnapshotIdentity = snapshotIdentity;
         }
 
@@ -84,6 +87,11 @@ namespace Archon.Application.Extraction.Runs
         public IReadOnlyList<ExtractionRunError> Errors { get; }
 
         /// <summary>
+        /// Gets measured extraction step durations recorded for status diagnostics.
+        /// </summary>
+        public IReadOnlyList<ExtractionRunTiming> Timings { get; }
+
+        /// <summary>
         /// Gets the optional persisted snapshot stable identity once persistence succeeds.
         /// </summary>
         public string? SnapshotIdentity { get; }
@@ -112,6 +120,7 @@ namespace Archon.Application.Extraction.Runs
                 progress,
                 Warnings,
                 Errors,
+                Timings,
                 snapshotIdentity ?? SnapshotIdentity);
         }
 
@@ -135,6 +144,28 @@ namespace Archon.Application.Extraction.Runs
                 Progress,
                 Warnings.Concat(warnings ?? []),
                 Errors.Concat(errors ?? []),
+                Timings,
+                SnapshotIdentity);
+        }
+
+        /// <summary>
+        /// Creates a copy of this run with additional timing records appended.
+        /// </summary>
+        /// <param name="timings">The timing records to append to the current timing collection.</param>
+        /// <returns>A new run snapshot containing existing timings plus the supplied timings.</returns>
+        public ExtractionRun WithTimings(IEnumerable<ExtractionRunTiming>? timings)
+        {
+            // Timings are appended as operations complete so status polling can show incremental performance diagnostics.
+            return new ExtractionRun(
+                RunId,
+                Status,
+                SubmittedRequest,
+                StartedUtc,
+                CompletedUtc,
+                Progress,
+                Warnings,
+                Errors,
+                Timings.Concat(timings ?? []),
                 SnapshotIdentity);
         }
     }

@@ -81,9 +81,21 @@ namespace Archon.Api.Extraction
         /// <returns>A deterministic snapshot stable key scoped to the run.</returns>
         private static StableKey CreateSnapshotStableKey(string repositoryRootDirectory, string runId)
         {
-            // Snapshot identity mirrors previous API extraction stages so independently emitted snapshots merge under the current run scope.
-            string repositoryName = Path.GetFileName(Path.TrimEndingDirectorySeparator(repositoryRootDirectory));
-            return new StableKey($"snapshot://{repositoryName}/{runId}");
+            // The snapshot key mirrors the assembler so contributed facts are scoped to the same final snapshot identity.
+            StableKey repositoryStableKey = StableKeyGenerator.ForRepository(NormalizeIdentitySegment(repositoryRootDirectory));
+            return StableKeyGenerator.ForSummary(repositoryStableKey.Value, "ExtractionRun", runId);
+        }
+
+        /// <summary>
+        /// Normalizes a filesystem path into the repository identity segment used by final snapshot assembly.
+        /// </summary>
+        /// <param name="value">The absolute path value to normalize.</param>
+        /// <returns>A deterministic lowercase segment suitable for stable-key generation.</returns>
+        private static string NormalizeIdentitySegment(string value)
+        {
+            // Stable keys must match the final snapshot assembler so stage contributions pass persistence scope validation.
+            string trimmed = Path.TrimEndingDirectorySeparator(value).Replace('\\', '/').Trim();
+            return trimmed.ToLowerInvariant();
         }
     }
 }

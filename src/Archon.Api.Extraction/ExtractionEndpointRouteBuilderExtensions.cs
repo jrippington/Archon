@@ -162,8 +162,9 @@ namespace Archon.Api.Extraction
                     run.Progress.Message,
                     run.Progress.Percentage,
                     run.Progress.LastUpdatedUtc),
-                run.Warnings.Select(warning => new ExtractionRunDiagnosticResponse(warning.Code, SanitizeDiagnosticMessage(warning.Message), warning.Stage, warning.CreatedUtc)).ToArray(),
-                run.Errors.Select(error => new ExtractionRunDiagnosticResponse(error.Code, SanitizeDiagnosticMessage(error.Message), error.Stage, error.CreatedUtc)).ToArray(),
+                run.Warnings.Count,
+                run.Errors.Count,
+                run.Timings.Select(timing => new ExtractionRunTimingResponse(timing.Stage, timing.ElapsedMilliseconds, timing.CompletedUtc)).ToArray(),
                 run.SnapshotIdentity);
         }
 

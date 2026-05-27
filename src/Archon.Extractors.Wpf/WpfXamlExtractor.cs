@@ -751,12 +751,12 @@ namespace Archon.Extractors.Wpf
                 string? startupObject = ReadFirstElementValue(document, "StartupObject");
                 string? startupUri = document.Descendants().Where(element => string.Equals(element.Name.LocalName, "ApplicationDefinition", StringComparison.Ordinal)).Select(element => element.Attribute("Include")?.Value).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
                 string[] packageIdentities = document.Descendants().Where(element => string.Equals(element.Name.LocalName, "PackageReference", StringComparison.Ordinal)).Select(element => element.Attribute("Include")?.Value).Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value!.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray();
-                bool isWpfCandidate = string.Equals(ReadFirstElementValue(document, "UseWPF"), "true", StringComparison.OrdinalIgnoreCase)
+                bool referencesWpf = string.Equals(ReadFirstElementValue(document, "UseWPF"), "true", StringComparison.OrdinalIgnoreCase)
                     || text.Contains("PresentationFramework", StringComparison.OrdinalIgnoreCase)
                     || text.Contains("ApplicationDefinition", StringComparison.OrdinalIgnoreCase)
-                    || text.Contains(".xaml", StringComparison.OrdinalIgnoreCase)
-                    || targetFramework.Contains("-windows", StringComparison.OrdinalIgnoreCase)
-                    || startupObject is not null;
+                    || packageIdentities.Any(static packageIdentity => packageIdentity.Contains("WPF", StringComparison.OrdinalIgnoreCase) || packageIdentity.Contains("PresentationFramework", StringComparison.OrdinalIgnoreCase));
+                bool referencesNonWpfXamlFramework = packageIdentities.Any(static packageIdentity => packageIdentity.Contains("Avalonia", StringComparison.OrdinalIgnoreCase) || packageIdentity.Contains("Microsoft.Maui", StringComparison.OrdinalIgnoreCase) || packageIdentity.Contains("WinUI", StringComparison.OrdinalIgnoreCase));
+                bool isWpfCandidate = referencesWpf && !referencesNonWpfXamlFramework;
                 return new ProjectMetadata(relativeProjectPath, projectName, string.IsNullOrWhiteSpace(targetFramework) ? "Unknown" : targetFramework.Trim(), language, startupObject?.Trim(), startupUri?.Trim(), packageIdentities, isWpfCandidate);
             }
             catch (Exception) when (IsXmlReadException())

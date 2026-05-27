@@ -288,6 +288,7 @@ namespace Archon.Infrastructure.Roslyn.Tests
                 new ExtractionRunProgress("Queued", "Queued for semantic test execution.", 0, new DateTimeOffset(2026, 5, 21, 8, 0, 0, TimeSpan.Zero)),
                 null,
                 null,
+                null,
                 null);
         }
     }

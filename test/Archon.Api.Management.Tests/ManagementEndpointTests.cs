@@ -171,6 +171,7 @@ namespace Archon.Api.Management.Tests
                     new ExtractionRunProgress("Completed", "Snapshot persisted.", 100, DateTimeOffset.Parse("2026-05-20T08:05:00Z")),
                     [new ExtractionRunWarning("RunWarning", "warning", "Completed", DateTimeOffset.Parse("2026-05-20T08:05:00Z"))],
                     [],
+                    [],
                     "snapshot://run-history/current");
                 await history.UpdateAsync(run, CancellationToken.None);
             });

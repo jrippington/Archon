@@ -9,8 +9,9 @@ namespace Archon.Api.Extraction.Contracts
     /// <param name="StartedUtc">The UTC timestamp when the run was accepted.</param>
     /// <param name="CompletedUtc">The optional UTC timestamp when the run reached a terminal state.</param>
     /// <param name="Progress">The current progress details.</param>
-    /// <param name="Warnings">The warning diagnostics recorded so far.</param>
-    /// <param name="Errors">The error diagnostics recorded so far.</param>
+    /// <param name="WarningCount">The number of warning diagnostics recorded so far.</param>
+    /// <param name="ErrorCount">The number of error diagnostics recorded so far.</param>
+    /// <param name="Timings">The measured extraction stage durations recorded so far.</param>
     /// <param name="SnapshotIdentity">The optional persisted snapshot stable identity.</param>
     public sealed record ExtractionRunStatusResponse(
         string RunId,
@@ -19,7 +20,8 @@ namespace Archon.Api.Extraction.Contracts
         DateTimeOffset StartedUtc,
         DateTimeOffset? CompletedUtc,
         ExtractionRunProgressResponse Progress,
-        IReadOnlyList<ExtractionRunDiagnosticResponse> Warnings,
-        IReadOnlyList<ExtractionRunDiagnosticResponse> Errors,
+        int WarningCount,
+        int ErrorCount,
+        IReadOnlyList<ExtractionRunTimingResponse> Timings,
         string? SnapshotIdentity);
 }

@@ -49,6 +49,7 @@ namespace Archon.Application.Extraction.Runs
                     LastUpdatedUtc: startedUtc),
                 warnings: null,
                 errors: null,
+                timings: null,
                 snapshotIdentity: null);
 
             lock (_syncRoot)

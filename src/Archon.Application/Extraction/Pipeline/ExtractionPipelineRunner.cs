@@ -1,6 +1,7 @@
 using Archon.Application.Extraction.Accumulation;
 using Archon.Application.Extraction.Resolution;
 using Archon.Application.Extraction.Runs;
+using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 
 namespace Archon.Application.Extraction.Pipeline
@@ -52,6 +53,7 @@ namespace Archon.Application.Extraction.Pipeline
             ArchitectureSnapshotAccumulator accumulation = new();
             ExtractionStageContext context = new(resolvedInput, run, accumulation);
             List<string> executedStageIds = [];
+            List<ExtractionRunTiming> stageTimings = [];
 
             foreach (IExtractionStage stage in _stages)
             {
@@ -62,7 +64,10 @@ namespace Archon.Application.Extraction.Pipeline
 
                 _logger.LogInformation("Starting extraction stage {StageId} for run {RunId}.", stage.StageId, run.RunId.ToString());
                 executedStageIds.Add(stage.StageId);
+                Stopwatch stopwatch = Stopwatch.StartNew();
                 ExtractionStageResult stageResult = await stage.ExecuteAsync(context, cancellationToken).ConfigureAwait(false);
+                stopwatch.Stop();
+                stageTimings.Add(new ExtractionRunTiming(stage.StageId, stopwatch.ElapsedMilliseconds, DateTimeOffset.UtcNow));
 
                 if (stageResult.HasBlockingError)
                 {
@@ -77,6 +82,7 @@ namespace Archon.Application.Extraction.Pipeline
                         Succeeded: false,
                         accumulation,
                         executedStageIds.ToArray(),
+                        stageTimings.ToArray(),
                         FailedStageId: stage.StageId);
                 }
 
@@ -87,6 +93,7 @@ namespace Archon.Application.Extraction.Pipeline
                 Succeeded: true,
                 accumulation,
                 executedStageIds.ToArray(),
+                stageTimings.ToArray(),
                 FailedStageId: null);
         }
 

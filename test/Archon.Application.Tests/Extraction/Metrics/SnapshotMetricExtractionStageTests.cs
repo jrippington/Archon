@@ -462,6 +462,7 @@ namespace Archon.Application.Tests.Extraction.Metrics
                 new ExtractionRunProgress("Pipeline", "Executing metric stage.", 50, new DateTimeOffset(2026, 5, 20, 8, 0, 0, TimeSpan.Zero)),
                 warnings: null,
                 errors: null,
+                timings: null,
                 snapshotIdentity: null);
             return new ExtractionStageContext(input, run, accumulator);
         }
