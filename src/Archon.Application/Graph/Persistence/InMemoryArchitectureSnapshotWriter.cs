@@ -35,6 +35,47 @@ namespace Archon.Application.Graph.Persistence
         }
 
         /// <summary>
+        /// Removes one process-local snapshot by stable key for lightweight management API fallback behavior.
+        /// </summary>
+        /// <param name="snapshotStableKey">The stable public identity of the snapshot to remove.</param>
+        /// <returns><see langword="true"/> when a snapshot was removed; otherwise <see langword="false"/>.</returns>
+        public bool TryRemoveSnapshotForDiagnostics(string snapshotStableKey)
+        {
+            // The fallback deletion is intentionally limited to the in-memory snapshot list and mirrors the durable delete-one port for tests.
+            if (string.IsNullOrWhiteSpace(snapshotStableKey))
+            {
+                return false;
+            }
+
+            lock (_syncRoot)
+            {
+                int index = _snapshots.FindIndex(snapshot => StringComparer.Ordinal.Equals(snapshot.SnapshotHeader?.StableKey.Value, snapshotStableKey.Trim()));
+                if (index < 0)
+                {
+                    return false;
+                }
+
+                _snapshots.RemoveAt(index);
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// Removes every process-local snapshot and reports how many snapshot headers were cleared.
+        /// </summary>
+        /// <returns>The number of snapshots removed from the in-memory diagnostics list.</returns>
+        public int ClearSnapshotsForDiagnostics()
+        {
+            // Delete-all fallback cleanup mirrors the destructive management contract without pretending to own durable graph records.
+            lock (_syncRoot)
+            {
+                int count = _snapshots.Count;
+                _snapshots.Clear();
+                return count;
+            }
+        }
+
+        /// <summary>
         /// Persists one assembled snapshot into process memory and reports a successful application-owned result.
         /// </summary>
         /// <param name="snapshot">The assembled architecture snapshot to persist.</param>

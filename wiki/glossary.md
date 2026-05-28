@@ -18,6 +18,34 @@ ADO.NET is the .NET data-access API family built around connections, commands, r
 
 The architecture graph is the durable representation of architecture facts, evidence, findings, metrics, and summaries. In the current persistence foundation, Neo4j stores this graph using stable labels, stable keys, fingerprints, and support relationships.
 
+## Operational lifecycle record
+
+An operational lifecycle record is the durable account of one accepted extraction run. It stores the public run identifier, safe request summary, lifecycle status, progress, warning and error counts, optional diagnostics, and optional produced snapshot stable key without being the same thing as the architecture snapshot itself.
+
+## Produced snapshot relationship
+
+A produced snapshot relationship is the `PRODUCED_SNAPSHOT` graph link from an `ArchonExtractionRun` record to the existing `ArchonSnapshot` node that a completed run produced. It is created only when the run is completed and the target snapshot node is present; the run can still retain the public snapshot stable key when that relationship is unavailable.
+
+## Snapshot lifecycle row
+
+A snapshot lifecycle row is the management-facing summary of one persisted snapshot. It contains public stable identities, lifecycle status, source-control context, timestamps, and diagnostic counts without exposing Neo4j internal IDs, raw graph records, or full architecture facts.
+
+## Snapshot-scoped subgraph
+
+A snapshot-scoped subgraph is the set of graph records whose lifecycle is owned by one snapshot stable key. It includes the snapshot header, snapshot-scoped architecture nodes, relationship-node records, evidence, findings, metrics, generated summaries, and support relationships attached to those records. It excludes shared repository, solution, rule catalog, and extraction run records.
+
+## Snapshot deletion store
+
+A snapshot deletion store is the application-layer persistence port that deletes approved snapshot scopes without exposing arbitrary graph mutation. The current Neo4j adapter deletes either one public snapshot stable key or all persisted snapshots after the management service validates the exact delete-all confirmation phrase. It preserves shared and operational records, returns safe counts, and keeps raw Cypher, Neo4j internal identifiers, driver exceptions, and secrets inside infrastructure.
+
+## Delete-all snapshot cleanup
+
+Delete-all snapshot cleanup is the confirmed management operation that removes every persisted snapshot and every snapshot-scoped subgraph from the configured store. It requires the exact confirmation phrase `delete-all-snapshots`, does not support dry-run or scoped filters, and preserves extraction run history plus shared repository, solution, and rule records by default.
+
+## Extraction run request summary
+
+An extraction run request summary is the credential-safe subset of a start-extraction request retained for run history. It includes normalized repository and solution paths, optional source-control and requester values, and metadata keys only; metadata values are intentionally omitted from durable request history.
+
 ## Persistence diagnostic breakdown
 
 A persistence diagnostic breakdown is the optional run-status section that explains the snapshot persistence handoff for one extraction run. It contains ordered scoped timings, persistence count values, and a completion flag. It is retained with the run lifecycle rather than stored as architecture graph content, and it can be present for completed runs or as partial evidence on failed persistence runs.
@@ -93,6 +121,10 @@ An architecture rule result is a controlled query DTO produced by built-in archi
 ## Fingerprint
 
 A fingerprint is a deterministic hash-like value that summarizes the public comparison-relevant content of a persisted graph record, metric, finding, cycle, hotspot, architecture-rule result, or diff item. Query APIs expose fingerprints so clients can detect content drift while continuing to use stable keys as durable logical identities.
+
+## Fallback registration
+
+A fallback registration is a dependency-injection registration that is added only when no earlier service registration for the same application port exists. Archon uses fallback registrations for in-memory run-history, snapshot writer, lifecycle, and deletion components so focused tests and lightweight hosts can run without Neo4j, while Neo4j-composed production paths resolve durable infrastructure adapters instead.
 
 ## Hotlist
 

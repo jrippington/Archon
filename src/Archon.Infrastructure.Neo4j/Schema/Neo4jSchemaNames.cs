@@ -63,6 +63,16 @@ namespace Archon.Infrastructure.Neo4j.Schema
             /// Labels generated summaries that later slices can render or export.
             /// </summary>
             public const string GeneratedSummary = "ArchonGeneratedSummary";
+
+            /// <summary>
+            /// Labels durable operational records for accepted extraction runs.
+            /// </summary>
+            public const string ExtractionRun = "ArchonExtractionRun";
+
+            /// <summary>
+            /// Labels credential-safe request summaries associated with durable extraction runs.
+            /// </summary>
+            public const string ExtractionRunRequest = "ArchonExtractionRunRequest";
         }
 
         /// <summary>
@@ -109,6 +119,16 @@ namespace Archon.Infrastructure.Neo4j.Schema
             /// Connects a generated summary to the snapshot that owns the durable generated content.
             /// </summary>
             public const string SummarizesSnapshot = "SUMMARIZES_SNAPSHOT";
+
+            /// <summary>
+            /// Connects an extraction run to the safe request summary captured when the run was accepted.
+            /// </summary>
+            public const string HasExtractionRunRequest = "HAS_EXTRACTION_RUN_REQUEST";
+
+            /// <summary>
+            /// Connects a completed extraction run to the snapshot it produced when that snapshot is available.
+            /// </summary>
+            public const string ProducedSnapshot = "PRODUCED_SNAPSHOT";
         }
 
         /// <summary>
@@ -170,6 +190,101 @@ namespace Archon.Infrastructure.Neo4j.Schema
             /// Stores a snapshot or finding status value.
             /// </summary>
             public const string Status = "status";
+
+            /// <summary>
+            /// Stores the stable public identifier for an extraction run.
+            /// </summary>
+            public const string RunId = "runId";
+
+            /// <summary>
+            /// Stores the UTC timestamp when an extraction run was accepted.
+            /// </summary>
+            public const string StartedUtc = "startedUtc";
+
+            /// <summary>
+            /// Stores the optional UTC timestamp when an extraction run reached a terminal state.
+            /// </summary>
+            public const string CompletedUtc = "completedUtc";
+
+            /// <summary>
+            /// Stores the current extraction run progress stage.
+            /// </summary>
+            public const string ProgressStage = "progressStage";
+
+            /// <summary>
+            /// Stores the current credential-safe extraction run progress message.
+            /// </summary>
+            public const string ProgressMessage = "progressMessage";
+
+            /// <summary>
+            /// Stores the optional extraction run progress percentage.
+            /// </summary>
+            public const string ProgressPercentage = "progressPercentage";
+
+            /// <summary>
+            /// Stores the UTC timestamp when extraction run progress was last updated.
+            /// </summary>
+            public const string ProgressLastUpdatedUtc = "progressLastUpdatedUtc";
+
+            /// <summary>
+            /// Stores the number of warning diagnostics associated with an extraction run.
+            /// </summary>
+            public const string WarningCount = "warningCount";
+
+            /// <summary>
+            /// Stores the number of error diagnostics associated with an extraction run.
+            /// </summary>
+            public const string ErrorCount = "errorCount";
+
+            /// <summary>
+            /// Stores the normalized repository root directory accepted for an extraction run.
+            /// </summary>
+            public const string RepositoryRootDirectory = "repositoryRootDirectory";
+
+            /// <summary>
+            /// Stores the normalized solution paths accepted for an extraction run.
+            /// </summary>
+            public const string SolutionPaths = "solutionPaths";
+
+            /// <summary>
+            /// Stores the optional source-control branch name associated with an extraction run.
+            /// </summary>
+            public const string BranchName = "branchName";
+
+            /// <summary>
+            /// Stores the optional source-control commit SHA associated with an extraction run.
+            /// </summary>
+            public const string CommitSha = "commitSha";
+
+            /// <summary>
+            /// Stores the optional actor or system that requested an extraction run.
+            /// </summary>
+            public const string RequestedBy = "requestedBy";
+
+            /// <summary>
+            /// Stores safe metadata keys for an extraction request without retaining metadata values.
+            /// </summary>
+            public const string MetadataKeys = "metadataKeys";
+
+            /// <summary>
+            /// Stores serialized warning diagnostics for an extraction run when detailed child records are not yet required.
+            /// </summary>
+            public const string WarningDiagnosticsJson = "warningDiagnosticsJson";
+
+            /// <summary>
+            /// Stores serialized error diagnostics for an extraction run when detailed child records are not yet required.
+            /// </summary>
+            public const string ErrorDiagnosticsJson = "errorDiagnosticsJson";
+
+            /// <summary>
+            /// Stores serialized timing diagnostics for an extraction run when detailed child records are not yet required.
+            /// </summary>
+            public const string TimingDiagnosticsJson = "timingDiagnosticsJson";
+
+            /// <summary>
+            /// Stores serialized persistence diagnostics for an extraction run when detailed child records are not yet required.
+            /// </summary>
+            public const string PersistenceDiagnosticsJson = "persistenceDiagnosticsJson";
 
             /// <summary>
             /// Stores a knowledge classification such as direct fact, inference, unknown, or human-confirmed.
@@ -256,6 +371,16 @@ namespace Archon.Infrastructure.Neo4j.Schema
             /// Snapshot-scoped uniqueness constraint for generated summary stable keys.
             /// </summary>
             public const string GeneratedSummarySnapshotStableKeyUnique = "archon_generated_summary_snapshot_stable_key_unique";
+
+            /// <summary>
+            /// Uniqueness constraint for extraction run public identifiers.
+            /// </summary>
+            public const string ExtractionRunRunIdUnique = "archon_extraction_run_run_id_unique";
+
+            /// <summary>
+            /// Uniqueness constraint for extraction run request summaries keyed by run identifier.
+            /// </summary>
+            public const string ExtractionRunRequestRunIdUnique = "archon_extraction_run_request_run_id_unique";
         }
 
         /// <summary>
@@ -432,6 +557,21 @@ namespace Archon.Infrastructure.Neo4j.Schema
             /// Index for generated summaries by fingerprint.
             /// </summary>
             public const string GeneratedSummaryFingerprint = "archon_generated_summary_fingerprint_index";
+
+            /// <summary>
+            /// Index for extraction runs by lifecycle status.
+            /// </summary>
+            public const string ExtractionRunStatus = "archon_extraction_run_status_index";
+
+            /// <summary>
+            /// Index for extraction runs by accepted timestamp.
+            /// </summary>
+            public const string ExtractionRunStartedUtc = "archon_extraction_run_started_utc_index";
+
+            /// <summary>
+            /// Index for extraction runs by produced snapshot stable key.
+            /// </summary>
+            public const string ExtractionRunSnapshotStableKey = "archon_extraction_run_snapshot_stable_key_index";
         }
     }
 }

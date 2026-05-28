@@ -38,6 +38,22 @@ namespace Archon.Application.Management
         Task<ManagementOperationResult<SnapshotLifecycleResponse>> ListSnapshotsAsync(SnapshotLifecycleQuery query, CancellationToken cancellationToken);
 
         /// <summary>
+        /// Deletes one persisted snapshot and its snapshot-scoped records by public stable key.
+        /// </summary>
+        /// <param name="request">The delete-one request containing the target snapshot stable key and audit actor.</param>
+        /// <param name="cancellationToken">The cancellation token for the destructive operation.</param>
+        /// <returns>The safe deletion response or validation errors.</returns>
+        Task<ManagementOperationResult<DeleteSnapshotResponse>> DeleteSnapshotAsync(DeleteSnapshotRequest request, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Deletes every persisted snapshot and every snapshot-scoped record after explicit confirmation.
+        /// </summary>
+        /// <param name="request">The delete-all request containing the required confirmation phrase and audit actor.</param>
+        /// <param name="cancellationToken">The cancellation token for the destructive operation.</param>
+        /// <returns>The safe aggregate deletion response or validation errors.</returns>
+        Task<ManagementOperationResult<DeleteAllSnapshotsResponse>> DeleteAllSnapshotsAsync(DeleteAllSnapshotsRequest request, CancellationToken cancellationToken);
+
+        /// <summary>
         /// Validates and optionally executes snapshot retention inside the requested lifecycle scope.
         /// </summary>
         /// <param name="request">The retention request to validate and execute.</param>

@@ -1,9 +1,12 @@
 using Archon.Application.Metrics;
 using Archon.Application.Rules;
+using Archon.Application.Extraction.Runs;
+using Archon.Application.Graph.Persistence;
 using Archon.Infrastructure.Neo4j.Configuration;
 using Archon.Infrastructure.Neo4j.DependencyInjection;
 using Archon.Infrastructure.Neo4j.Driver;
 using Archon.Infrastructure.Neo4j.Health;
+using Archon.Infrastructure.Neo4j.Persistence;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -40,6 +43,8 @@ namespace Archon.Infrastructure.Neo4j.Tests.DependencyInjection
             Assert.Equal("neo4j", options.Database);
             Assert.NotNull(serviceProvider.GetRequiredService<INeo4jDriverFactory>());
             Assert.NotNull(serviceProvider.GetRequiredService<INeo4jSessionProvider>());
+            Assert.IsType<Neo4jExtractionRunHistory>(serviceProvider.GetRequiredService<IExtractionRunHistory>());
+            Assert.IsType<Neo4jSnapshotLifecycleQuery>(serviceProvider.GetRequiredService<ISnapshotLifecycleQuery>());
             Assert.NotNull(serviceProvider.GetRequiredService<IRuleCatalogStore>());
             Assert.NotNull(serviceProvider.GetRequiredService<IFindingStore>());
             Assert.NotNull(serviceProvider.GetRequiredService<IHotlistQueryStore>());

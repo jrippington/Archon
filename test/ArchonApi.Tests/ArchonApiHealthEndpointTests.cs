@@ -1,4 +1,5 @@
 using Archon.Application.Graph.Persistence;
+using Archon.Application.Extraction.Runs;
 using Archon.Infrastructure.Neo4j.Configuration;
 using Archon.Infrastructure.Neo4j.Persistence;
 using Archon.ServiceDefaults;
@@ -152,9 +153,9 @@ namespace ArchonApi.Tests
         /// Confirms production-style host composition uses Neo4j persistence when Neo4j configuration is supplied.
         /// </summary>
         [Fact]
-        public void BuildApplication_WhenNeo4jConfigurationExists_ShouldRegisterNeo4jSnapshotWriter()
+        public void BuildApplication_WhenNeo4jConfigurationExists_ShouldRegisterNeo4jSnapshotLifecycleStores()
         {
-            // The API host should write extraction snapshots to Neo4j under AppHost configuration rather than silently using memory-only stores.
+            // The API host should write extraction snapshots and run lifecycle data to Neo4j under AppHost configuration rather than silently using memory-only stores.
             using WebApplication app = Program.BuildApplication(
                 [
                     $"--{Neo4jOptions.SectionName}:Uri=bolt://localhost:7687",
@@ -166,8 +167,14 @@ namespace ArchonApi.Tests
                 builder => builder.WebHost.UseTestServer());
 
             IArchitectureSnapshotWriter writer = app.Services.GetRequiredService<IArchitectureSnapshotWriter>();
+            ISnapshotLifecycleQuery lifecycleQuery = app.Services.GetRequiredService<ISnapshotLifecycleQuery>();
+            ISnapshotDeletionStore deletionStore = app.Services.GetRequiredService<ISnapshotDeletionStore>();
+            IExtractionRunHistory runHistory = app.Services.GetRequiredService<IExtractionRunHistory>();
 
             Assert.IsType<Neo4jArchitectureSnapshotWriter>(writer);
+            Assert.IsType<Neo4jSnapshotLifecycleQuery>(lifecycleQuery);
+            Assert.IsType<Neo4jSnapshotDeletionStore>(deletionStore);
+            Assert.IsType<Neo4jExtractionRunHistory>(runHistory);
         }
 
         /// <summary>

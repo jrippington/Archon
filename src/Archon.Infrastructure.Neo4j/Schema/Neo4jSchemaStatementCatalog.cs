@@ -50,6 +50,8 @@ namespace Archon.Infrastructure.Neo4j.Schema
                 CompositeConstraint(Neo4jSchemaNames.Constraints.FindingSnapshotStableKeyUnique, Neo4jSchemaNames.Labels.Finding, Neo4jSchemaNames.Properties.SnapshotStableKey, Neo4jSchemaNames.Properties.StableKey),
                 CompositeConstraint(Neo4jSchemaNames.Constraints.MetricSnapshotStableKeyUnique, Neo4jSchemaNames.Labels.Metric, Neo4jSchemaNames.Properties.SnapshotStableKey, Neo4jSchemaNames.Properties.StableKey),
                 CompositeConstraint(Neo4jSchemaNames.Constraints.GeneratedSummarySnapshotStableKeyUnique, Neo4jSchemaNames.Labels.GeneratedSummary, Neo4jSchemaNames.Properties.SnapshotStableKey, Neo4jSchemaNames.Properties.StableKey),
+                Constraint(Neo4jSchemaNames.Constraints.ExtractionRunRunIdUnique, Neo4jSchemaNames.Labels.ExtractionRun, Neo4jSchemaNames.Properties.RunId),
+                Constraint(Neo4jSchemaNames.Constraints.ExtractionRunRequestRunIdUnique, Neo4jSchemaNames.Labels.ExtractionRunRequest, Neo4jSchemaNames.Properties.RunId),
                 Index(Neo4jSchemaNames.Indexes.SolutionRepositoryStableKey, Neo4jSchemaNames.Labels.Solution, Neo4jSchemaNames.Properties.RepositoryStableKey),
                 Index(Neo4jSchemaNames.Indexes.SnapshotRepositoryStableKey, Neo4jSchemaNames.Labels.Snapshot, Neo4jSchemaNames.Properties.RepositoryStableKey),
                 Index(Neo4jSchemaNames.Indexes.SnapshotStatus, Neo4jSchemaNames.Labels.Snapshot, Neo4jSchemaNames.Properties.Status),
@@ -83,7 +85,10 @@ namespace Archon.Infrastructure.Neo4j.Schema
                 Index(Neo4jSchemaNames.Indexes.MetricFingerprint, Neo4jSchemaNames.Labels.Metric, Neo4jSchemaNames.Properties.Fingerprint),
                 Index(Neo4jSchemaNames.Indexes.GeneratedSummarySnapshot, Neo4jSchemaNames.Labels.GeneratedSummary, Neo4jSchemaNames.Properties.SnapshotStableKey),
                 Index(Neo4jSchemaNames.Indexes.GeneratedSummaryKind, Neo4jSchemaNames.Labels.GeneratedSummary, Neo4jSchemaNames.Properties.SummaryKind),
-                Index(Neo4jSchemaNames.Indexes.GeneratedSummaryFingerprint, Neo4jSchemaNames.Labels.GeneratedSummary, Neo4jSchemaNames.Properties.Fingerprint)
+                Index(Neo4jSchemaNames.Indexes.GeneratedSummaryFingerprint, Neo4jSchemaNames.Labels.GeneratedSummary, Neo4jSchemaNames.Properties.Fingerprint),
+                Index(Neo4jSchemaNames.Indexes.ExtractionRunStatus, Neo4jSchemaNames.Labels.ExtractionRun, Neo4jSchemaNames.Properties.Status),
+                Index(Neo4jSchemaNames.Indexes.ExtractionRunStartedUtc, Neo4jSchemaNames.Labels.ExtractionRun, Neo4jSchemaNames.Properties.StartedUtc),
+                Index(Neo4jSchemaNames.Indexes.ExtractionRunSnapshotStableKey, Neo4jSchemaNames.Labels.ExtractionRun, Neo4jSchemaNames.Properties.SnapshotStableKey)
             };
 
             return statements;

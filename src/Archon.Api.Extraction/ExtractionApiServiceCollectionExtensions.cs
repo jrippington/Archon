@@ -19,6 +19,7 @@ using Archon.Extractors.WinUI;
 using Archon.Extractors.Wpf;
 using Archon.Infrastructure.Roslyn.Extraction;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 
 namespace Archon.Api.Extraction
@@ -36,12 +37,12 @@ namespace Archon.Api.Extraction
         public static IServiceCollection AddArchonExtractionApi(this IServiceCollection services)
         {
             // The module owns the application-level extraction workflow registrations while host composition can override infrastructure
-            // ports, such as snapshot persistence, by adding concrete adapters after this module is registered.
+            // ports, such as run-history and snapshot persistence, by adding concrete adapters after this module is registered.
             ArgumentNullException.ThrowIfNull(services);
 
             services.AddLogging();
             services.AddSingleton<StartExtractionRequestValidator>();
-            services.AddSingleton<IExtractionRunHistory, InMemoryExtractionRunHistory>();
+            services.TryAddSingleton<IExtractionRunHistory, InMemoryExtractionRunHistory>();
             services.AddSingleton<IExtractionStage, RepositorySolutionExtractionStage>();
             services.AddSingleton<IExtractionStage, RoslynSemanticExtractionStage>();
             services.AddSingleton<IExtractionStage, ConfigurationDependencyInjectionExtractionStage>();
@@ -74,7 +75,7 @@ namespace Archon.Api.Extraction
             services.AddSingleton<IExtractionStage, SnapshotMetricExtractionStage>();
             services.AddSingleton<ExtractionPipelineRunner>();
             services.AddSingleton<ExtractionSnapshotAssembler>();
-            services.AddSingleton<IArchitectureSnapshotWriter, InMemoryArchitectureSnapshotWriter>();
+            services.TryAddSingleton<IArchitectureSnapshotWriter, InMemoryArchitectureSnapshotWriter>();
             services.AddSingleton<ExtractionOrchestrator>();
             services.AddSingleton<IExtractionWorkScheduler, InProcessExtractionWorkScheduler>();
             services.AddSingleton<StartExtractionApplicationService>();

@@ -33,6 +33,11 @@ namespace Archon.Application.Management
         };
 
         /// <summary>
+        /// Defines the exact phrase required before the service accepts global destructive snapshot cleanup.
+        /// </summary>
+        private const string DeleteAllSnapshotsConfirmation = "delete-all-snapshots";
+
+        /// <summary>
         /// Serializes management-state mutations so route calls observe deterministic process-local state.
         /// </summary>
         private readonly object _syncRoot = new();
@@ -58,14 +63,19 @@ namespace Archon.Application.Management
         private readonly Dictionary<string, RuleEnablementResponse> _ruleEnablement = new(StringComparer.Ordinal);
 
         /// <summary>
-        /// Reads snapshots from the application-owned persistence writer when the local in-memory adapter is active.
+        /// Reads snapshot lifecycle rows through the application-owned query abstraction.
         /// </summary>
-        private readonly IArchitectureSnapshotWriter _snapshotWriter;
+        private readonly ISnapshotLifecycleQuery _snapshotLifecycleQuery;
 
         /// <summary>
         /// Reads extraction run state through the operational history abstraction.
         /// </summary>
         private readonly IExtractionRunHistory _runHistory;
+
+        /// <summary>
+        /// Deletes snapshots through the application-owned destructive persistence abstraction.
+        /// </summary>
+        private readonly ISnapshotDeletionStore _snapshotDeletionStore;
 
         /// <summary>
         /// Reads rule catalog state for readiness without exposing rule files or arbitrary disk access.
@@ -80,19 +90,22 @@ namespace Archon.Application.Management
         /// <summary>
         /// Initializes a new instance of the <see cref="ManagementOperationsService"/> class.
         /// </summary>
-        /// <param name="snapshotWriter">The snapshot writer used to query local lifecycle state when available.</param>
+        /// <param name="snapshotLifecycleQuery">The lifecycle query used to read snapshot management rows.</param>
         /// <param name="runHistory">The extraction run-history store used for operational history.</param>
+        /// <param name="snapshotDeletionStore">The deletion store used for controlled destructive snapshot cleanup.</param>
         /// <param name="ruleCatalogStore">The rule catalog store used for rule readiness checks.</param>
         /// <param name="logger">The logger used for safe management diagnostics.</param>
         public ManagementOperationsService(
-            IArchitectureSnapshotWriter snapshotWriter,
+            ISnapshotLifecycleQuery snapshotLifecycleQuery,
             IExtractionRunHistory runHistory,
+            ISnapshotDeletionStore snapshotDeletionStore,
             IRuleCatalogStore ruleCatalogStore,
             ILogger<ManagementOperationsService> logger)
         {
             // Constructor injection keeps the management implementation replaceable by infrastructure adapters.
-            _snapshotWriter = snapshotWriter ?? throw new ArgumentNullException(nameof(snapshotWriter));
+            _snapshotLifecycleQuery = snapshotLifecycleQuery ?? throw new ArgumentNullException(nameof(snapshotLifecycleQuery));
             _runHistory = runHistory ?? throw new ArgumentNullException(nameof(runHistory));
+            _snapshotDeletionStore = snapshotDeletionStore ?? throw new ArgumentNullException(nameof(snapshotDeletionStore));
             _ruleCatalogStore = ruleCatalogStore ?? throw new ArgumentNullException(nameof(ruleCatalogStore));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
@@ -218,7 +231,7 @@ namespace Archon.Application.Management
         /// <param name="query">The lifecycle query filters and bounds.</param>
         /// <param name="cancellationToken">The cancellation token for the lifecycle query.</param>
         /// <returns>The bounded snapshot lifecycle response or validation errors.</returns>
-        public Task<ManagementOperationResult<SnapshotLifecycleResponse>> ListSnapshotsAsync(SnapshotLifecycleQuery query, CancellationToken cancellationToken)
+        public async Task<ManagementOperationResult<SnapshotLifecycleResponse>> ListSnapshotsAsync(SnapshotLifecycleQuery query, CancellationToken cancellationToken)
         {
             // Lifecycle listing reads bounded snapshot header data and never exposes persistence-local identifiers.
             ArgumentNullException.ThrowIfNull(query);
@@ -233,35 +246,110 @@ namespace Archon.Application.Management
 
             if (errors.Count > 0)
             {
-                return Task.FromResult(ManagementOperationResult<SnapshotLifecycleResponse>.Failure(errors));
+                return ManagementOperationResult<SnapshotLifecycleResponse>.Failure(errors);
             }
 
-            IReadOnlyList<SnapshotLifecycleItemResponse> rows = BuildSnapshotLifecycleRows();
-            IEnumerable<SnapshotLifecycleItemResponse> filteredRows = rows;
-            filteredRows = ApplyOptionalFilter(filteredRows, query.RepositoryStableKey, static row => row.RepositoryStableKey);
-            filteredRows = ApplyOptionalNullableFilter(filteredRows, query.SolutionStableKey, static row => row.SolutionStableKey);
-            filteredRows = ApplyOptionalFilter(filteredRows, query.Status, static row => row.Status);
-            filteredRows = ApplyOptionalNullableFilter(filteredRows, query.CommitSha, static row => row.CommitSha);
-            if (query.FromUtc.HasValue)
-            {
-                filteredRows = filteredRows.Where(row => row.StartedUtc >= query.FromUtc.Value);
-            }
-
-            if (query.ToUtc.HasValue)
-            {
-                filteredRows = filteredRows.Where(row => row.StartedUtc <= query.ToUtc.Value);
-            }
-
-            SnapshotLifecycleItemResponse[] matchingRows = filteredRows
-                .OrderByDescending(row => row.StartedUtc)
-                .ThenBy(row => row.SnapshotStableKey, StringComparer.Ordinal)
-                .ToArray();
+            SnapshotLifecycleQueryRequest lifecycleQuery = new(
+                NormalizeOptionalText(query.RepositoryStableKey),
+                NormalizeOptionalText(query.SolutionStableKey),
+                NormalizeOptionalText(query.Status),
+                query.FromUtc,
+                query.ToUtc,
+                NormalizeOptionalText(query.CommitSha),
+                take);
+            SnapshotLifecycleQueryResult lifecycleResult = await _snapshotLifecycleQuery.ListSnapshotsAsync(lifecycleQuery, cancellationToken).ConfigureAwait(false);
             SnapshotLifecycleResponse response = new(
-                matchingRows.Take(take).ToArray(),
-                matchingRows.Length,
-                take,
-                matchingRows.Length > take ? ["Snapshot lifecycle response was truncated by the take limit."] : []);
-            return Task.FromResult(ManagementOperationResult<SnapshotLifecycleResponse>.Success(response));
+                lifecycleResult.Items.Select(MapSnapshotLifecycleRow).ToArray(),
+                lifecycleResult.TotalCount,
+                lifecycleResult.Take,
+                lifecycleResult.Warnings);
+            return ManagementOperationResult<SnapshotLifecycleResponse>.Success(response);
+        }
+
+        /// <summary>
+        /// Deletes one persisted snapshot through the destructive snapshot deletion port after validating stable identity input.
+        /// </summary>
+        /// <param name="request">The delete-one request to validate and execute.</param>
+        /// <param name="cancellationToken">The cancellation token for the destructive operation.</param>
+        /// <returns>The deletion response, a not-found validation result, or input validation errors.</returns>
+        public async Task<ManagementOperationResult<DeleteSnapshotResponse>> DeleteSnapshotAsync(DeleteSnapshotRequest request, CancellationToken cancellationToken)
+        {
+            // Deletion is intentionally keyed only by stable snapshot identity; no arbitrary labels, filters, or mutation expressions are accepted.
+            ArgumentNullException.ThrowIfNull(request);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            List<ManagementValidationError> errors = [];
+            string? snapshotStableKey = NormalizeRequiredStableKey(request.SnapshotStableKey, "SnapshotStableKeyRequired", "Snapshot stable key is required.", errors);
+            if (errors.Count > 0 || snapshotStableKey is null)
+            {
+                _logger.LogInformation("Snapshot deletion rejected with {ValidationErrorCount} validation errors.", errors.Count);
+                return ManagementOperationResult<DeleteSnapshotResponse>.Failure(errors);
+            }
+
+            SnapshotDeletionResult deletionResult = await _snapshotDeletionStore.DeleteSnapshotAsync(new SnapshotDeletionRequest(snapshotStableKey), cancellationToken).ConfigureAwait(false);
+            if (!deletionResult.SnapshotDeleted)
+            {
+                _logger.LogInformation("Snapshot deletion found no persisted snapshot for {SnapshotStableKey}.", snapshotStableKey);
+                return ManagementOperationResult<DeleteSnapshotResponse>.Failure([new ManagementValidationError("SnapshotNotFound", "Snapshot was not found.")]);
+            }
+
+            DeleteSnapshotResponse response = new(
+                deletionResult.SnapshotStableKey,
+                deletionResult.SnapshotDeleted,
+                deletionResult.DeletedSnapshotCount,
+                deletionResult.DeletedNodeCount,
+                deletionResult.DeletedRelationshipCount,
+                deletionResult.AffectedRunCount,
+                deletionResult.Warnings,
+                CreateAudit(request.RequestedBy));
+            _logger.LogInformation(
+                "Deleted snapshot {SnapshotStableKey} with {DeletedNodeCount} snapshot-scoped nodes and {DeletedRelationshipCount} relationships removed.",
+                snapshotStableKey,
+                response.DeletedNodeCount,
+                response.DeletedRelationshipCount);
+            return ManagementOperationResult<DeleteSnapshotResponse>.Success(response);
+        }
+
+        /// <summary>
+        /// Deletes every persisted snapshot through the destructive snapshot deletion port after validating explicit confirmation input.
+        /// </summary>
+        /// <param name="request">The delete-all request to validate and execute.</param>
+        /// <param name="cancellationToken">The cancellation token for the destructive operation.</param>
+        /// <returns>The aggregate deletion response or safe validation errors.</returns>
+        public async Task<ManagementOperationResult<DeleteAllSnapshotsResponse>> DeleteAllSnapshotsAsync(DeleteAllSnapshotsRequest request, CancellationToken cancellationToken)
+        {
+            // Delete-all deliberately accepts no dry-run flag, filters, labels, Cypher, or caller-defined mutation expressions.
+            ArgumentNullException.ThrowIfNull(request);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            List<ManagementValidationError> errors = [];
+            string? confirmation = NormalizeRequiredText(request.Confirmation, "DeleteAllSnapshotsConfirmationRequired", "Delete-all snapshot cleanup requires confirmation value 'delete-all-snapshots'.", errors);
+            AddUnsupportedDeleteAllFields(request.UnsupportedFields, errors);
+            if (confirmation is not null && !StringComparer.Ordinal.Equals(confirmation, DeleteAllSnapshotsConfirmation))
+            {
+                errors.Add(new ManagementValidationError("DeleteAllSnapshotsConfirmationInvalid", "Delete-all snapshot cleanup requires confirmation value 'delete-all-snapshots'."));
+            }
+
+            if (errors.Count > 0 || confirmation is null)
+            {
+                _logger.LogInformation("Delete-all snapshot cleanup rejected with {ValidationErrorCount} validation errors.", errors.Count);
+                return ManagementOperationResult<DeleteAllSnapshotsResponse>.Failure(errors);
+            }
+
+            SnapshotDeleteAllResult deletionResult = await _snapshotDeletionStore.DeleteAllSnapshotsAsync(new SnapshotDeleteAllRequest(confirmation), cancellationToken).ConfigureAwait(false);
+            DeleteAllSnapshotsResponse response = new(
+                deletionResult.DeletedSnapshotCount,
+                deletionResult.DeletedNodeCount,
+                deletionResult.DeletedRelationshipCount,
+                deletionResult.AffectedRunCount,
+                deletionResult.Warnings,
+                CreateAudit(request.RequestedBy));
+            _logger.LogInformation(
+                "Deleted all persisted snapshots with {DeletedSnapshotCount} snapshot headers, {DeletedNodeCount} snapshot-scoped nodes, and {DeletedRelationshipCount} relationships removed.",
+                response.DeletedSnapshotCount,
+                response.DeletedNodeCount,
+                response.DeletedRelationshipCount);
+            return ManagementOperationResult<DeleteAllSnapshotsResponse>.Success(response);
         }
 
         /// <summary>
@@ -270,7 +358,7 @@ namespace Archon.Application.Management
         /// <param name="request">The retention request to validate and execute.</param>
         /// <param name="cancellationToken">The cancellation token for the retention operation.</param>
         /// <returns>The retention outcome or validation errors.</returns>
-        public Task<ManagementOperationResult<RetentionResponse>> ApplyRetentionAsync(RetentionRequest request, CancellationToken cancellationToken)
+        public async Task<ManagementOperationResult<RetentionResponse>> ApplyRetentionAsync(RetentionRequest request, CancellationToken cancellationToken)
         {
             // The default implementation reports lifecycle candidates but cannot delete from external persistence adapters.
             ArgumentNullException.ThrowIfNull(request);
@@ -291,15 +379,19 @@ namespace Archon.Application.Management
 
             if (errors.Count > 0 || repositoryStableKey is null)
             {
-                return Task.FromResult(ManagementOperationResult<RetentionResponse>.Failure(errors));
+                return ManagementOperationResult<RetentionResponse>.Failure(errors);
             }
 
-            SnapshotLifecycleItemResponse[] scopedRows = BuildSnapshotLifecycleRows()
-                .Where(row => StringComparer.Ordinal.Equals(row.RepositoryStableKey, repositoryStableKey))
-                .Where(row => string.IsNullOrWhiteSpace(request.SolutionStableKey) || StringComparer.Ordinal.Equals(row.SolutionStableKey, request.SolutionStableKey.Trim()))
-                .OrderByDescending(row => row.StartedUtc)
-                .ThenBy(row => row.SnapshotStableKey, StringComparer.Ordinal)
-                .ToArray();
+            SnapshotLifecycleQueryRequest lifecycleQuery = new(
+                repositoryStableKey,
+                NormalizeOptionalText(request.SolutionStableKey),
+                Status: null,
+                FromUtc: null,
+                ToUtc: null,
+                CommitSha: null,
+                Take: 500);
+            SnapshotLifecycleQueryResult lifecycleResult = await _snapshotLifecycleQuery.ListSnapshotsAsync(lifecycleQuery, cancellationToken).ConfigureAwait(false);
+            SnapshotLifecycleItemResponse[] scopedRows = lifecycleResult.Items.Select(MapSnapshotLifecycleRow).ToArray();
             HashSet<string> protectedLatest = scopedRows.Take(keepLatest).Select(row => row.SnapshotStableKey).ToHashSet(StringComparer.Ordinal);
             string[] candidates = scopedRows
                 .Where(row => !protectedLatest.Contains(row.SnapshotStableKey))
@@ -319,7 +411,7 @@ namespace Archon.Application.Management
                 warnings,
                 CreateAudit(request.RequestedBy));
             _logger.LogInformation("Retention evaluated {CandidateCount} candidates for repository {RepositoryStableKey}.", candidates.Length, repositoryStableKey);
-            return Task.FromResult(ManagementOperationResult<RetentionResponse>.Success(response));
+            return ManagementOperationResult<RetentionResponse>.Success(response);
         }
 
         /// <summary>
@@ -455,7 +547,8 @@ namespace Archon.Application.Management
             // Readiness probes dependencies through application abstractions and returns only sanitized names and states.
             cancellationToken.ThrowIfCancellationRequested();
             List<DependencyReadinessResponse> dependencies = [];
-            dependencies.Add(new DependencyReadinessResponse("snapshot-lifecycle", GetSnapshotDependencyStatus(), "Snapshot lifecycle reader is available."));
+            SnapshotLifecycleQueryResult lifecycleRows = await _snapshotLifecycleQuery.ListSnapshotsAsync(new SnapshotLifecycleQueryRequest(null, null, null, null, null, null, 1), cancellationToken).ConfigureAwait(false);
+            dependencies.Add(new DependencyReadinessResponse("snapshot-lifecycle", "Ready", $"Snapshot lifecycle reader is available with {lifecycleRows.Items.Count} sample rows."));
             IReadOnlyList<ExtractionRun> runs = await _runHistory.GetRecentAsync(1, cancellationToken).ConfigureAwait(false);
             dependencies.Add(new DependencyReadinessResponse("extraction-run-history", "Ready", $"Run history reader is available with {runs.Count} recent run sample rows."));
             IReadOnlyList<RuleCatalogEntry> rules = await _ruleCatalogStore.GetRulesAsync(cancellationToken).ConfigureAwait(false);
@@ -505,45 +598,24 @@ namespace Archon.Application.Management
         }
 
         /// <summary>
-        /// Builds lifecycle rows from the current in-memory snapshot writer when that diagnostic path is available.
+        /// Maps a storage-neutral lifecycle row into the management API response row shape.
         /// </summary>
-        /// <returns>The available safe snapshot lifecycle rows.</returns>
-        private IReadOnlyList<SnapshotLifecycleItemResponse> BuildSnapshotLifecycleRows()
+        /// <param name="row">The lifecycle row returned by the application lifecycle query port.</param>
+        /// <returns>The safe management response row.</returns>
+        private static SnapshotLifecycleItemResponse MapSnapshotLifecycleRow(SnapshotLifecycleQueryRow row)
         {
-            // The default writer provides diagnostic snapshots; infrastructure implementations can replace this service for direct lifecycle access.
-            if (_snapshotWriter is not InMemoryArchitectureSnapshotWriter inMemoryWriter)
-            {
-                return [];
-            }
-
-            return inMemoryWriter.GetSnapshotsSnapshotForDiagnostics()
-                .Where(snapshot => snapshot.SnapshotHeader is not null)
-                .Select(snapshot =>
-                {
-                    string? solutionStableKey = snapshot.Solutions.FirstOrDefault()?.StableKey.Value;
-                    return new SnapshotLifecycleItemResponse(
-                        snapshot.SnapshotHeader!.StableKey.Value,
-                        snapshot.SnapshotHeader.RepositoryStableKey.Value,
-                        solutionStableKey,
-                        snapshot.SnapshotHeader.Status,
-                        snapshot.SnapshotHeader.BranchName,
-                        snapshot.SnapshotHeader.CommitSha,
-                        snapshot.SnapshotHeader.StartedUtc,
-                        snapshot.SnapshotHeader.CompletedUtc,
-                        snapshot.SnapshotHeader.Warnings.Count,
-                        snapshot.SnapshotHeader.Errors.Count);
-                })
-                .ToArray();
-        }
-
-        /// <summary>
-        /// Gets a sanitized readiness status for the snapshot lifecycle dependency.
-        /// </summary>
-        /// <returns>The sanitized dependency status.</returns>
-        private string GetSnapshotDependencyStatus()
-        {
-            // The default service can read lifecycle data only from the in-memory writer; other adapters should override this service.
-            return _snapshotWriter is InMemoryArchitectureSnapshotWriter ? "Ready" : "Degraded";
+            // The API response shape remains stable while lifecycle storage can move from in-memory fallback to durable graph reads.
+            return new SnapshotLifecycleItemResponse(
+                row.SnapshotStableKey,
+                row.RepositoryStableKey,
+                row.SolutionStableKey,
+                row.Status,
+                row.BranchName,
+                row.CommitSha,
+                row.StartedUtc,
+                row.CompletedUtc,
+                row.WarningCount,
+                row.ErrorCount);
         }
 
         /// <summary>
@@ -660,6 +732,25 @@ namespace Archon.Application.Management
         }
 
         /// <summary>
+        /// Adds validation errors for caller-supplied fields that would imply unsupported dry-run or scoped delete-all behavior.
+        /// </summary>
+        /// <param name="unsupportedFields">The extra JSON fields captured from the delete-all request body.</param>
+        /// <param name="errors">The validation error collection to append to.</param>
+        private static void AddUnsupportedDeleteAllFields<TValue>(IReadOnlyDictionary<string, TValue>? unsupportedFields, List<ManagementValidationError> errors)
+        {
+            // Delete-all intentionally supports no dry-run, repository, solution, date, status, commit, or arbitrary mutation filters.
+            if (unsupportedFields is null || unsupportedFields.Count == 0)
+            {
+                return;
+            }
+
+            foreach (string field in unsupportedFields.Keys.Order(StringComparer.Ordinal))
+            {
+                errors.Add(new ManagementValidationError("DeleteAllSnapshotsUnsupportedField", $"Delete-all snapshot cleanup does not support field '{field}'."));
+            }
+        }
+
+        /// <summary>
         /// Normalizes and validates the metadata target kind.
         /// </summary>
         /// <param name="targetKind">The submitted target kind.</param>
@@ -700,38 +791,6 @@ namespace Archon.Application.Management
             }
 
             return effectiveTake;
-        }
-
-        /// <summary>
-        /// Applies an optional ordinal text filter to a row sequence.
-        /// </summary>
-        /// <typeparam name="TRow">The row type being filtered.</typeparam>
-        /// <param name="rows">The source row sequence.</param>
-        /// <param name="filter">The optional filter value.</param>
-        /// <param name="selector">The row property selector.</param>
-        /// <returns>The filtered rows when a filter exists; otherwise the original rows.</returns>
-        private static IEnumerable<TRow> ApplyOptionalFilter<TRow>(IEnumerable<TRow> rows, string? filter, Func<TRow, string> selector)
-        {
-            // Optional filter helpers keep lifecycle query composition readable and deterministic.
-            return string.IsNullOrWhiteSpace(filter)
-                ? rows
-                : rows.Where(row => StringComparer.Ordinal.Equals(selector(row), filter.Trim()));
-        }
-
-        /// <summary>
-        /// Applies an optional ordinal text filter to nullable row values.
-        /// </summary>
-        /// <typeparam name="TRow">The row type being filtered.</typeparam>
-        /// <param name="rows">The source row sequence.</param>
-        /// <param name="filter">The optional filter value.</param>
-        /// <param name="selector">The nullable row property selector.</param>
-        /// <returns>The filtered rows when a filter exists; otherwise the original rows.</returns>
-        private static IEnumerable<TRow> ApplyOptionalNullableFilter<TRow>(IEnumerable<TRow> rows, string? filter, Func<TRow, string?> selector)
-        {
-            // Nullable filters match only present values so null metadata never masquerades as an empty string match.
-            return string.IsNullOrWhiteSpace(filter)
-                ? rows
-                : rows.Where(row => StringComparer.Ordinal.Equals(selector(row), filter.Trim()));
         }
 
         /// <summary>

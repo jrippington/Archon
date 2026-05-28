@@ -28,6 +28,8 @@ namespace Archon.Infrastructure.Neo4j.Tests.Schema
             Assert.Contains(Neo4jSchemaNames.Constraints.FindingSnapshotStableKeyUnique, names);
             Assert.Contains(Neo4jSchemaNames.Constraints.MetricSnapshotStableKeyUnique, names);
             Assert.Contains(Neo4jSchemaNames.Constraints.GeneratedSummarySnapshotStableKeyUnique, names);
+            Assert.Contains(Neo4jSchemaNames.Constraints.ExtractionRunRunIdUnique, names);
+            Assert.Contains(Neo4jSchemaNames.Constraints.ExtractionRunRequestRunIdUnique, names);
             Assert.All(statements.Where(statement => statement.Kind == "constraint"), statement => Assert.Contains("IF NOT EXISTS", statement.Cypher, StringComparison.Ordinal));
         }
 

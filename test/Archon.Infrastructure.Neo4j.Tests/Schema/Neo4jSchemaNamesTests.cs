@@ -20,6 +20,17 @@ namespace Archon.Infrastructure.Neo4j.Tests.Schema
         }
 
         /// <summary>
+        /// Confirms extraction run history labels are documented as first-class operational schema labels.
+        /// </summary>
+        [Fact]
+        public void ExtractionRunLabelsAreStable()
+        {
+            // WP019 persists operational run history beside snapshot data, so labels must remain stable for Cypher, tests, and documentation.
+            Assert.Equal("ArchonExtractionRun", Neo4jSchemaNames.Labels.ExtractionRun);
+            Assert.Equal("ArchonExtractionRunRequest", Neo4jSchemaNames.Labels.ExtractionRunRequest);
+        }
+
+        /// <summary>
         /// Confirms every schema object name follows the operational naming convention used by Archon.
         /// </summary>
         [Fact]
@@ -30,8 +41,10 @@ namespace Archon.Infrastructure.Neo4j.Tests.Schema
             {
                 Neo4jSchemaNames.Constraints.RepositoryStableKeyUnique,
                 Neo4jSchemaNames.Constraints.RelationshipSnapshotStableKeyUnique,
+                Neo4jSchemaNames.Constraints.ExtractionRunRunIdUnique,
                 Neo4jSchemaNames.Indexes.NodeKind,
                 Neo4jSchemaNames.Indexes.RelationshipEdgeKind,
+                Neo4jSchemaNames.Indexes.ExtractionRunStartedUtc,
                 Neo4jSchemaNames.Indexes.GeneratedSummaryFingerprint
             };
 

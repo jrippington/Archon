@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -135,6 +136,24 @@ namespace Archon.Api.Extraction.Tests
                     Assert.IsType<SnapshotMetricExtractionStage>(stage);
                     Assert.Equal("WP013.SnapshotMetrics", stage.StageId);
                 });
+        }
+
+        /// <summary>
+        /// Verifies extraction API composition preserves a host-provided persistent run-history implementation instead of forcing the in-memory fallback.
+        /// </summary>
+        [Fact]
+        public void AddArchonExtractionApi_WhenRunHistoryIsAlreadyRegistered_ShouldKeepExistingRegistration()
+        {
+            // WP019 requires production hosts to compose persistent run history before the API module without being overwritten by test fallback storage.
+            ServiceCollection services = new();
+            StubExtractionRunHistory persistentRunHistory = new();
+            services.AddSingleton<IExtractionRunHistory>(persistentRunHistory);
+
+            services.AddArchonExtractionApi();
+            using ServiceProvider serviceProvider = services.BuildServiceProvider();
+
+            IExtractionRunHistory resolvedRunHistory = serviceProvider.GetRequiredService<IExtractionRunHistory>();
+            Assert.Same(persistentRunHistory, resolvedRunHistory);
         }
 
         /// <summary>
@@ -731,6 +750,47 @@ namespace Archon.Api.Extraction.Tests
         }
 
         /// <summary>
+        /// Verifies GET /extractions/{runId} preserves terminal status response compatibility for completed runs that produced a snapshot.
+        /// </summary>
+        /// <returns>A task that completes after the terminal response shape has been validated.</returns>
+        [Fact]
+        public async Task GetExtractionStatus_WhenRunCompletesWithSnapshotIdentity_ShouldReturnCompatibleTerminalStatusShape()
+        {
+            // Work Item 2 keeps produced snapshot linkage inside persistence, so the public status response must continue to expose the
+            // stable snapshot identity and diagnostic summaries without adding graph-specific relationship details to the API contract.
+            string repositoryRoot = CreateRepositoryRoot();
+            CreateSolutionFile(repositoryRoot, "CustomerSuite.sln");
+            ExtractionRunPersistenceDiagnostics diagnostics = CreatePersistenceDiagnostics(completed: true);
+            RecordingSnapshotWriter writer = new("snapshot://wp019-terminal-status", diagnostics);
+            await using WebApplication app = await CreateApplicationAsync(services => services.AddSingleton<IArchitectureSnapshotWriter>(writer));
+            using HttpClient client = app.GetTestClient();
+            HttpResponseMessage startResponse = await client.PostAsJsonAsync(
+                "/extractions",
+                new StartExtractionApiRequest(repositoryRoot, ["CustomerSuite.sln"], null, null, null, null));
+            using JsonDocument startBody = await JsonDocument.ParseAsync(await startResponse.Content.ReadAsStreamAsync());
+            string runId = startBody.RootElement.GetProperty("runId").GetString()!;
+
+            JsonDocument statusBody = await PollForTerminalStatusAsync(client, runId);
+
+            using (statusBody)
+            {
+                Assert.Equal(runId, statusBody.RootElement.GetProperty("runId").GetString());
+                Assert.Equal("Completed", statusBody.RootElement.GetProperty("status").GetString());
+                Assert.Equal("snapshot://wp019-terminal-status", statusBody.RootElement.GetProperty("snapshotIdentity").GetString());
+                Assert.True(statusBody.RootElement.GetProperty("warningCount").GetInt32() >= 0);
+                Assert.Equal(0, statusBody.RootElement.GetProperty("errorCount").GetInt32());
+                Assert.True(statusBody.RootElement.TryGetProperty("completedUtc", out JsonElement completedUtc));
+                Assert.NotEqual(JsonValueKind.Null, completedUtc.ValueKind);
+                Assert.True(statusBody.RootElement.TryGetProperty("timings", out JsonElement timings));
+                Assert.NotEmpty(timings.EnumerateArray());
+                Assert.Equal(JsonValueKind.Object, statusBody.RootElement.GetProperty("persistenceDiagnostics").ValueKind);
+                Assert.False(statusBody.RootElement.TryGetProperty("producedSnapshotRelationship", out _));
+                Assert.False(statusBody.RootElement.TryGetProperty("warnings", out _));
+                Assert.False(statusBody.RootElement.TryGetProperty("errors", out _));
+            }
+        }
+
+        /// <summary>
         /// Verifies GET /extractions/{runId} returns partial persistence diagnostics when the persistence writer fails after collecting measurements.
         /// </summary>
         /// <returns>A task that completes after the failed diagnostics JSON response has been validated.</returns>
@@ -916,8 +976,11 @@ namespace Archon.Api.Extraction.Tests
             // The module-level host keeps endpoint tests focused on extraction routes rather than unrelated host composition.
             WebApplicationBuilder builder = WebApplication.CreateBuilder();
             builder.WebHost.UseTestServer();
-            builder.Services.AddArchonExtractionApi();
+
+            // Test-specific persistence fakes are registered before the module so TryAdd fallback registrations do not add unused
+            // process-local stores beside the explicit fake under test.
             configureServices?.Invoke(builder.Services);
+            builder.Services.AddArchonExtractionApi();
 
             WebApplication app = builder.Build();
             app.MapArchonExtractionApi();
@@ -1447,6 +1510,77 @@ namespace Archon.Api.Extraction.Tests
                         "System.InvalidOperationException: Snapshot persistence failed at Neo4j.Driver with Password=" + _sensitiveValue + " at Infrastructure.Adapter"),
                     diagnostics: _diagnostics);
                 return Task.FromResult(result);
+            }
+        }
+
+        /// <summary>
+        /// Provides a host-owned run-history registration used to prove extraction API composition does not overwrite persistent storage.
+        /// </summary>
+        private sealed class StubExtractionRunHistory : IExtractionRunHistory
+        {
+            /// <summary>
+            /// Creates a run for interface completeness when a test unexpectedly exercises behavior rather than composition.
+            /// </summary>
+            /// <param name="resolvedInput">The normalized request input supplied by application code.</param>
+            /// <param name="startedUtc">The timestamp assigned by application code.</param>
+            /// <param name="cancellationToken">The cancellation token for the simulated create operation.</param>
+            /// <returns>A queued extraction run created from the supplied values.</returns>
+            public Task<ExtractionRun> CreateAsync(Archon.Application.Extraction.Resolution.ResolvedExtractionInput resolvedInput, DateTimeOffset startedUtc, CancellationToken cancellationToken)
+            {
+                // The composition test should not call this method, but a valid implementation keeps the test double honest.
+                cancellationToken.ThrowIfCancellationRequested();
+                ExtractionRun run = new(
+                    ExtractionRunId.New(),
+                    ExtractionRunStatus.Queued,
+                    new ExtractionRunRequestSummary(resolvedInput.RepositoryRootDirectory, resolvedInput.SolutionPaths, resolvedInput.BranchName, resolvedInput.CommitSha, resolvedInput.RequestedBy, resolvedInput.Metadata.Keys.ToArray()),
+                    startedUtc,
+                    completedUtc: null,
+                    new ExtractionRunProgress("Queued", "Stub run history accepted the request.", 0, startedUtc),
+                    warnings: null,
+                    errors: null,
+                    timings: null,
+                    snapshotIdentity: null);
+                return Task.FromResult(run);
+            }
+
+            /// <summary>
+            /// Accepts a replacement run state for interface completeness.
+            /// </summary>
+            /// <param name="run">The run supplied by application code.</param>
+            /// <param name="cancellationToken">The cancellation token for the simulated update operation.</param>
+            /// <returns>A completed task after cancellation has been observed.</returns>
+            public Task UpdateAsync(ExtractionRun run, CancellationToken cancellationToken)
+            {
+                // No state is needed because the test only verifies dependency-injection registration precedence.
+                ArgumentNullException.ThrowIfNull(run);
+                cancellationToken.ThrowIfCancellationRequested();
+                return Task.CompletedTask;
+            }
+
+            /// <summary>
+            /// Retrieves no run state because composition tests do not exercise status behavior.
+            /// </summary>
+            /// <param name="runId">The run identifier supplied by application code.</param>
+            /// <param name="cancellationToken">The cancellation token for the simulated read operation.</param>
+            /// <returns>A null run result.</returns>
+            public Task<ExtractionRun?> GetAsync(ExtractionRunId runId, CancellationToken cancellationToken)
+            {
+                // Returning null is sufficient for a pure composition test and keeps behavior deterministic if invoked accidentally.
+                cancellationToken.ThrowIfCancellationRequested();
+                return Task.FromResult<ExtractionRun?>(null);
+            }
+
+            /// <summary>
+            /// Retrieves no history because composition tests do not exercise history behavior.
+            /// </summary>
+            /// <param name="limit">The maximum number of runs requested by application code.</param>
+            /// <param name="cancellationToken">The cancellation token for the simulated history read.</param>
+            /// <returns>An empty run-history list.</returns>
+            public Task<IReadOnlyList<ExtractionRun>> GetRecentAsync(int limit, CancellationToken cancellationToken)
+            {
+                // Empty history avoids unrelated behavior in the registration-precedence assertion.
+                cancellationToken.ThrowIfCancellationRequested();
+                return Task.FromResult<IReadOnlyList<ExtractionRun>>(Array.Empty<ExtractionRun>());
             }
         }
     }

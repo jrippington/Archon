@@ -23,7 +23,10 @@ namespace Archon.Api.Management
             // Default registrations provide a runnable local API while allowing host composition to replace stores with infrastructure adapters.
             ArgumentNullException.ThrowIfNull(services);
             services.AddLogging();
-            services.TryAddSingleton<IArchitectureSnapshotWriter, InMemoryArchitectureSnapshotWriter>();
+            services.TryAddSingleton<InMemoryArchitectureSnapshotWriter>();
+            services.TryAddSingleton<IArchitectureSnapshotWriter>(static serviceProvider => serviceProvider.GetRequiredService<InMemoryArchitectureSnapshotWriter>());
+            services.TryAddSingleton<ISnapshotLifecycleQuery, InMemorySnapshotLifecycleQuery>();
+            services.TryAddSingleton<ISnapshotDeletionStore, InMemorySnapshotDeletionStore>();
             services.TryAddSingleton<IExtractionRunHistory, InMemoryExtractionRunHistory>();
             services.TryAddSingleton<IRuleCatalogStore, InMemoryRuleCatalogStore>();
             services.TryAddSingleton<StartExtractionRequestValidator>();

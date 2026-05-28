@@ -1,4 +1,5 @@
 using Archon.Application.Graph.Persistence;
+using Archon.Application.Extraction.Runs;
 using Archon.Infrastructure.Neo4j.Configuration;
 using Archon.Infrastructure.Neo4j.DependencyInjection;
 using Archon.Infrastructure.Neo4j.Driver;
@@ -40,6 +41,9 @@ namespace Archon.Infrastructure.Neo4j.Tests.DependencyInjection
             Assert.IsType<Neo4jGraphInitializer>(serviceProvider.GetRequiredService<IArchitectureGraphInitializer>());
             Assert.IsType<Neo4jGraphRecreator>(serviceProvider.GetRequiredService<IArchitectureGraphRecreator>());
             Assert.IsType<Neo4jArchitectureSnapshotWriter>(serviceProvider.GetRequiredService<IArchitectureSnapshotWriter>());
+            Assert.IsType<Neo4jSnapshotLifecycleQuery>(serviceProvider.GetRequiredService<ISnapshotLifecycleQuery>());
+            Assert.IsType<Neo4jSnapshotDeletionStore>(serviceProvider.GetRequiredService<ISnapshotDeletionStore>());
+            Assert.IsType<Neo4jExtractionRunHistory>(serviceProvider.GetRequiredService<IExtractionRunHistory>());
             Assert.IsType<Neo4jHealthCheck>(serviceProvider.GetRequiredService<Neo4jHealthCheck>());
             Assert.IsType<Neo4jSessionProvider>(serviceProvider.GetRequiredService<INeo4jSessionProvider>());
             Assert.NotNull(serviceProvider.GetRequiredService<Neo4jSchemaStatementCatalog>());

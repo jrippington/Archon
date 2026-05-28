@@ -56,6 +56,22 @@ namespace Archon.Api.Management
                 .ProducesValidationProblem(StatusCodes.Status400BadRequest)
                 .Produces(StatusCodes.Status500InternalServerError);
 
+            group.MapDelete("/snapshots/{snapshotStableKey}", DeleteSnapshotAsync)
+                .WithName("DeleteSnapshot")
+                .WithSummary("Delete one persisted snapshot")
+                .WithDescription("Deletes one snapshot and its snapshot-scoped graph records by public stable key while preserving shared repository, solution, rule, and extraction run records.")
+                .Produces<DeleteSnapshotResponse>(StatusCodes.Status200OK, "application/json")
+                .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+                .Produces(StatusCodes.Status500InternalServerError);
+
+            group.MapPost("/snapshots/delete-all", DeleteAllSnapshotsAsync)
+                .WithName("DeleteAllSnapshots")
+                .WithSummary("Delete all persisted snapshots")
+                .WithDescription("Deletes every persisted snapshot and every snapshot-scoped graph record only when the request body confirms 'delete-all-snapshots'; no dry-run or scoped filters are supported.")
+                .Produces<DeleteAllSnapshotsResponse>(StatusCodes.Status200OK, "application/json")
+                .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+                .Produces(StatusCodes.Status500InternalServerError);
+
             group.MapPost("/retention", ApplyRetentionAsync)
                 .WithName("ApplySnapshotRetention")
                 .WithSummary("Validate or apply snapshot retention")
@@ -168,6 +184,36 @@ namespace Archon.Api.Management
             // Query-string binding is transformed into an application query object before validation.
             SnapshotLifecycleQuery query = new(repositoryStableKey, solutionStableKey, status, fromUtc, toUtc, commitSha, take);
             return await ExecuteAsync(() => service.ListSnapshotsAsync(query, cancellationToken), logger).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Handles delete-one snapshot requests and maps validation failures to safe problem details.
+        /// </summary>
+        /// <param name="snapshotStableKey">The route-bound public snapshot stable key to delete.</param>
+        /// <param name="requestedBy">The optional query-string actor identity recorded in audit metadata.</param>
+        /// <param name="service">The management application service.</param>
+        /// <param name="logger">The route logger used for safe endpoint diagnostics.</param>
+        /// <param name="cancellationToken">The cancellation token for the HTTP request.</param>
+        /// <returns>The deletion response or validation problem.</returns>
+        private static async Task<IResult> DeleteSnapshotAsync(string snapshotStableKey, string? requestedBy, IManagementOperationsService service, ILogger<ArchonApiManagementProjectMarker> logger, CancellationToken cancellationToken)
+        {
+            // The route accepts only one stable-key path value and optional audit actor; destructive behavior remains in the application service.
+            DeleteSnapshotRequest request = new(Uri.UnescapeDataString(snapshotStableKey), requestedBy);
+            return await ExecuteAsync(() => service.DeleteSnapshotAsync(request, cancellationToken), logger).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Handles delete-all snapshot requests and maps validation failures to safe problem details.
+        /// </summary>
+        /// <param name="request">The delete-all request body containing the explicit confirmation phrase and optional audit actor.</param>
+        /// <param name="service">The management application service.</param>
+        /// <param name="logger">The route logger used for safe endpoint diagnostics.</param>
+        /// <param name="cancellationToken">The cancellation token for the HTTP request.</param>
+        /// <returns>The aggregate deletion response or validation problem.</returns>
+        private static async Task<IResult> DeleteAllSnapshotsAsync(DeleteAllSnapshotsRequest request, IManagementOperationsService service, ILogger<ArchonApiManagementProjectMarker> logger, CancellationToken cancellationToken)
+        {
+            // The handler accepts only the typed confirmation contract; dry-run and scoped deletion filters are not part of the route surface.
+            return await ExecuteAsync(() => service.DeleteAllSnapshotsAsync(request, cancellationToken), logger).ConfigureAwait(false);
         }
 
         /// <summary>
