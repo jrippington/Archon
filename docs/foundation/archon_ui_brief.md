@@ -4,6 +4,12 @@
 **Document purpose:**  
 This brief describes the intended user interface for **Archon**, the Roslyn-powered, Neo4j-backed architecture intelligence platform. It extends the earlier architectural health visualisation notes into a product-facing UI brief.
 
+**Binding UI product mandate:**  
+The human-facing UI application is **ArchonExplorer**. It is a React and TypeScript workbench application built with **shadcn/ui** primitives and hosted by the Archon Aspire composition. Use of **shadcn/ui is mandatory** for the application component system; alternative component libraries should not be introduced for ordinary workbench UI. ArchonExplorer consumes Archon API endpoints; it is not a static documentation site, not a thin administrative page, and not a generic graph browser.
+
+**Workbench requirement:**  
+ArchonExplorer must behave like a desktop-style investigation workbench in the browser. Users should be able to keep multiple investigations open, pivot between artefacts, monitor extraction work, administer snapshots, inspect evidence, and preserve context while moving through architectural questions.
+
 **Primary UI goal:**  
 Archon should let users find any architectural artefact, ask useful architectural questions about it, inspect a scoped slice of the architecture graph, and follow every claim back to evidence.
 
@@ -152,7 +158,7 @@ Methods
   CustomerService.GetCustomerAsync(int)
 
 Endpoints
-  GET /api/customers/{id}
+  GET /customers/{id}
 
 Database tables
   dbo.Customer
@@ -224,8 +230,10 @@ ApplicationType
 The API should expose search as a first-class query endpoint:
 
 ```http
-GET /api/search?q=customer&snapshotId=current
+GET /search?q=customer&snapshotId=current
 ```
+
+Archon API routes should follow the repository convention and should not use a common `/api` prefix. In route examples, `snapshotId=current` means the latest completed snapshot.
 
 The response should include enough information for the UI to show badges and available lenses:
 
@@ -529,7 +537,7 @@ Example:
 ```text
 CustomerSearchPage
   → CustomerApiClient.SearchAsync
-  → GET /api/customers/search
+  → GET /customers/search
   → CustomerController.Search
   → CustomerService.SearchAsync
   → CustomerDataContext.Customers
@@ -858,6 +866,57 @@ Unable to determine endpoint base URL because it is environment-supplied.
 Reflection call detected; target method could not be resolved statically.
 ```
 
+## 6.5 Workbench desktop shell
+
+ArchonExplorer should use a desktop-style workbench shell rather than a simple page-per-feature website. The browser is the delivery mechanism, but the interaction model should feel like an investigation desktop.
+
+The workbench shell should include:
+
+```text
+Top-level app frame
+Activity bar for major workbench areas
+Primary sidebar for explorers and contextual navigation
+Tabbed investigation/document area
+Dockable or resizable inspector panels
+Bottom panel for extraction runs, diagnostics, and query/job output
+Status bar for active snapshot, API connectivity, background work, and selection context
+Global command palette
+Notification and toast center
+```
+
+Important behaviours:
+
+```text
+Open search results in the current tab or a new investigation tab.
+Keep multiple investigations open at the same time.
+Allow split views for comparing lenses or snapshots.
+Preserve selected artefact, selected lens, filters, graph layout preferences, and panel sizes per tab.
+Expose contextual actions through command palette, toolbar buttons, context menus, and inspector actions.
+Surface background extraction runs without forcing users away from their current investigation.
+```
+
+ArchonExplorer should avoid a traditional admin-console feel. Administrative views such as snapshot management and extraction history should still live inside the same workbench frame and reuse the same command, status, notification, and evidence patterns.
+
+## 6.6 Snapshot context model
+
+Every architecture query in ArchonExplorer runs in a snapshot context. The special snapshot identifier `current` means the **latest completed snapshot** available to the API for the relevant repository or solution scope.
+
+The UI should make snapshot context visible and controllable:
+
+```text
+Show the active snapshot in the status bar.
+Provide a snapshot selector in the workbench shell.
+Default new investigations to current unless the user selected or pinned another snapshot.
+Bind each investigation tab to the snapshot that was active when it opened.
+Allow users to pin a tab to an explicit snapshot stable key.
+Warn when a tab is showing a non-current snapshot.
+Warn when current changes because a newer completed snapshot appears.
+Show a deleted or unavailable state if a tab references a snapshot that no longer exists.
+Support side-by-side comparison tabs for snapshot diff workflows.
+```
+
+When a completed extraction produces a snapshot, ArchonExplorer should offer to open that snapshot directly. If the snapshot becomes the latest completed snapshot, views using `current` should be able to refresh to it deliberately rather than changing silently in the middle of an investigation.
+
 ---
 
 # 7. Main UI Areas
@@ -1008,6 +1067,120 @@ Changed centrality
 Changed data access
 Changed legacy footprint
 Changed layer compliance
+```
+
+## 7.8 Extraction Center
+
+The Extraction Center is the workbench area that drives architecture extraction through the Archon API. It should make extraction an understandable operational workflow rather than a hidden backend task.
+
+Primary jobs:
+
+```text
+Start a new extraction run.
+Validate repository and solution inputs before submission where possible.
+Monitor queued, running, completed, failed, and cancelled runs.
+Inspect progress, timings, warnings, errors, and persistence diagnostics.
+Open the snapshot produced by a completed run.
+Review recent extraction history.
+Duplicate a previous extraction request as a starting point for a new run.
+```
+
+New extraction form fields:
+
+```text
+Repository root directory
+One or more explicit solution paths
+Optional branch name
+Optional commit SHA
+Optional requested-by value
+Optional metadata keys
+```
+
+The form must reflect the API contract: solution paths are explicit and are not inferred by recursively scanning the repository. Relative solution paths should be shown as resolving against the submitted repository root. Validation errors should be user-actionable and should not expose raw exceptions or infrastructure details.
+
+Run monitor details:
+
+```text
+Run identifier
+Status
+Accepted timestamp
+Completed timestamp
+Current progress stage
+Progress message
+Progress percentage, when available
+Warning count and warning details
+Error count and safe error details
+Timing summary
+Produced snapshot identity, when available
+Persistence diagnostics, when available
+```
+
+Extraction Center should use the implemented API surface:
+
+```http
+POST /extractions
+GET  /extractions/{runId}
+GET  /extractions
+```
+
+The workbench should keep extraction monitoring available in a bottom panel or background jobs surface. Users should not have to abandon an investigation tab to see whether a long-running extraction completed.
+
+## 7.9 Snapshot Admin
+
+Snapshot Admin is the operational area for snapshot lifecycle management. It is different from Snapshot Diff Explorer: Snapshot Diff explains architectural change, while Snapshot Admin manages stored snapshot records and destructive cleanup actions.
+
+Primary jobs:
+
+```text
+List snapshots.
+Filter snapshots by repository stable key, solution stable key, status, started timestamp range, and commit SHA.
+Open a snapshot in Dashboard, Search, or a new investigation tab.
+View lifecycle metadata and diagnostic counts.
+Follow the extraction run that produced a snapshot, when available.
+Compare two snapshots.
+Delete one snapshot.
+Delete all snapshots from the configured store after strong confirmation.
+Understand when extraction run history remains after snapshot graph data is deleted.
+```
+
+Snapshot list columns:
+
+```text
+Snapshot stable key
+Repository stable key
+Solution stable key
+Status
+Branch
+Commit SHA
+Started timestamp
+Completed timestamp
+Warning count
+Error count
+Node count
+Relationship count
+Evidence count
+Finding count
+Produced-by run identifier
+```
+
+Snapshot Admin should use the implemented management API surface:
+
+```http
+GET    /management/snapshots
+DELETE /management/snapshots/{snapshotStableKey}
+POST   /management/snapshots/delete-all
+```
+
+Destructive operations must use strong confirmation flows. Deleting one snapshot should show the snapshot stable key and explain that snapshot-scoped graph data will be removed while shared repository, solution, rule, and extraction run records are preserved. Deleting all snapshots should require the exact confirmation phrase required by the API and should make clear that there is no dry-run mode.
+
+Snapshot Admin should surface unavailable states clearly:
+
+```text
+No snapshots exist.
+The selected snapshot was deleted.
+The latest completed snapshot changed while this tab was open.
+An extraction run completed but its produced snapshot is no longer available.
+Snapshot deletion failed with a safe validation or storage message.
 ```
 
 ---
@@ -1213,8 +1386,8 @@ NVL should not be expected to solve every visualisation problem. Treemaps, matri
 | Treemap/matrix/Sankey/timeline | D3 or focused chart libraries |
 | Server state | TanStack Query |
 | UI state | Zustand or Jotai |
-| Component library | shadcn/ui or equivalent |
-| Command/search palette | cmdk or equivalent |
+| Component library | shadcn/ui |
+| Command/search palette | shadcn/ui `Command` / cmdk |
 | Resizable panels | react-resizable-panels |
 
 ---
@@ -1297,17 +1470,17 @@ Export generation
 Example endpoints:
 
 ```http
-GET  /api/search?q={query}&snapshotId={snapshotId}
-GET  /api/nodes/{stableKey}?snapshotId={snapshotId}
-GET  /api/nodes/{stableKey}/lenses?snapshotId={snapshotId}
-POST /api/graph-slices
-POST /api/paths
-POST /api/impact
-GET  /api/evidence/{evidenceId}
-POST /api/exports/impact-report
+GET  /search?q={query}&snapshotId={snapshotId}
+GET  /nodes/{stableKey}?snapshotId={snapshotId}
+GET  /nodes/{stableKey}/lenses?snapshotId={snapshotId}
+POST /graph-slices
+POST /paths
+POST /impact
+GET  /evidence/{evidenceId}
+POST /exports/impact-report
 ```
 
-The UI should not accept arbitrary Cypher from the user. Lens queries should be predefined, parameterised, testable, and safe.
+These examples are product route shapes for work-package planning and must keep the repository convention of no common `/api` prefix. The UI should not accept arbitrary Cypher from the user. Lens queries should be predefined, parameterised, testable, and safe.
 
 ---
 
@@ -1316,8 +1489,12 @@ The UI should not accept arbitrary Cypher from the user. Lens queries should be 
 The first useful Archon UI should include:
 
 ```text
+ArchonExplorer Aspire-hosted React application shell
+Workbench desktop frame
 Dashboard
 Global search
+Extraction Center
+Snapshot Admin
 Project explorer
 Project detail / overview lens
 Dependency lens
@@ -1356,6 +1533,122 @@ Search for project
   → Open Impact Lens
   → Inspect evidence
 ```
+
+## 14.1 Suggested shadcn/ui workbench primitives
+
+ArchonExplorer must standardise on shadcn/ui and related React primitives for consistency across work packages. Use of shadcn/ui is mandatory for normal application components; work packages should not substitute another component library for shell, form, table, dialog, command, tab, menu, badge, tooltip, popover, or notification patterns.
+
+Suggested mapping:
+
+| Workbench need | Suggested primitive |
+|---|---|
+| Command palette and global search | `Command` / cmdk |
+| Investigation tabs | `Tabs` plus local tab/document state |
+| Destructive snapshot operations | `AlertDialog` |
+| Forms such as extraction start | `Form`, `Input`, `Textarea`, `Select`, validation messaging |
+| Dashboard widgets | `Card` |
+| Snapshot, findings, and project explorers | `Table` |
+| Contextual actions | `DropdownMenu` and `ContextMenu` |
+| Inspectors and secondary detail | `Sheet` or docked resizable panel |
+| Tooltips and compact explanation | `Tooltip` and `Popover` |
+| Status and categorisation | `Badge` |
+| Notifications | toast pattern |
+| Desktop-style panes | resizable panel primitives |
+
+## 14.2 UI state architecture
+
+State should be deliberately split so future work packages do not create incompatible patterns.
+
+Recommended ownership:
+
+```text
+TanStack Query: server state, API caching, run polling, snapshot lists, search results, lens results.
+Local workbench store: active snapshot, open tabs, active tab, panel layout, command palette state, recent artefacts.
+Per-tab state: selected artefact, selected lens, filters, graph settings, selected node/edge, inspector state.
+Persisted preferences: theme, panel sizes, recent snapshots, recent repositories, saved searches, saved investigations.
+Notification state: background run updates, API availability changes, destructive action results.
+```
+
+Server state should remain source-of-truth for extraction runs, snapshot lifecycle, graph slices, evidence, and findings. Local UI state may cache user preferences and open-workbench structure, but it must not invent architecture facts.
+
+## 14.3 Safety, empty, loading, and error states
+
+Every work package should implement explicit states for common operational conditions:
+
+```text
+Archon API unavailable.
+Neo4j or persistence backend unavailable.
+No snapshots exist.
+No latest completed snapshot exists for current.
+Extraction request validation failed.
+Extraction run failed.
+Extraction completed but the produced snapshot was deleted.
+Snapshot deletion failed.
+Search has no results.
+Lens is unavailable for the selected node kind.
+Graph slice is too large to render interactively.
+Evidence is partial or low confidence.
+User attempts a destructive operation.
+```
+
+Diagnostics shown to users must be safe. ArchonExplorer should not display raw stack traces, connection strings, environment variables, raw Cypher, Neo4j internal identifiers, or driver-specific errors.
+
+## 14.4 Security and operational boundaries
+
+ArchonExplorer should follow these boundaries:
+
+```text
+Do not provide a Cypher console.
+Do not expose arbitrary filesystem browsing beyond the API extraction contract.
+Treat repository paths and solution paths as operationally sensitive.
+Require strong confirmation for snapshot deletion.
+Clearly distinguish development-time features from production-safe operations.
+Use Scalar/OpenAPI as a developer API reference, not as the end-user ArchonExplorer experience.
+Prepare for future authorization, even if the initial local workbench has no role model.
+```
+
+## 14.5 Testing and validation expectations
+
+UI work packages should include focused validation rather than relying only on manual inspection.
+
+Expected validation:
+
+```text
+Aspire-hosted smoke test for ArchonExplorer.
+Playwright journey for opening the workbench shell.
+Playwright journey for starting an extraction run with valid input.
+Playwright journey for viewing extraction history and opening a produced snapshot.
+Playwright journey for listing snapshots.
+Playwright journey for one-snapshot delete confirmation.
+Playwright journey for global search and opening an investigation tab.
+Playwright journey for evidence inspector visibility.
+Keyboard navigation checks for command palette and workbench tabs.
+Accessibility checks for destructive dialogs, tables, and forms.
+```
+
+Component-level tests may be useful for pure formatting or state reducers, but core confidence should come from user-journey tests against the workbench behaviours.
+
+## 14.6 Implementation work package roadmap
+
+The brief should generate work packages in thin vertical slices. A suggested sequence is:
+
+1. **ArchonExplorer foundation** - create the React/TypeScript shadcn/ui application, host it through Aspire, connect it to Archon API configuration, and render an empty workbench shell.
+2. **API client foundation** - add typed API client modules, TanStack Query setup, error shaping, polling helpers, and route constants using the no-common-`/api` route convention.
+3. **Workbench desktop shell** - implement activity bar, sidebar, tabbed document area, inspector area, bottom panel, status bar, command palette, layout persistence, and theme support.
+4. **Extraction Center** - implement extraction submission, run polling, history, progress details, warnings/errors, diagnostics, and open-produced-snapshot actions.
+5. **Snapshot Admin** - implement snapshot listing, filtering, lifecycle detail, compare/open actions, one-snapshot deletion, delete-all confirmation, and unavailable snapshot states.
+6. **Snapshot-aware dashboard** - implement latest/current snapshot dashboard cards and clickable navigation into workbench investigations.
+7. **Global search** - implement deterministic grouped search, recent selections, badges, available lens actions, and open-in-tab behaviour.
+8. **Node overview and evidence inspector** - implement overview lens, evidence lookup, confidence/unknown rendering, related artefacts, and follow-up actions.
+9. **Graph projection renderer abstraction** - introduce visual model mapping and first scoped graph renderer without locking product logic to one renderer.
+10. **Dependency lens** - implement inbound/outbound project and type dependency slices with filters and evidence inspection.
+11. **Data access lens** - implement project/table read-write views, matrix/table projections, unknown SQL indicators, and evidence pivots.
+12. **Findings and rule violation workbench** - implement hotlist, rule violation lens, severity filtering, trend hooks, and impact pivots.
+13. **Snapshot diff workbench** - implement compare workflow, changed dependencies/findings/metrics, and before/after views.
+14. **Export and hand-off workflows** - implement impact report export, evidence bundles, and Copilot-ready context generation.
+15. **Polish and hardening** - improve accessibility, empty states, large-slice handling, keyboard shortcuts, telemetry hooks, and resilience.
+
+Each work package should include deliverables, non-goals, API assumptions, acceptance criteria, and focused validation commands or Playwright journeys.
 
 ---
 

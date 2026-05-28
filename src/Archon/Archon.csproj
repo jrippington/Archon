@@ -5,6 +5,10 @@
     <ProjectReference Include="..\ArchonMcp\ArchonMcp.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.JavaScript" Version="13.3.3" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <OutputType>Exe</OutputType>

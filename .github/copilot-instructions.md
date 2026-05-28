@@ -25,7 +25,11 @@ This section is an unalterable execution requirement, not a guideline, preferenc
 - Avoid clutter in the repository root by placing per-project config files alongside the relevant test or project directories when practical.
 - Do not run Stryker again in this workspace, and remove all Stryker-related configuration/setup files when asked.
 - Ask open clarification questions one at a time rather than batching multiple questions together.
-- Never write log files or other temporary files to the repo root; always use suitable temporary storage instead.
+- Never write log files or other temporary files to the repo root; always use suitable temporary storage.
+- Do not run the Aspire AppHost for smoke testing; ask the user to perform the Aspire smoke test after completing the work item.
+- For UI styling in this repository, prefer plain desktop-IDE-style layouts over web-page-style visual treatment; avoid cards and avoid custom font-size tweaks unless explicitly requested.
+- Do not introduce custom theme colors unless the user explicitly asks for them; prefer standard theme tokens when styling UI.
+- ArchonExplorer UI work packages must not deviate from standard UI toolkit coloring, text sizing, or control styling unless the user explicitly asks for that deviation.
 
 ## Project Structure
 - In this repository, production projects should be placed under `./src`, test projects under `./test`, and every production project should have a corresponding test project.

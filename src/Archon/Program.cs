@@ -27,7 +27,7 @@
         /// Builds the Archon distributed application model without starting it.
         /// </summary>
         /// <param name="args">Command-line arguments used by Aspire configuration and resource orchestration.</param>
-        /// <returns>The configured distributed application containing Neo4j, the API host, and the MCP host.</returns>
+        /// <returns>The configured distributed application containing Neo4j, the API host, the MCP host, and the ArchonExplorer Vite resource.</returns>
         public static DistributedApplication BuildApplication(string[] args)
         {
             // This method is the single composition root for WP001: it declares resources and dependencies only.
@@ -66,7 +66,13 @@
                 .WaitFor(api)
                 .WithHttpHealthCheck("/health");
 
-            // No Discovery UI resource is intentionally declared in WP001; UI delivery is assigned to later work packages.
+            // ArchonExplorer is hosted as a Vite resource so local Aspire startup can serve the browser shell while keeping UI logic inside the frontend project.
+            // The AppHost only supplies safe development-time configuration and dependency ordering; it does not implement API clients, workbench state, or UI behavior.
+            builder.AddViteApp("ArchonExplorer", "../ArchonExplorer")
+                .WithEnvironment("VITE_ARCHON_API_BASE_URL", api.GetEndpoint("http"))
+                .WaitFor(api);
+
+            // No Discovery UI resource is intentionally declared in WP001; ArchonExplorer is the current browser shell resource.
             return builder.Build();
         }
     }

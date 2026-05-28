@@ -192,13 +192,16 @@ This non-HTTP consumer guidance belongs on the runtime foundation page because s
 
 The **AppHost** is the Aspire project in `src/Archon`. Aspire uses an AppHost to describe a local distributed application: which services, containers, and dependencies should run together for a developer. Archon's AppHost is also the **composition root**, which means it wires resources together but does not implement business behavior.
 
-The current AppHost composes three resources:
+The current AppHost composes four resources:
 
 - `neo4j`, a Neo4j container resource.
 - `ArchonApi`, the API host project resource.
 - `ArchonMcp`, the MCP host project resource.
+- `ArchonExplorer`, the Vite-hosted React workbench shell resource.
 
 The AppHost establishes the local runtime seam. It must remain composition-only. It may configure resource relationships and health checks, but it must not contain extraction rules, API endpoint handlers, graph persistence code, domain logic, or MCP tool behavior.
+
+ArchonExplorer is declared through Aspire's JavaScript hosting support as a **Vite resource**, which means the AppHost starts the frontend development server from `src/ArchonExplorer` instead of embedding browser assets into an ASP.NET Core host. The AppHost supplies the safe `VITE_ARCHON_API_BASE_URL` development environment value from the `ArchonApi` HTTP endpoint and waits for the API resource so the dashboard presents the shell alongside the API, MCP host, and Neo4j container. This is a composition relationship only. React components, frontend routes, API client behavior, server-state queries, and workbench state remain outside the AppHost and belong in the frontend or later application layers.
 
 ## Local Neo4j runtime seam
 
@@ -220,4 +223,4 @@ Before running the AppHost, ensure Docker Desktop or another OCI-compatible cont
 dotnet run --project .\src\Archon\Archon.csproj
 ```
 
-When the Aspire dashboard opens, confirm that `neo4j`, `ArchonApi`, and `ArchonMcp` appear as resources. No `ArchonUi` or Discovery UI resource should appear. The API and MCP resources should expose `/health` checks after they are ready. Stop the AppHost manually after verification, usually with `Ctrl+C` in the terminal or by stopping the debug session in Visual Studio.
+When the Aspire dashboard opens, confirm that `neo4j`, `ArchonApi`, `ArchonMcp`, and `ArchonExplorer` appear as resources. No `ArchonUi` or Discovery UI resource should appear. The API and MCP resources should expose `/health` checks after they are ready. Open the `ArchonExplorer` resource URL from the dashboard and confirm that the browser renders the foundation workbench shell with safe placeholder states and an API configuration indicator. Stop the AppHost manually after verification, usually with `Ctrl+C` in the terminal or by stopping the debug session in Visual Studio.

@@ -13,7 +13,7 @@ namespace Archon.Tests
     public sealed class AppHostCompositionMetadataTests
     {
         /// <summary>
-        /// Confirms the AppHost project keeps the required Aspire SDK and references the API and MCP host projects.
+        /// Confirms the AppHost project keeps the required Aspire SDK, references the API and MCP host projects, and keeps JavaScript hosting in a package-only group.
         /// </summary>
         [Fact]
         public void AppHostProjectReferencesRequiredHostProjects()
@@ -27,14 +27,26 @@ namespace Archon.Tests
             string[] references = project.Descendants("ProjectReference")
                 .Select(reference => reference.Attribute("Include")?.Value ?? string.Empty)
                 .ToArray();
+            string[] packages = project.Descendants("PackageReference")
+                .Select(reference => $"{reference.Attribute("Include")?.Value}:{reference.Attribute("Version")?.Value}")
+                .ToArray();
+            IEnumerable<XElement> itemGroups = project.Root?.Elements("ItemGroup") ?? [];
 
             Assert.Equal("Aspire.AppHost.Sdk/13.3.3", sdk);
             Assert.Contains("..\\ArchonApi\\ArchonApi.csproj", references);
             Assert.Contains("..\\ArchonMcp\\ArchonMcp.csproj", references);
+            Assert.Contains("Aspire.Hosting.JavaScript:13.3.3", packages);
+            Assert.All(itemGroups, itemGroup =>
+            {
+                bool hasProjectReferences = itemGroup.Elements("ProjectReference").Any();
+                bool hasPackageReferences = itemGroup.Elements("PackageReference").Any();
+
+                Assert.False(hasProjectReferences && hasPackageReferences);
+            });
         }
 
         /// <summary>
-        /// Confirms the AppHost source composes Neo4j, the API host, and the MCP host without composing Discovery UI.
+        /// Confirms the AppHost source composes Neo4j, the API host, the MCP host, and ArchonExplorer without composing Discovery UI.
         /// </summary>
         [Fact]
         public void AppHostSourceDeclaresExpectedResourcesOnly()
@@ -61,6 +73,9 @@ namespace Archon.Tests
             Assert.DoesNotContain("WithEnvironment(\"NEO4J_AUTH\", \"none\")", source, StringComparison.Ordinal);
             Assert.Contains("AddProject<Projects.ArchonApi>(\"ArchonApi\")", source);
             Assert.Contains("AddProject<Projects.ArchonMcp>(\"ArchonMcp\")", source);
+            Assert.Contains("AddViteApp(\"ArchonExplorer\", \"../ArchonExplorer\")", source);
+            Assert.Contains("WithEnvironment(\"VITE_ARCHON_API_BASE_URL\", api.GetEndpoint(\"http\"))", source);
+            Assert.Contains("WaitFor(api)", source);
             Assert.Contains("WithHttpHealthCheck(\"/health\")", source);
             Assert.DoesNotContain("ArchonUi", source, StringComparison.Ordinal);
             Assert.DoesNotContain("AddProject<Projects.ArchonUi>", source, StringComparison.Ordinal);

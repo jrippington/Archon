@@ -10,6 +10,50 @@ An accumulator is a stateful application-layer builder that accepts graph fact c
 
 An AppHost is an Aspire project that describes which services, containers, and dependencies run together for local development. Archon's AppHost is `src/Archon`.
 
+## ArchonExplorer
+
+ArchonExplorer is Archon's browser-facing user interface application. In the current foundation it is a standalone Vite, React, and TypeScript application under `src/ArchonExplorer` with a visible workbench shell, shadcn-compatible component foundation, safe API configuration indicator, placeholder-only workbench regions, and Aspire AppHost composition as a local Vite resource; later work items add functional API-backed behavior.
+
+## Vite resource
+
+A Vite resource is an Aspire-managed JavaScript application that starts a Vite development server as part of the local distributed application model. Archon uses this resource type to host ArchonExplorer from `src/ArchonExplorer` while keeping browser UI logic out of the AppHost.
+
+## Workbench shell
+
+A workbench shell is the persistent desktop-style frame around ArchonExplorer's future feature areas. The current shell includes the top app frame, activity rail, command/search affordance, main workspace start state, status bar, theme affordance, and safe setup indicators without implementing extraction, snapshot, search, graph, evidence, findings, or notification behavior.
+
+## Activity rail
+
+An activity rail is the left-side navigation region that identifies major workbench areas. ArchonExplorer currently uses it as a placeholder for Dashboard, Extraction Center, Snapshots, Search, Projects, Findings, Diagnostics, and Settings while keeping unavailable areas disabled.
+
+## Command/search affordance
+
+A command/search affordance is a visible control region that reserves space for future architecture search and command-palette workflows. In the current ArchonExplorer shell it is intentionally disabled and explanatory, so it does not imply that real search or command execution exists.
+
+## Status bar
+
+A status bar is the bottom shell region that carries cross-cutting context. ArchonExplorer currently reserves status slots for active snapshot `current`, API configuration, background work, and selection context while showing safe placeholder text.
+
+## Shell placeholder
+
+A shell placeholder is visible UI that reserves a future feature location while clearly stating that the feature is not available yet. Shell placeholders must not expose stack traces, secrets, raw environment values, raw Cypher, Neo4j internal identifiers, or driver-specific diagnostic details.
+
+## shadcn/ui
+
+shadcn/ui is a copy-and-own React component convention used by ArchonExplorer for local UI primitives, token names, aliases, and component metadata. The current foundation provides minimal local Button, Badge, and Card primitives rather than adopting a separate ordinary component library.
+
+## Frontend foundation
+
+A frontend foundation is the minimal runnable browser application structure that establishes package management, bootstrap, provider setup, component-system seams, configuration seams, validation commands, and shell boundaries before feature-specific UI behavior is added.
+
+## Vite
+
+Vite is the frontend build and development server used by ArchonExplorer. It serves the React application during local development and produces browser assets during `npm run build` without making the application an ASP.NET Core-hosted SPA.
+
+## TanStack Query
+
+TanStack Query is the server-state provider configured in ArchonExplorer's React provider tree. The current skeleton creates the shared query client but does not execute functional API calls.
+
 ## ADO.NET
 
 ADO.NET is the .NET data-access API family built around connections, commands, readers, adapters, and in-memory data containers. Archon extracts supported ADO.NET evidence statically from source code, including command text, execution methods, stored procedure command types, provider hints, and conservative table read/write hints. It does not open connections or execute command text.
