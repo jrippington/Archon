@@ -1,8 +1,10 @@
 using Archon.Application.Extraction.Contracts;
 using Archon.Application.Graph.Persistence;
 using Archon.Domain.Graph.Model;
+using Archon.Infrastructure.Neo4j.Configuration;
 using Archon.Infrastructure.Neo4j.Driver;
 using Archon.Infrastructure.Neo4j.Schema;
+using Microsoft.Extensions.Options;
 using Neo4j.Driver;
 
 namespace Archon.Infrastructure.Neo4j.Persistence
@@ -11,9 +13,10 @@ namespace Archon.Infrastructure.Neo4j.Persistence
     /// Persists the Work Item 4 minimal architecture snapshot shape into Neo4j.
     /// </summary>
     /// <remarks>
-    /// The writer persists repositories, solutions, one snapshot header, architecture nodes, canonical evidence nodes, snapshot-to-solution
-    /// relationships, and node-to-evidence relationships. Later work items extend this workflow for architecture relationships, rules,
-    /// findings, metrics, and generated summaries.
+        /// The writer persists repositories, solutions, one snapshot header, architecture nodes, canonical evidence nodes, metrics,
+        /// snapshot-to-solution relationships, node-to-evidence relationships, metric-to-evidence relationships, and metric-to-node
+        /// relationships. High-volume list-parameter batching is introduced incrementally while this adapter preserves one transaction and
+        /// stable-key merge semantics.
     /// </remarks>
     public sealed class Neo4jArchitectureSnapshotWriter : IArchitectureSnapshotWriter
     {
@@ -21,6 +24,7 @@ namespace Archon.Infrastructure.Neo4j.Persistence
         private readonly IArchitectureGraphInitializer _graphInitializer;
         private readonly Neo4jSnapshotPersistenceMapper _mapper;
         private readonly Neo4jPersistenceStageLogger _stageLogger;
+        private readonly int _persistenceBatchSize;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Neo4jArchitectureSnapshotWriter"/> class.
@@ -29,17 +33,22 @@ namespace Archon.Infrastructure.Neo4j.Persistence
         /// <param name="graphInitializer">The graph initializer used to ensure schema exists before writing data.</param>
         /// <param name="mapper">The mapper that converts domain facts into Neo4j parameter dictionaries.</param>
         /// <param name="stageLogger">The credential-safe logger for persistence stages.</param>
+        /// <param name="options">The validated Neo4j options that provide persistence batch-size tuning.</param>
         public Neo4jArchitectureSnapshotWriter(
             INeo4jSessionProvider sessionProvider,
             IArchitectureGraphInitializer graphInitializer,
             Neo4jSnapshotPersistenceMapper mapper,
-            Neo4jPersistenceStageLogger stageLogger)
+            Neo4jPersistenceStageLogger stageLogger,
+            IOptions<Neo4jOptions> options)
         {
-            // Dependencies are stored only; no graph work happens until WriteSnapshotAsync is called by an explicit caller.
+            // Dependencies are stored only; no graph work happens until WriteSnapshotAsync is called by an explicit caller. The batch size
+            // is copied from validated options once because the writer is a singleton and uses a consistent value for each write attempt.
+            ArgumentNullException.ThrowIfNull(options);
             _sessionProvider = sessionProvider;
             _graphInitializer = graphInitializer;
             _mapper = mapper;
             _stageLogger = stageLogger;
+            _persistenceBatchSize = options.Value.PersistenceBatchSize;
         }
 
         /// <summary>
@@ -151,6 +160,12 @@ namespace Archon.Infrastructure.Neo4j.Persistence
                 return SnapshotValidationResult.Failure("MissingMetricEvidenceReference", "Metrics must not reference missing primary evidence records.");
             }
 
+            HashSet<string> nodeStableKeys = snapshot.Nodes.Select(node => node.StableKey.Value).ToHashSet(StringComparer.Ordinal);
+            if (snapshot.Metrics.Any(metric => metric.NodeStableKey is not null && !nodeStableKeys.Contains(metric.NodeStableKey.Value.Value)))
+            {
+                return SnapshotValidationResult.Failure("MissingMetricNodeReference", "Metrics must not reference missing architecture node targets.");
+            }
+
             return SnapshotValidationResult.Success();
         }
 
@@ -202,20 +217,22 @@ namespace Archon.Infrastructure.Neo4j.Persistence
                 {
                     await diagnostics.MeasureAsync("Persistence.WriteRepositories", async () =>
                     {
-                        foreach (RepositoryModel repository in snapshot.Repositories)
-                        {
-                            await RunAsync(transaction, RepositoryMergeCypher, _mapper.MapRepository(repository)).ConfigureAwait(false);
-                            operationCount++;
-                        }
+                        operationCount += await RunBatchesAsync(
+                            transaction,
+                            RepositoryMergeBatchCypher,
+                            "repositories",
+                            snapshot.Repositories,
+                            static (mapper, repository) => mapper.MapRepository(repository)).ConfigureAwait(false);
                     }).ConfigureAwait(false);
 
                     await diagnostics.MeasureAsync("Persistence.WriteSolutions", async () =>
                     {
-                        foreach (SolutionModel solution in snapshot.Solutions)
-                        {
-                            await RunAsync(transaction, SolutionMergeCypher, _mapper.MapSolution(solution)).ConfigureAwait(false);
-                            operationCount++;
-                        }
+                        operationCount += await RunBatchesAsync(
+                            transaction,
+                            SolutionMergeBatchCypher,
+                            "solutions",
+                            snapshot.Solutions,
+                            static (mapper, solution) => mapper.MapSolution(solution)).ConfigureAwait(false);
                     }).ConfigureAwait(false);
 
                     await diagnostics.MeasureAsync("Persistence.WriteSnapshotHeader", async () =>
@@ -226,85 +243,63 @@ namespace Archon.Infrastructure.Neo4j.Persistence
 
                     await diagnostics.MeasureAsync("Persistence.WriteNodes", async () =>
                     {
-                        foreach (ArchitectureNode node in snapshot.Nodes)
-                        {
-                            await RunAsync(transaction, NodeMergeCypher, _mapper.MapNode(node)).ConfigureAwait(false);
-                            operationCount++;
-                        }
+                        // Architecture nodes now use the same bounded list-parameter batching as other high-volume snapshot sections. The
+                        // operation count therefore records executed Cypher batches rather than individual node rows, which is the diagnostic
+                        // meaning required for post-batching persistence overhead analysis.
+                        operationCount += await RunBatchesAsync(
+                            transaction,
+                            NodeMergeBatchCypher,
+                            "nodes",
+                            snapshot.Nodes,
+                            static (mapper, node) => mapper.MapNode(node)).ConfigureAwait(false);
                     }).ConfigureAwait(false);
 
                     await diagnostics.MeasureAsync("Persistence.WriteMetrics", async () =>
                     {
-                        foreach (MetricRecord metric in snapshot.Metrics)
-                        {
-                            await RunAsync(transaction, MetricMergeCypher, _mapper.MapMetric(metric)).ConfigureAwait(false);
-                            operationCount++;
-                        }
+                        // Metric rows are a high-volume persistence hotspot, so one bounded UNWIND batch now writes many metric nodes
+                        // while operation count still records the number of Cypher executions instead of the number of metric rows.
+                        operationCount += await RunBatchesAsync(
+                            transaction,
+                            MetricMergeBatchCypher,
+                            "metrics",
+                            snapshot.Metrics,
+                            static (mapper, metric) => mapper.MapMetric(metric)).ConfigureAwait(false);
                     }).ConfigureAwait(false);
 
                     await diagnostics.MeasureAsync("Persistence.WriteEvidence", async () =>
                     {
-                        foreach (EvidenceRecord evidence in canonicalEvidence.Records)
-                        {
-                            await RunAsync(transaction, EvidenceMergeCypher, _mapper.MapEvidence(evidence)).ConfigureAwait(false);
-                            operationCount++;
-                        }
+                        // Evidence is canonicalized before this stage, so the batch contains only the deduplicated records that should become
+                        // ArchonEvidence nodes. Relationship stages continue to use the canonical stable-key map for duplicate input records.
+                        operationCount += await RunBatchesAsync(
+                            transaction,
+                            EvidenceMergeBatchCypher,
+                            "evidenceRecords",
+                            canonicalEvidence.Records,
+                            static (mapper, evidence) => mapper.MapEvidence(evidence)).ConfigureAwait(false);
                     }).ConfigureAwait(false);
 
                     RelationshipWriteCounts relationshipWriteCounts = await diagnostics.MeasureAsync("Persistence.WriteRelationships", async () =>
                     {
-                        foreach (SolutionModel solution in snapshot.Solutions)
-                        {
-                            await RunAsync(transaction, SnapshotSolutionRelationshipCypher, new Dictionary<string, object?>(StringComparer.Ordinal)
-                            {
-                                ["snapshotStableKey"] = snapshot.SnapshotHeader!.StableKey.Value,
-                                ["solutionStableKey"] = solution.StableKey.Value
-                            }).ConfigureAwait(false);
-                            operationCount++;
-                        }
+                        string snapshotStableKey = snapshot.SnapshotHeader!.StableKey.Value;
+                        IReadOnlyList<IReadOnlyDictionary<string, object?>> snapshotSolutionRelationships = MapSnapshotSolutionRelationships(snapshotStableKey, snapshot.Solutions);
+                        IReadOnlyList<IReadOnlyDictionary<string, object?>> nodeEvidenceRelationships = MapNodeEvidenceRelationships(snapshotStableKey, snapshot.Nodes, canonicalEvidence);
+                        IReadOnlyList<IReadOnlyDictionary<string, object?>> metricEvidenceRelationships = MapMetricEvidenceRelationships(snapshotStableKey, snapshot.Metrics, canonicalEvidence);
+                        IReadOnlyList<IReadOnlyDictionary<string, object?>> metricTargetRelationships = MapMetricTargetRelationships(snapshotStableKey, snapshot.Metrics);
 
-                        int nodeEvidenceRelationships = 0;
-                        foreach (ArchitectureNode node in snapshot.Nodes.Where(node => node.PrimaryEvidenceStableKey is not null))
-                        {
-                            string canonicalEvidenceStableKey = canonicalEvidence.CanonicalStableKeyByInputStableKey[node.PrimaryEvidenceStableKey!.Value.Value];
-                            await RunAsync(transaction, NodeEvidenceRelationshipCypher, new Dictionary<string, object?>(StringComparer.Ordinal)
-                            {
-                                ["snapshotStableKey"] = snapshot.SnapshotHeader!.StableKey.Value,
-                                ["nodeStableKey"] = node.StableKey.Value,
-                                ["evidenceStableKey"] = canonicalEvidenceStableKey
-                            }).ConfigureAwait(false);
-                            operationCount++;
-                            nodeEvidenceRelationships++;
-                        }
+                        operationCount += await diagnostics.MeasureAsync(
+                            "Persistence.WriteSnapshotSolutionRelationships",
+                            () => RunValidatedRelationshipBatchesAsync(transaction, SnapshotSolutionRelationshipBatchCypher, "relationships", snapshotSolutionRelationships, "snapshot-to-solution")).ConfigureAwait(false);
+                        operationCount += await diagnostics.MeasureAsync(
+                            "Persistence.WriteNodeEvidenceRelationships",
+                            () => RunValidatedRelationshipBatchesAsync(transaction, NodeEvidenceRelationshipBatchCypher, "relationships", nodeEvidenceRelationships, "node-to-evidence")).ConfigureAwait(false);
+                        operationCount += await diagnostics.MeasureAsync(
+                            "Persistence.WriteMetricEvidenceRelationships",
+                            () => RunValidatedRelationshipBatchesAsync(transaction, MetricEvidenceRelationshipBatchCypher, "relationships", metricEvidenceRelationships, "metric-to-evidence")).ConfigureAwait(false);
+                        operationCount += await diagnostics.MeasureAsync(
+                            "Persistence.WriteMetricTargetRelationships",
+                            () => RunValidatedRelationshipBatchesAsync(transaction, MetricNodeTargetRelationshipBatchCypher, "relationships", metricTargetRelationships, "metric-to-node")).ConfigureAwait(false);
 
-                        int metricEvidenceRelationships = 0;
-                        foreach (MetricRecord metric in snapshot.Metrics.Where(metric => metric.PrimaryEvidenceStableKey is not null))
-                        {
-                            string canonicalEvidenceStableKey = canonicalEvidence.CanonicalStableKeyByInputStableKey[metric.PrimaryEvidenceStableKey!.Value.Value];
-                            await RunAsync(transaction, MetricEvidenceRelationshipCypher, new Dictionary<string, object?>(StringComparer.Ordinal)
-                            {
-                                ["snapshotStableKey"] = snapshot.SnapshotHeader!.StableKey.Value,
-                                ["metricStableKey"] = metric.StableKey.Value,
-                                ["evidenceStableKey"] = canonicalEvidenceStableKey
-                            }).ConfigureAwait(false);
-                            operationCount++;
-                            metricEvidenceRelationships++;
-                        }
-
-                        int metricTargetRelationships = 0;
-                        foreach (MetricRecord metric in snapshot.Metrics.Where(metric => metric.NodeStableKey is not null))
-                        {
-                            await RunAsync(transaction, MetricNodeTargetRelationshipCypher, new Dictionary<string, object?>(StringComparer.Ordinal)
-                            {
-                                ["snapshotStableKey"] = snapshot.SnapshotHeader!.StableKey.Value,
-                                ["metricStableKey"] = metric.StableKey.Value,
-                                ["nodeStableKey"] = metric.NodeStableKey!.Value.Value
-                            }).ConfigureAwait(false);
-                            operationCount++;
-                            metricTargetRelationships++;
-                        }
-
-                        return new RelationshipWriteCounts(nodeEvidenceRelationships, metricEvidenceRelationships, metricTargetRelationships);
+                        return new RelationshipWriteCounts(snapshotSolutionRelationships.Count, nodeEvidenceRelationships.Count, metricEvidenceRelationships.Count, metricTargetRelationships.Count);
                     }).ConfigureAwait(false);
 
                     return new SnapshotPersistenceCounts(
@@ -314,7 +309,7 @@ namespace Archon.Infrastructure.Neo4j.Persistence
                         snapshot.Nodes.Count,
                         canonicalEvidence.Records.Count,
                         architectureRelationships: 0,
-                        snapshotSolutionRelationships: snapshot.Solutions.Count,
+                        snapshotSolutionRelationships: relationshipWriteCounts.SnapshotSolutionRelationships,
                         nodeEvidenceRelationships: relationshipWriteCounts.NodeEvidenceRelationships,
                         relationshipEndpointRelationships: 0,
                         relationshipEvidenceRelationships: 0,
@@ -340,21 +335,209 @@ namespace Archon.Infrastructure.Neo4j.Persistence
             await cursor.ConsumeAsync().ConfigureAwait(false);
         }
 
-        private const string RepositoryMergeCypher = @"
-MERGE (repository:ArchonRepository { stableKey: $stableKey })
-SET repository.name = $name,
-    repository.rootPath = $rootPath,
-    repository.remoteUrl = $remoteUrl,
-    repository.defaultBranch = $defaultBranch,
-    repository.metadataJson = $metadataJson";
+        /// <summary>
+        /// Maps homogeneous graph records and executes them through the bounded batch executor.
+        /// </summary>
+        /// <typeparam name="TRecord">The graph record type being mapped for one static persistence statement.</typeparam>
+        /// <param name="transaction">The active Neo4j transaction receiving each batch statement.</param>
+        /// <param name="cypher">The static parameterized Cypher statement to execute for every non-empty batch.</param>
+        /// <param name="parameterName">The Cypher parameter name that receives each mapped record batch.</param>
+        /// <param name="records">The graph records to map and partition into configured-size batches.</param>
+        /// <param name="mapRecord">The mapper function that converts one graph record to Neo4j parameters.</param>
+        /// <returns>The number of Cypher executions performed for the supplied records.</returns>
+        private async Task<int> RunBatchesAsync<TRecord>(
+            IAsyncQueryRunner transaction,
+            string cypher,
+            string parameterName,
+            IReadOnlyList<TRecord> records,
+            Func<Neo4jSnapshotPersistenceMapper, TRecord, IReadOnlyDictionary<string, object?>> mapRecord)
+        {
+            // Mapping is performed before execution so each Cypher batch receives only parameter values and the Cypher text remains static.
+            List<IReadOnlyDictionary<string, object?>> mappedRecords = new(capacity: records.Count);
+            foreach (TRecord record in records)
+            {
+                mappedRecords.Add(mapRecord(_mapper, record));
+            }
 
-        private const string SolutionMergeCypher = @"
-MERGE (solution:ArchonSolution { stableKey: $stableKey })
-SET solution.repositoryStableKey = $repositoryStableKey,
-    solution.name = $name,
-    solution.path = $path,
-    solution.metadataJson = $metadataJson";
+            return await Neo4jPersistenceBatchExecutor.ExecuteBatchesAsync(transaction, cypher, parameterName, mappedRecords, _persistenceBatchSize).ConfigureAwait(false);
+        }
 
+        /// <summary>
+        /// Executes relationship payloads through bounded list-parameter batches and verifies every requested endpoint pair matched graph records.
+        /// </summary>
+        /// <param name="transaction">The active Neo4j transaction receiving each relationship batch statement.</param>
+        /// <param name="cypher">The static relationship Cypher statement that returns a <c>matchedRows</c> count for each batch.</param>
+        /// <param name="parameterName">The Cypher list parameter name that receives the current relationship batch.</param>
+        /// <param name="relationships">The already materialized relationship endpoint payloads to write.</param>
+        /// <param name="relationshipFamily">The safe relationship-family name used in controlled validation failures.</param>
+        /// <returns>The number of Cypher executions performed for the supplied relationship payloads.</returns>
+        private async Task<int> RunValidatedRelationshipBatchesAsync(
+            IAsyncQueryRunner transaction,
+            string cypher,
+            string parameterName,
+            IReadOnlyList<IReadOnlyDictionary<string, object?>> relationships,
+            string relationshipFamily)
+        {
+            // Relationship batches need stronger validation than node upserts because a MATCH miss can otherwise turn into a silent no-op.
+            // Each statement returns how many input rows matched endpoints, and the writer fails the transaction if that count differs from
+            // the bounded batch size. The exception message uses only a safe family label and counts, never Cypher text or parameter values.
+            if (relationships.Count == 0)
+            {
+                return 0;
+            }
+
+            int operationCount = 0;
+            for (int offset = 0; offset < relationships.Count; offset += _persistenceBatchSize)
+            {
+                int currentBatchSize = Math.Min(_persistenceBatchSize, relationships.Count - offset);
+                List<IReadOnlyDictionary<string, object?>> batch = new(capacity: currentBatchSize);
+                for (int index = 0; index < currentBatchSize; index++)
+                {
+                    batch.Add(relationships[offset + index]);
+                }
+
+                Dictionary<string, object> parameters = new(StringComparer.Ordinal)
+                {
+                    [parameterName] = batch
+                };
+
+                IResultCursor cursor = await transaction.RunAsync(cypher, parameters).ConfigureAwait(false);
+                IRecord record = await cursor.SingleAsync().ConfigureAwait(false);
+                int matchedRows = Convert.ToInt32(record["matchedRows"], System.Globalization.CultureInfo.InvariantCulture);
+                await cursor.ConsumeAsync().ConfigureAwait(false);
+
+                if (matchedRows != currentBatchSize)
+                {
+                    throw new InvalidOperationException($"Neo4j relationship persistence matched {matchedRows} of {currentBatchSize} {relationshipFamily} relationship endpoints.");
+                }
+
+                operationCount++;
+            }
+
+            return operationCount;
+        }
+
+        /// <summary>
+        /// Materializes snapshot-to-solution relationship endpoint rows for batched Cypher execution.
+        /// </summary>
+        /// <param name="snapshotStableKey">The stable key of the snapshot that owns the relationship family.</param>
+        /// <param name="solutions">The solution records included by the snapshot.</param>
+        /// <returns>A list of stable-key endpoint payloads for snapshot-to-solution relationships.</returns>
+        private static IReadOnlyList<IReadOnlyDictionary<string, object?>> MapSnapshotSolutionRelationships(string snapshotStableKey, IReadOnlyList<SolutionModel> solutions)
+        {
+            // The snapshot endpoint is repeated per row so the Cypher statement can stay fully static and parameterized.
+            List<IReadOnlyDictionary<string, object?>> relationships = new(capacity: solutions.Count);
+            foreach (SolutionModel solution in solutions)
+            {
+                relationships.Add(new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["snapshotStableKey"] = snapshotStableKey,
+                    ["solutionStableKey"] = solution.StableKey.Value
+                });
+            }
+
+            return relationships;
+        }
+
+        /// <summary>
+        /// Materializes node-to-evidence support relationship endpoint rows with canonical evidence stable keys.
+        /// </summary>
+        /// <param name="snapshotStableKey">The stable key of the snapshot that scopes both node and evidence endpoints.</param>
+        /// <param name="nodes">The architecture nodes whose primary evidence links should be created.</param>
+        /// <param name="canonicalEvidence">The canonical evidence set used to remap duplicate evidence stable keys.</param>
+        /// <returns>A list of stable-key endpoint payloads for node evidence support relationships.</returns>
+        private static IReadOnlyList<IReadOnlyDictionary<string, object?>> MapNodeEvidenceRelationships(string snapshotStableKey, IReadOnlyList<ArchitectureNode> nodes, CanonicalEvidenceSet canonicalEvidence)
+        {
+            // Node support links must use canonical evidence stable keys because duplicate evidence rows are not persisted as separate nodes.
+            List<IReadOnlyDictionary<string, object?>> relationships = [];
+            foreach (ArchitectureNode node in nodes.Where(static node => node.PrimaryEvidenceStableKey is not null))
+            {
+                string canonicalEvidenceStableKey = canonicalEvidence.CanonicalStableKeyByInputStableKey[node.PrimaryEvidenceStableKey!.Value.Value];
+                relationships.Add(new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["snapshotStableKey"] = snapshotStableKey,
+                    ["nodeStableKey"] = node.StableKey.Value,
+                    ["evidenceStableKey"] = canonicalEvidenceStableKey
+                });
+            }
+
+            return relationships;
+        }
+
+        /// <summary>
+        /// Materializes metric-to-evidence support relationship endpoint rows with canonical evidence stable keys.
+        /// </summary>
+        /// <param name="snapshotStableKey">The stable key of the snapshot that scopes both metric and evidence endpoints.</param>
+        /// <param name="metrics">The metric records whose primary evidence links should be created.</param>
+        /// <param name="canonicalEvidence">The canonical evidence set used to remap duplicate evidence stable keys.</param>
+        /// <returns>A list of stable-key endpoint payloads for metric evidence support relationships.</returns>
+        private static IReadOnlyList<IReadOnlyDictionary<string, object?>> MapMetricEvidenceRelationships(string snapshotStableKey, IReadOnlyList<MetricRecord> metrics, CanonicalEvidenceSet canonicalEvidence)
+        {
+            // Metric evidence links follow the same canonicalization rule as nodes so relationship targets match the actually persisted evidence nodes.
+            List<IReadOnlyDictionary<string, object?>> relationships = [];
+            foreach (MetricRecord metric in metrics.Where(static metric => metric.PrimaryEvidenceStableKey is not null))
+            {
+                string canonicalEvidenceStableKey = canonicalEvidence.CanonicalStableKeyByInputStableKey[metric.PrimaryEvidenceStableKey!.Value.Value];
+                relationships.Add(new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["snapshotStableKey"] = snapshotStableKey,
+                    ["metricStableKey"] = metric.StableKey.Value,
+                    ["evidenceStableKey"] = canonicalEvidenceStableKey
+                });
+            }
+
+            return relationships;
+        }
+
+        /// <summary>
+        /// Materializes metric-to-node target relationship endpoint rows for metrics that measure architecture nodes.
+        /// </summary>
+        /// <param name="snapshotStableKey">The stable key of the snapshot that scopes both metric and node endpoints.</param>
+        /// <param name="metrics">The metric records whose node target links should be created.</param>
+        /// <returns>A list of stable-key endpoint payloads for metric target relationships.</returns>
+        private static IReadOnlyList<IReadOnlyDictionary<string, object?>> MapMetricTargetRelationships(string snapshotStableKey, IReadOnlyList<MetricRecord> metrics)
+        {
+            // Only metrics with node targets produce MEASURES_NODE relationships; edge-targeted metrics keep their edge stable key as a property for now.
+            List<IReadOnlyDictionary<string, object?>> relationships = [];
+            foreach (MetricRecord metric in metrics.Where(static metric => metric.NodeStableKey is not null))
+            {
+                relationships.Add(new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["snapshotStableKey"] = snapshotStableKey,
+                    ["metricStableKey"] = metric.StableKey.Value,
+                    ["nodeStableKey"] = metric.NodeStableKey!.Value.Value
+                });
+            }
+
+            return relationships;
+        }
+
+        /// <summary>
+        /// Upserts repository records from one bounded list-parameter batch using global stable-key identity.
+        /// </summary>
+        private const string RepositoryMergeBatchCypher = @"
+UNWIND $repositories AS repositoryRow
+MERGE (repository:ArchonRepository { stableKey: repositoryRow.stableKey })
+SET repository.name = repositoryRow.name,
+    repository.rootPath = repositoryRow.rootPath,
+    repository.remoteUrl = repositoryRow.remoteUrl,
+    repository.defaultBranch = repositoryRow.defaultBranch,
+    repository.metadataJson = repositoryRow.metadataJson";
+
+        /// <summary>
+        /// Upserts solution records from one bounded list-parameter batch using global solution stable-key identity.
+        /// </summary>
+        private const string SolutionMergeBatchCypher = @"
+UNWIND $solutions AS solutionRow
+MERGE (solution:ArchonSolution { stableKey: solutionRow.stableKey })
+SET solution.repositoryStableKey = solutionRow.repositoryStableKey,
+    solution.name = solutionRow.name,
+    solution.path = solutionRow.path,
+    solution.metadataJson = solutionRow.metadataJson";
+
+        /// <summary>
+        /// Upserts the single snapshot header record for one persistence attempt.
+        /// </summary>
         private const string SnapshotMergeCypher = @"
 MERGE (snapshot:ArchonSnapshot { stableKey: $stableKey })
 SET snapshot.repositoryStableKey = $repositoryStableKey,
@@ -368,78 +551,110 @@ SET snapshot.repositoryStableKey = $repositoryStableKey,
     snapshot.errorsJson = $errorsJson,
     snapshot.metadataJson = $metadataJson";
 
-        private const string NodeMergeCypher = @"
-MERGE (node:ArchonNode { snapshotStableKey: $snapshotStableKey, stableKey: $stableKey })
-SET node.nodeKind = $nodeKind,
-    node.displayName = $displayName,
-    node.qualifiedName = $qualifiedName,
-    node.searchName = $searchName,
-    node.language = $language,
-    node.projectStableKey = $projectStableKey,
-    node.parentNodeStableKey = $parentNodeStableKey,
-    node.knowledgeKind = $knowledgeKind,
-    node.ownership = $ownership,
-    node.externalCategory = $externalCategory,
-    node.confidence = $confidence,
-    node.hasUnknownData = $hasUnknownData,
-    node.unknownReason = $unknownReason,
-    node.primaryEvidenceStableKey = $primaryEvidenceStableKey,
-    node.metadataJson = $metadataJson,
-    node.fingerprint = $fingerprint";
+        /// <summary>
+        /// Upserts architecture node records from one bounded list-parameter batch using snapshot scope plus node stable key as the merge identity.
+        /// </summary>
+        private const string NodeMergeBatchCypher = @"
+UNWIND $nodes AS nodeRow
+MERGE (node:ArchonNode { snapshotStableKey: nodeRow.snapshotStableKey, stableKey: nodeRow.stableKey })
+SET node.nodeKind = nodeRow.nodeKind,
+    node.displayName = nodeRow.displayName,
+    node.qualifiedName = nodeRow.qualifiedName,
+    node.searchName = nodeRow.searchName,
+    node.language = nodeRow.language,
+    node.projectStableKey = nodeRow.projectStableKey,
+    node.parentNodeStableKey = nodeRow.parentNodeStableKey,
+    node.knowledgeKind = nodeRow.knowledgeKind,
+    node.ownership = nodeRow.ownership,
+    node.externalCategory = nodeRow.externalCategory,
+    node.confidence = nodeRow.confidence,
+    node.hasUnknownData = nodeRow.hasUnknownData,
+    node.unknownReason = nodeRow.unknownReason,
+    node.primaryEvidenceStableKey = nodeRow.primaryEvidenceStableKey,
+    node.metadataJson = nodeRow.metadataJson,
+    node.fingerprint = nodeRow.fingerprint";
 
-        private const string MetricMergeCypher = @"
-MERGE (metric:ArchonMetric { snapshotStableKey: $snapshotStableKey, stableKey: $stableKey })
-SET metric.metricKind = $metricKind,
-    metric.scopeKind = $scopeKind,
-    metric.nodeStableKey = $nodeStableKey,
-    metric.edgeStableKey = $edgeStableKey,
-    metric.primaryEvidenceStableKey = $primaryEvidenceStableKey,
-    metric.name = $name,
-    metric.numericValue = $numericValue,
-    metric.textValue = $textValue,
-    metric.unit = $unit,
-    metric.confidence = $confidence,
-    metric.hasUnknownData = $hasUnknownData,
-    metric.unknownReason = $unknownReason,
-    metric.metadataJson = $metadataJson,
-    metric.fingerprint = $fingerprint";
+        /// <summary>
+        /// Upserts metric records from one bounded list-parameter batch using snapshot scope plus metric stable key as the merge identity.
+        /// </summary>
+        private const string MetricMergeBatchCypher = @"
+UNWIND $metrics AS metricRow
+MERGE (metric:ArchonMetric { snapshotStableKey: metricRow.snapshotStableKey, stableKey: metricRow.stableKey })
+SET metric.metricKind = metricRow.metricKind,
+    metric.scopeKind = metricRow.scopeKind,
+    metric.nodeStableKey = metricRow.nodeStableKey,
+    metric.edgeStableKey = metricRow.edgeStableKey,
+    metric.primaryEvidenceStableKey = metricRow.primaryEvidenceStableKey,
+    metric.name = metricRow.name,
+    metric.numericValue = metricRow.numericValue,
+    metric.textValue = metricRow.textValue,
+    metric.unit = metricRow.unit,
+    metric.confidence = metricRow.confidence,
+    metric.hasUnknownData = metricRow.hasUnknownData,
+    metric.unknownReason = metricRow.unknownReason,
+    metric.metadataJson = metricRow.metadataJson,
+    metric.fingerprint = metricRow.fingerprint";
 
-        private const string EvidenceMergeCypher = @"
-MERGE (evidence:ArchonEvidence { snapshotStableKey: $snapshotStableKey, stableKey: $stableKey })
-SET evidence.evidenceKind = $evidenceKind,
-    evidence.filePath = $filePath,
-    evidence.startLine = $startLine,
-    evidence.endLine = $endLine,
-    evidence.symbolName = $symbolName,
-    evidence.containingSymbol = $containingSymbol,
-    evidence.snippetHash = $snippetHash,
-    evidence.snippetPreview = $snippetPreview,
-    evidence.knowledgeKind = $knowledgeKind,
-    evidence.confidence = $confidence,
-    evidence.hasUnknownData = $hasUnknownData,
-    evidence.unknownReason = $unknownReason,
-    evidence.metadataJson = $metadataJson,
-    evidence.fingerprint = $fingerprint";
+        /// <summary>
+        /// Upserts canonical evidence records from one bounded list-parameter batch using snapshot scope plus evidence stable key as the merge identity.
+        /// </summary>
+        private const string EvidenceMergeBatchCypher = @"
+UNWIND $evidenceRecords AS evidenceRow
+MERGE (evidence:ArchonEvidence { snapshotStableKey: evidenceRow.snapshotStableKey, stableKey: evidenceRow.stableKey })
+SET evidence.evidenceKind = evidenceRow.evidenceKind,
+    evidence.filePath = evidenceRow.filePath,
+    evidence.startLine = evidenceRow.startLine,
+    evidence.endLine = evidenceRow.endLine,
+    evidence.symbolName = evidenceRow.symbolName,
+    evidence.containingSymbol = evidenceRow.containingSymbol,
+    evidence.snippetHash = evidenceRow.snippetHash,
+    evidence.snippetPreview = evidenceRow.snippetPreview,
+    evidence.knowledgeKind = evidenceRow.knowledgeKind,
+    evidence.confidence = evidenceRow.confidence,
+    evidence.hasUnknownData = evidenceRow.hasUnknownData,
+    evidence.unknownReason = evidenceRow.unknownReason,
+    evidence.metadataJson = evidenceRow.metadataJson,
+    evidence.fingerprint = evidenceRow.fingerprint";
 
-        private const string SnapshotSolutionRelationshipCypher = @"
-MATCH (snapshot:ArchonSnapshot { stableKey: $snapshotStableKey })
-MATCH (solution:ArchonSolution { stableKey: $solutionStableKey })
-MERGE (snapshot)-[:INCLUDES_SOLUTION]->(solution)";
+        /// <summary>
+        /// Creates idempotent snapshot-to-solution relationships from one bounded endpoint batch and reports matched rows.
+        /// </summary>
+        private const string SnapshotSolutionRelationshipBatchCypher = @"
+UNWIND $relationships AS relationshipRow
+MATCH (snapshot:ArchonSnapshot { stableKey: relationshipRow.snapshotStableKey })
+MATCH (solution:ArchonSolution { stableKey: relationshipRow.solutionStableKey })
+MERGE (snapshot)-[:INCLUDES_SOLUTION]->(solution)
+RETURN count(relationshipRow) AS matchedRows";
 
-        private const string NodeEvidenceRelationshipCypher = @"
-MATCH (node:ArchonNode { snapshotStableKey: $snapshotStableKey, stableKey: $nodeStableKey })
-MATCH (evidence:ArchonEvidence { snapshotStableKey: $snapshotStableKey, stableKey: $evidenceStableKey })
-MERGE (node)-[:SUPPORTED_BY_EVIDENCE]->(evidence)";
+        /// <summary>
+        /// Creates idempotent node-to-evidence support relationships from one bounded endpoint batch and reports matched rows.
+        /// </summary>
+        private const string NodeEvidenceRelationshipBatchCypher = @"
+UNWIND $relationships AS relationshipRow
+MATCH (node:ArchonNode { snapshotStableKey: relationshipRow.snapshotStableKey, stableKey: relationshipRow.nodeStableKey })
+MATCH (evidence:ArchonEvidence { snapshotStableKey: relationshipRow.snapshotStableKey, stableKey: relationshipRow.evidenceStableKey })
+MERGE (node)-[:SUPPORTED_BY_EVIDENCE]->(evidence)
+RETURN count(relationshipRow) AS matchedRows";
 
-        private const string MetricEvidenceRelationshipCypher = @"
-MATCH (metric:ArchonMetric { snapshotStableKey: $snapshotStableKey, stableKey: $metricStableKey })
-MATCH (evidence:ArchonEvidence { snapshotStableKey: $snapshotStableKey, stableKey: $evidenceStableKey })
-MERGE (metric)-[:SUPPORTED_BY_EVIDENCE]->(evidence)";
+        /// <summary>
+        /// Creates idempotent metric-to-evidence support relationships from one bounded endpoint batch and reports matched rows.
+        /// </summary>
+        private const string MetricEvidenceRelationshipBatchCypher = @"
+UNWIND $relationships AS relationshipRow
+MATCH (metric:ArchonMetric { snapshotStableKey: relationshipRow.snapshotStableKey, stableKey: relationshipRow.metricStableKey })
+MATCH (evidence:ArchonEvidence { snapshotStableKey: relationshipRow.snapshotStableKey, stableKey: relationshipRow.evidenceStableKey })
+MERGE (metric)-[:SUPPORTED_BY_EVIDENCE]->(evidence)
+RETURN count(relationshipRow) AS matchedRows";
 
-        private const string MetricNodeTargetRelationshipCypher = @"
-MATCH (metric:ArchonMetric { snapshotStableKey: $snapshotStableKey, stableKey: $metricStableKey })
-MATCH (node:ArchonNode { snapshotStableKey: $snapshotStableKey, stableKey: $nodeStableKey })
-MERGE (metric)-[:MEASURES_NODE]->(node)";
+        /// <summary>
+        /// Creates idempotent metric-to-node target relationships from one bounded endpoint batch and reports matched rows.
+        /// </summary>
+        private const string MetricNodeTargetRelationshipBatchCypher = @"
+UNWIND $relationships AS relationshipRow
+MATCH (metric:ArchonMetric { snapshotStableKey: relationshipRow.snapshotStableKey, stableKey: relationshipRow.metricStableKey })
+MATCH (node:ArchonNode { snapshotStableKey: relationshipRow.snapshotStableKey, stableKey: relationshipRow.nodeStableKey })
+MERGE (metric)-[:MEASURES_NODE]->(node)
+RETURN count(relationshipRow) AS matchedRows";
 
         /// <summary>
         /// Captures validation success or a safe persistence error.
@@ -481,9 +696,10 @@ MERGE (metric)-[:MEASURES_NODE]->(node)";
         /// <summary>
         /// Holds relationship counters produced while relationship statements are executed.
         /// </summary>
+        /// <param name="SnapshotSolutionRelationships">The number of snapshot-to-solution relationships written.</param>
         /// <param name="NodeEvidenceRelationships">The number of node-to-evidence support relationships written.</param>
         /// <param name="MetricEvidenceRelationships">The number of metric-to-evidence support relationships written.</param>
         /// <param name="MetricTargetRelationships">The number of metric-to-node target relationships written.</param>
-        private sealed record RelationshipWriteCounts(int NodeEvidenceRelationships, int MetricEvidenceRelationships, int MetricTargetRelationships);
+        private sealed record RelationshipWriteCounts(int SnapshotSolutionRelationships, int NodeEvidenceRelationships, int MetricEvidenceRelationships, int MetricTargetRelationships);
     }
 }

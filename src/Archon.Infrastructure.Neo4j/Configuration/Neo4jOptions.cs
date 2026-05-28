@@ -16,6 +16,16 @@ namespace Archon.Infrastructure.Neo4j.Configuration
         public const string SectionName = "Neo4j";
 
         /// <summary>
+        /// Defines the default number of homogeneous persistence records sent in one high-volume Neo4j list-parameter batch.
+        /// </summary>
+        /// <remarks>
+        /// The value is deliberately conservative for local containers and development machines while still reducing per-record Cypher
+        /// execution overhead for large snapshots. Hosts can override <see cref="PersistenceBatchSize" /> when resource limits require
+        /// smaller or larger payloads.
+        /// </remarks>
+        public const int DefaultPersistenceBatchSize = 1_000;
+
+        /// <summary>
         /// Gets or sets the Bolt-compatible Neo4j connection URI, such as <c>bolt://localhost:7687</c>.
         /// </summary>
         public string? Uri { get; set; }
@@ -57,5 +67,15 @@ namespace Archon.Infrastructure.Neo4j.Configuration
         /// Gets or sets the optional transport encryption mode for the Neo4j driver.
         /// </summary>
         public Neo4jEncryptionMode EncryptionMode { get; set; } = Neo4jEncryptionMode.Default;
+
+        /// <summary>
+        /// Gets or sets the maximum number of records sent to one static high-volume persistence statement.
+        /// </summary>
+        /// <remarks>
+        /// Snapshot persistence uses this value to bound <c>UNWIND</c>-style list parameters so large node, metric, evidence, or
+        /// relationship sections can be written with fewer Cypher executions without building an unbounded parameter payload. The
+        /// default is <see cref="DefaultPersistenceBatchSize" /> rows when configuration omits the setting.
+        /// </remarks>
+        public int PersistenceBatchSize { get; set; } = DefaultPersistenceBatchSize;
     }
 }

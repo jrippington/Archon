@@ -29,7 +29,7 @@ namespace Archon.Infrastructure.Neo4j.Tests.Testcontainers
         /// Creates configuration values that point infrastructure registration at the running Neo4j container.
         /// </summary>
         /// <returns>An in-memory configuration root containing container connection settings.</returns>
-        protected IConfiguration CreateNeo4jConfiguration()
+        protected IConfiguration CreateNeo4jConfiguration(int? persistenceBatchSize = null)
         {
             // Testcontainers.Neo4j defaults to the standard Neo4j user and a known test password. The connection string supplies
             // the mapped host port, while the database name remains the standard local `neo4j` database.
@@ -43,6 +43,13 @@ namespace Archon.Infrastructure.Neo4j.Tests.Testcontainers
                 [$"{Neo4jOptions.SectionName}:MaxTransactionRetryTime"] = "00:00:30",
                 [$"{Neo4jOptions.SectionName}:EncryptionMode"] = nameof(Neo4jEncryptionMode.Unencrypted)
             };
+
+            if (persistenceBatchSize is not null)
+            {
+                // Individual persistence tests can lower the batch size to force multiple list-parameter statements without changing
+                // production defaults or requiring a large synthetic snapshot.
+                values[$"{Neo4jOptions.SectionName}:PersistenceBatchSize"] = persistenceBatchSize.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
 
             return new ConfigurationBuilder()
                 .AddInMemoryCollection(values)

@@ -26,6 +26,58 @@ namespace Archon.Infrastructure.Neo4j.Tests.Configuration
         }
 
         /// <summary>
+        /// Confirms the default persistence batch size is accepted when configuration omits an explicit tuning value.
+        /// </summary>
+        [Fact]
+        public void ValidateAcceptsDefaultPersistenceBatchSize()
+        {
+            // The unset-or-default path is the common host configuration path, so validation must not require operators to tune the value.
+            Neo4jOptions options = CreateValidOptions();
+            Neo4jOptionsValidator validator = new();
+
+            ValidateOptionsResult result = validator.Validate(Options.DefaultName, options);
+
+            Assert.True(result.Succeeded);
+            Assert.Equal(Neo4jOptions.DefaultPersistenceBatchSize, options.PersistenceBatchSize);
+        }
+
+        /// <summary>
+        /// Confirms an explicitly configured positive persistence batch size is accepted for constrained Neo4j environments.
+        /// </summary>
+        [Fact]
+        public void ValidateAcceptsExplicitPersistenceBatchSize()
+        {
+            // A small positive value is valid because tests and low-resource containers may intentionally force more batches.
+            Neo4jOptions options = CreateValidOptions();
+            options.PersistenceBatchSize = 25;
+            Neo4jOptionsValidator validator = new();
+
+            ValidateOptionsResult result = validator.Validate(Options.DefaultName, options);
+
+            Assert.True(result.Succeeded);
+        }
+
+        /// <summary>
+        /// Confirms zero or negative persistence batch sizes are rejected before a writer can build invalid batch ranges.
+        /// </summary>
+        /// <param name="batchSize">The invalid configured batch size to validate.</param>
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-1)]
+        public void ValidateRejectsInvalidPersistenceBatchSize(int batchSize)
+        {
+            // Invalid batch sizes are reported by setting name only, matching the validator's credential-safe message pattern.
+            Neo4jOptions options = CreateValidOptions();
+            options.PersistenceBatchSize = batchSize;
+            Neo4jOptionsValidator validator = new();
+
+            ValidateOptionsResult result = validator.Validate(Options.DefaultName, options);
+
+            Assert.False(result.Succeeded);
+            Assert.Contains(result.Failures ?? Array.Empty<string>(), failure => failure.Contains(nameof(Neo4jOptions.PersistenceBatchSize), StringComparison.Ordinal));
+        }
+
+        /// <summary>
         /// Confirms missing required values are reported by setting name without exposing configured secrets.
         /// </summary>
         [Fact]

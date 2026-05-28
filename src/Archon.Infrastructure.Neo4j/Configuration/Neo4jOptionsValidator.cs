@@ -29,6 +29,7 @@ namespace Archon.Infrastructure.Neo4j.Configuration
             ValidateRequiredText(options.Password, nameof(Neo4jOptions.Password), failures);
             ValidatePositiveDuration(options.ConnectionTimeout, nameof(Neo4jOptions.ConnectionTimeout), failures);
             ValidatePositiveDuration(options.MaxTransactionRetryTime, nameof(Neo4jOptions.MaxTransactionRetryTime), failures);
+            ValidatePositiveInteger(options.PersistenceBatchSize, nameof(Neo4jOptions.PersistenceBatchSize), failures);
             ValidateEncryptionMode(options.EncryptionMode, failures);
 
             if (failures.Count == 0)
@@ -94,6 +95,22 @@ namespace Archon.Infrastructure.Neo4j.Configuration
             // Durations are safe to classify by setting name, but the precise value is not needed for developers to fix the
             // configuration and can make logs noisy.
             if (value <= TimeSpan.Zero)
+            {
+                failures.Add($"{settingName} must be greater than zero.");
+            }
+        }
+
+        /// <summary>
+        /// Validates that an integer setting is greater than zero.
+        /// </summary>
+        /// <param name="value">The configured integer value to check.</param>
+        /// <param name="settingName">The safe setting name to include in validation output.</param>
+        /// <param name="failures">The mutable failure list that receives credential-safe validation messages.</param>
+        private static void ValidatePositiveInteger(int value, string settingName, ICollection<string> failures)
+        {
+            // Batch sizes must be positive because zero or negative values cannot form bounded list-parameter windows. Reporting only
+            // the setting name follows the validator's safe-message pattern and keeps operational logs compact.
+            if (value <= 0)
             {
                 failures.Add($"{settingName} must be greater than zero.");
             }

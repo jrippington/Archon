@@ -30,6 +30,22 @@ A diagnostic collector is the per-persistence-attempt component that records saf
 
 A sub-stage timing is one scoped diagnostic duration inside a larger workflow stage. Persistence sub-stage timings use display-style names such as `Persistence.WriteRelationships` and `Persistence.Commit` so contributors can compare detailed persistence work without flattening those entries into the top-level extraction `timings` collection.
 
+## Relationship family
+
+A relationship family is a group of graph relationships written with the same source label, target label, relationship type, endpoint stable-key shape, and diagnostic timing name. The current Neo4j persistence writer separates snapshot-to-solution, node-to-evidence, metric-to-evidence, and metric-to-node support relationship families so contributors can identify which kind of link dominates relationship persistence time.
+
+## Support relationship
+
+A support relationship is a direct Neo4j relationship that explains or connects an already-persisted Archon graph fact, such as `SUPPORTED_BY_EVIDENCE`, `MEASURES_NODE`, or `INCLUDES_SOLUTION`. Support relationships are created by matching public stable-key properties and snapshot scope rather than by exposing Neo4j internal IDs.
+
+## UNWIND
+
+`UNWIND` is the Cypher operation that expands a list parameter into rows inside Neo4j. Archon's batched persistence statements use `UNWIND` with bounded parameter lists so one static statement can write many homogeneous records or relationship endpoint rows while preserving parameterized query safety.
+
+## Statement batch
+
+A statement batch is one bounded list of mapped persistence rows sent to a static Cypher statement. In the current Neo4j writer, `persistenceOperationCount` counts executed statements, while `persistenceBatchCount` continues to count the single write transaction for a successful snapshot persistence attempt.
+
 ## Durable write finalization
 
 Durable write finalization is the point at which the persistence adapter has finished the write transaction or equivalent store-specific commit boundary and can report a successful completed persistence result. In the current Neo4j adapter, this is represented by the `Persistence.Commit` diagnostic timing around the write transaction.

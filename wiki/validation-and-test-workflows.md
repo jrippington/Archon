@@ -369,6 +369,26 @@ Full mixed snapshot validation proves the Neo4j persistence features compose as 
 dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj --filter "FullyQualifiedName~FullMixedSnapshot|FullyQualifiedName~SupportingRelationship|FullyQualifiedName~Neo4jInfrastructureComposition"
 ```
 
+## WP017 Neo4j persistence performance validation
+
+WP017 changes the execution shape of Neo4j snapshot persistence without changing the graph vocabulary. A contributor validating this area should first run the automated Neo4j infrastructure tests that prove stable-key graph equivalence, idempotent repeated writes, evidence canonicalization, support-relationship creation, diagnostic timing names, and operation-count semantics. The Docker-backed writer tests require Testcontainers and therefore require Docker Desktop or another OCI-compatible runtime to be available before the test run starts.
+
+The automated validation has two complementary layers. The non-Docker tests validate configuration, options validation, mapper behavior, composition, and the reusable statement-batch helper. The Docker-backed writer tests validate the same optimized write shape against a real Neo4j container, including graph equivalence and relationship-family diagnostics. If Docker is unavailable in a local environment, record that as an environment limitation and still run the non-Docker tests and solution build; do not replace the real-container path with a generated large snapshot fixture, because WP017 performance evidence is intended to come from the same real extraction scenario described below.
+
+```powershell
+dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj --filter "FullyQualifiedName~Neo4jPersistenceBatchExecutorTests|FullyQualifiedName~Neo4jSnapshotPersistenceMapperTests|FullyQualifiedName~Neo4jOptionsValidatorTests|FullyQualifiedName~Neo4jInfrastructureCompositionTests|FullyQualifiedName~Neo4jServiceCollectionExtensionsTests"
+dotnet test .\test\Archon.Infrastructure.Neo4j.Tests\Archon.Infrastructure.Neo4j.Tests.csproj --filter "FullyQualifiedName~MinimalSnapshotNeo4jArchitectureSnapshotWriterTests"
+dotnet build .\Archon.slnx
+```
+
+Manual performance measurement is intentionally a same-repository comparison rather than a synthetic benchmark fixture. A **same-repository comparison** means the contributor reruns the same real extraction scenario that produced the baseline evidence, with the same submitted repository root and solution list, and compares the completed extraction status response before and after the optimized writer. This keeps the measurement tied to realistic graph size, evidence volume, metric volume, and relationship fan-out. WP017 must not add a generated large repository, a generated large snapshot, or committed benchmark payloads merely to make persistence appear faster under artificial conditions.
+
+For each manual run, capture the top-level `Persistence` timing from the extraction status and the nested `persistenceDiagnostics` fields that explain the Neo4j handoff. The minimum useful field set is total persistence duration, `Persistence.WriteNodes`, `Persistence.WriteMetrics`, `Persistence.WriteEvidence`, `Persistence.WriteRelationships`, `Persistence.WriteSnapshotSolutionRelationships`, `Persistence.WriteNodeEvidenceRelationships`, `Persistence.WriteMetricEvidenceRelationships`, `Persistence.WriteMetricTargetRelationships`, `Persistence.Commit`, `Persistence.Total`, `persistenceOperationCount`, and `persistenceBatchCount`. `persistenceOperationCount` should be read as the count of executed Cypher statements after batching, while `persistenceBatchCount` remains the write transaction count for the current single-transaction writer. Keeping both values in the comparison helps separate fewer statement executions from broader database commit or resource-pressure costs.
+
+Temporary measurement output should either be omitted from source control entirely or kept outside the repository root. If a contributor needs local notes while comparing status responses, place them in a personal temporary location rather than creating implementation notes, benchmark payloads, or log files under the repository. The repository record should stay focused on source, tests, specifications, plans, and current-state wiki guidance.
+
+The final documentation closure for this performance work is also part of validation. After changing persistence behavior, review [Neo4j persistence foundation](neo4j-persistence-foundation.md), this validation page, the [glossary](glossary.md), and the [API extraction workflow](api-extraction-workflow.md) for stale terminology or misplaced guidance. Detailed interpretation of `PersistenceBatchSize`, `UNWIND`, statement batches, stable-key endpoint matching, `persistenceOperationCount`, `persistenceBatchCount`, relationship-family timings, and `Persistence.Commit` belongs in the persistence foundation page or glossary, while the reproducible commands and same-repository measurement procedure belong here. The landing page should remain a concise reader path rather than carrying performance guidance.
+
 ## Final WP003 closure validation
 
 The complete WP003 verification path is:
