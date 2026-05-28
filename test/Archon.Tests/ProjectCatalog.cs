@@ -3,7 +3,7 @@ using System.Xml.Linq;
 namespace Archon.Tests
 {
     /// <summary>
-    /// Discovers Archon projects and exposes normalized metadata for WP001 architecture tests.
+    /// Discovers Archon projects and exposes normalized metadata for architecture boundary tests.
     /// </summary>
     /// <remarks>
     /// The catalog intentionally normalizes all project identities relative to the repository root so test results are stable
@@ -150,7 +150,7 @@ namespace Archon.Tests
         }
 
         /// <summary>
-        /// Assigns a WP001 architectural layer to a project based on its name and path.
+        /// Assigns an architectural layer to a project based on its name and path.
         /// </summary>
         /// <param name="name">The project name without `.csproj` extension.</param>
         /// <param name="identity">The normalized repository-root-relative project identity.</param>
@@ -172,6 +172,7 @@ namespace Archon.Tests
                 "Archon.Api.Extraction" or "Archon.Api.Query" or "Archon.Api.Management" => ProjectLayer.ApiModule,
                 "Archon.Roslyn" => ProjectLayer.RoslynAbstraction,
                 "Archon.Roslyn.CSharp" or "Archon.Roslyn.VisualBasic" or "Archon.Roslyn.Legacy" => ProjectLayer.RoslynImplementation,
+                "Archon.Extractors" => ProjectLayer.Extractor,
                 _ when name.StartsWith("Archon.Extractors.", StringComparison.Ordinal) => ProjectLayer.Extractor,
                 _ when name.StartsWith("Archon.Infrastructure.", StringComparison.Ordinal) => ProjectLayer.Infrastructure,
                 _ => throw new InvalidOperationException($"Project '{name}' with identity '{identity}' is not classified for WP001 boundary checks.")

@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Archon.Application.Rules
 {
     /// <summary>
-    /// Runs WP012 rule catalog loading, catalog persistence, and enabled-rule evaluation as an extraction pipeline stage.
+    /// Runs rule catalog loading, catalog persistence, and enabled-rule evaluation as an extraction pipeline stage.
     /// </summary>
     public sealed class RuleEvaluationExtractionStage : IExtractionStage
     {
@@ -67,7 +67,7 @@ namespace Archon.Application.Rules
             {
                 RuleExtractionIntegrationResult result = await _integrationService.LoadPersistAndEvaluateAsync(context.Accumulation, cancellationToken).ConfigureAwait(false);
                 _logger.LogInformation(
-                    "Completed WP012 rule stage for run {RunId} with {LoadedRuleCount} loaded rules and {MatchCount} matches.",
+                    "Completed rule catalog evaluation stage for run {RunId} with {LoadedRuleCount} loaded rules and {MatchCount} matches.",
                     context.Run.RunId.ToString(),
                     result.LoadedRuleCount,
                     result.MatchCount);
@@ -76,7 +76,7 @@ namespace Archon.Application.Rules
             catch (RuleCatalogValidationException exception)
             {
                 string message = $"Rule catalog validation failed before extraction rule evaluation: {string.Join("; ", exception.Diagnostics.Select(static diagnostic => diagnostic.Message))}";
-                _logger.LogWarning("Rule catalog validation stopped WP012 rule evaluation for run {RunId}.", context.Run.RunId.ToString());
+                _logger.LogWarning("Rule catalog validation stopped rule evaluation for run {RunId}.", context.Run.RunId.ToString());
                 return ExtractionStageResult.BlockingError(message);
             }
         }

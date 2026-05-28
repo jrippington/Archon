@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+	<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+	<ProjectReference Include="..\Archon.Domain\Archon.Domain.csproj" />
+	<ProjectReference Include="..\Archon.Application\Archon.Application.csproj" />
+	<ProjectReference Include="..\Archon.Roslyn\Archon.Roslyn.csproj" />
+	<ProjectReference Include="..\Archon.Roslyn.CSharp\Archon.Roslyn.CSharp.csproj" />
+	<ProjectReference Include="..\Archon.Roslyn.Legacy\Archon.Roslyn.Legacy.csproj" />
+	<ProjectReference Include="..\Archon.Roslyn.VisualBasic\Archon.Roslyn.VisualBasic.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+	<TargetFramework>net10.0</TargetFramework>
+	<LangVersion>preview</LangVersion>
+	<ImplicitUsings>enable</ImplicitUsings>
+	<Nullable>enable</Nullable>
+	<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+</Project>

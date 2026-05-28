@@ -3,7 +3,7 @@ using Xunit;
 namespace Archon.Tests
 {
     /// <summary>
-    /// Verifies stable project identity and expected WP001 project presence.
+    /// Verifies stable project identity and expected current project presence.
     /// </summary>
     /// <remarks>
     /// Stable identity is important because Archon later analyzes projects across different developer machines and CI agents.
@@ -12,7 +12,7 @@ namespace Archon.Tests
     public sealed class ProjectIdentityTests
     {
         /// <summary>
-        /// Lists the production projects required by WP001.
+        /// Lists the production projects that should remain discoverable through repository-relative identities.
         /// </summary>
         private static readonly string[] ExpectedProductionProjects =
         {
@@ -29,24 +29,7 @@ namespace Archon.Tests
             "Archon.Roslyn.CSharp",
             "Archon.Roslyn.VisualBasic",
             "Archon.Roslyn.Legacy",
-            "Archon.Extractors.Projects",
-            "Archon.Extractors.AspNet",
-            "Archon.Extractors.Ui",
-            "Archon.Extractors.Blazor",
-            "Archon.Extractors.Razor",
-            "Archon.Extractors.WinForms",
-            "Archon.Extractors.Wpf",
-            "Archon.Extractors.WinUI",
-            "Archon.Extractors.Maui",
-            "Archon.Extractors.Avalonia",
-            "Archon.Extractors.DependencyInjection",
-            "Archon.Extractors.Configuration",
-            "Archon.Extractors.DataAccess",
-            "Archon.Extractors.LinqToSql",
-            "Archon.Extractors.EntityFramework",
-            "Archon.Extractors.AdoNet",
-            "Archon.Extractors.LegacyWeb",
-            "Archon.Extractors.Hotlist",
+            "Archon.Extractors",
             "Archon.Infrastructure.Roslyn",
             "Archon.Infrastructure.Neo4j",
             "Archon.Infrastructure.Markdown"
@@ -58,7 +41,7 @@ namespace Archon.Tests
         [Fact]
         public void ExpectedProjectsHaveRepositoryRelativeIdentities()
         {
-            // The catalog discovers actual files so the test fails when a future change removes or renames required projects.
+            // The catalog discovers actual files so the test fails when a future change removes, renames, or re-splits required projects.
             ProjectCatalog catalog = ProjectCatalog.Create();
 
             foreach (string projectName in ExpectedProductionProjects)

@@ -125,13 +125,13 @@ The current direct extractor produces graph-ready domain contracts directly thro
 Use the focused DI extractor tests when changing the dependency-injection slice:
 
 ```powershell
-dotnet test .\test\Archon.Extractors.DependencyInjection.Tests\Archon.Extractors.DependencyInjection.Tests.csproj
+dotnet test .\test\Archon.Extractors.Tests\Archon.Extractors.Tests.csproj --filter FullyQualifiedName~Archon.Extractors.Tests.DependencyInjection
 ```
 
 Use the focused configuration extractor tests when changing the modern or legacy configuration slice:
 
 ```powershell
-dotnet test .\test\Archon.Extractors.Configuration.Tests\Archon.Extractors.Configuration.Tests.csproj
+dotnet test .\test\Archon.Extractors.Tests\Archon.Extractors.Tests.csproj --filter FullyQualifiedName~Archon.Extractors.Tests.Configuration
 ```
 
 Use the API extraction tests when changing WP007 pipeline composition, stage ordering, cross-slice accumulation, run diagnostics, or snapshot-writer handoff behavior:

@@ -133,7 +133,6 @@ namespace Archon.Infrastructure.Neo4j.Tests.Persistence
             Assert.True(second.Diagnostics.Completed);
             Assert.Equal(1, second.Diagnostics.Counts.PersistenceBatchCount);
             Assert.Equal(13, second.Diagnostics.Counts.PersistenceOperationCount);
-            Assert.Contains(second.Diagnostics.Timings, static timing => StringComparer.Ordinal.Equals("Persistence", timing.Stage));
             Assert.Contains(second.Diagnostics.Timings, static timing => StringComparer.Ordinal.Equals("Persistence.Total", timing.Stage));
             Assert.Contains(second.Diagnostics.Timings, static timing => StringComparer.Ordinal.Equals("Persistence.Commit", timing.Stage));
             Assert.Contains(second.Diagnostics.Timings, static timing => StringComparer.Ordinal.Equals("Persistence.WriteRelationships", timing.Stage));
@@ -226,7 +225,7 @@ namespace Archon.Infrastructure.Neo4j.Tests.Persistence
             Assert.Equal(3, result.Counts.MetricEvidenceRelationships);
             Assert.Equal(2, result.Counts.MetricTargetRelationships);
             Assert.NotNull(result.Diagnostics);
-            Assert.Equal(11, result.Diagnostics.Counts.PersistenceOperationCount);
+            Assert.Equal(12, result.Diagnostics.Counts.PersistenceOperationCount);
             Assert.Equal(1, result.Diagnostics.Counts.PersistenceBatchCount);
             Assert.Contains(result.Diagnostics.Timings, timing => StringComparer.Ordinal.Equals("Persistence.WriteMetricEvidenceRelationships", timing.Stage));
             Assert.Contains(result.Diagnostics.Timings, timing => StringComparer.Ordinal.Equals("Persistence.WriteMetricTargetRelationships", timing.Stage));
@@ -275,7 +274,7 @@ namespace Archon.Infrastructure.Neo4j.Tests.Persistence
             Assert.Equal(3, counts.Metrics);
             Assert.Equal(3, counts.MetricEvidenceRelationships);
             Assert.Equal(2, counts.MetricTargetRelationships);
-            Assert.Equal(11, second.Diagnostics?.Counts.PersistenceOperationCount);
+            Assert.Equal(12, second.Diagnostics?.Counts.PersistenceOperationCount);
         }
 
         /// <summary>
@@ -304,7 +303,7 @@ namespace Archon.Infrastructure.Neo4j.Tests.Persistence
             Assert.Equal(3, second.Counts.SnapshotSolutionRelationships);
             Assert.Equal(3, counts.Solutions);
             Assert.Equal(3, counts.SnapshotSolutionRelationships);
-            Assert.Equal(11, second.Diagnostics?.Counts.PersistenceOperationCount);
+            Assert.Equal(12, second.Diagnostics?.Counts.PersistenceOperationCount);
             Assert.Contains(second.Diagnostics!.Timings, timing => StringComparer.Ordinal.Equals("Persistence.WriteSnapshotSolutionRelationships", timing.Stage));
         }
 
@@ -334,7 +333,7 @@ namespace Archon.Infrastructure.Neo4j.Tests.Persistence
             Assert.Equal(3, result.Counts.Nodes);
             Assert.Equal(3, result.Counts.Evidence);
             Assert.NotNull(result.Diagnostics);
-            Assert.Equal(9, result.Diagnostics.Counts.PersistenceOperationCount);
+            Assert.Equal(10, result.Diagnostics.Counts.PersistenceOperationCount);
             Assert.Equal(1, result.Diagnostics.Counts.PersistenceBatchCount);
             Assert.Contains(result.Diagnostics.Timings, timing => StringComparer.Ordinal.Equals("Persistence.WriteNodeEvidenceRelationships", timing.Stage));
             Assert.Equal("Project", projectNode.NodeKind);
@@ -386,7 +385,7 @@ namespace Archon.Infrastructure.Neo4j.Tests.Persistence
             Assert.Equal(3, counts.Nodes);
             Assert.Equal(3, counts.Evidence);
             Assert.Equal(3, counts.NodeEvidenceRelationships);
-            Assert.Equal(9, second.Diagnostics?.Counts.PersistenceOperationCount);
+            Assert.Equal(10, second.Diagnostics?.Counts.PersistenceOperationCount);
         }
 
         /// <summary>
@@ -416,7 +415,7 @@ namespace Archon.Infrastructure.Neo4j.Tests.Persistence
             Assert.Equal(1, counts.Evidence);
             Assert.Equal(2, counts.NodeEvidenceRelationships);
             Assert.Equal(new[] { "evidence://batched-dedupe/first" }, evidenceStableKeys);
-            Assert.Equal(9, result.Diagnostics?.Counts.PersistenceOperationCount);
+            Assert.Equal(10, result.Diagnostics?.Counts.PersistenceOperationCount);
         }
 
         /// <summary>

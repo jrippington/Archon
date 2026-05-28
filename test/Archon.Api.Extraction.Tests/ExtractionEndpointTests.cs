@@ -76,10 +76,10 @@ namespace Archon.Api.Extraction.Tests
         }
 
         /// <summary>
-        /// Verifies extraction API service registration composes project, semantic, WP007, WP008, WP009, WP010, unified WP011, WP012 rule, and WP013 metric stages instead of the WP004 placeholder stage.
+        /// Verifies extraction API service registration composes project, semantic, configuration and dependency-injection, ASP.NET Core runtime, data-access DBML, external integration, unified UI/client, WP012 rule, and WP013 metric stages instead of the WP004 placeholder stage.
         /// </summary>
         [Fact]
-        public void AddArchonExtractionApi_WhenServicesAreBuilt_ShouldRegisterProjectSemanticWp007Wp008Wp009Wp010Wp011Wp012AndWp013ExtractionStages()
+        public void AddArchonExtractionApi_WhenServicesAreBuilt_ShouldRegisterProjectSemanticConfigurationDependencyInjectionAspNetCoreRuntimeDataAccessExternalIntegrationUiClientWp012AndWp013ExtractionStages()
         {
             // The API module is the existing composition boundary for the extraction pipeline, so this test guards the ordered stage registration path.
             ServiceCollection services = new();
@@ -102,27 +102,27 @@ namespace Archon.Api.Extraction.Tests
                 },
                 stage =>
                 {
-                    Assert.IsType<Wp007ExtractionStage>(stage);
+                    Assert.IsType<ConfigurationDependencyInjectionExtractionStage>(stage);
                     Assert.Equal("wp007-configuration-dependency-injection", stage.StageId);
                 },
                 stage =>
                 {
-                    Assert.IsType<Wp008AspNetCoreMinimalApiExtractionStage>(stage);
+                    Assert.IsType<AspNetCoreRuntimeExtractionStage>(stage);
                     Assert.Equal("wp008-aspnet-core-minimal-api", stage.StageId);
                 },
                 stage =>
                 {
-                    Assert.IsType<Wp009DataAccessExtractionStage>(stage);
+                    Assert.IsType<DataAccessExtractionStage>(stage);
                     Assert.Equal("wp009-data-access-dbml", stage.StageId);
                 },
                 stage =>
                 {
-                    Assert.IsType<Wp010ExternalIntegrationExtractionStage>(stage);
+                    Assert.IsType<ExternalIntegrationExtractionStage>(stage);
                     Assert.Equal("wp010-external-integrations", stage.StageId);
                 },
                 stage =>
                 {
-                    Assert.IsType<Wp011UiClientExtractionStage>(stage);
+                    Assert.IsType<UiClientExtractionStage>(stage);
                     Assert.Equal("wp011-ui-client", stage.StageId);
                 },
                 stage =>
@@ -170,11 +170,11 @@ namespace Archon.Api.Extraction.Tests
         }
 
         /// <summary>
-        /// Verifies the API-triggered extraction path persists WP008 ASP.NET Core minimal API endpoint facts through the snapshot writer seam.
+        /// Verifies the API-triggered extraction path persists ASP.NET Core runtime ASP.NET Core minimal API endpoint facts through the snapshot writer seam.
         /// </summary>
         /// <returns>A task that completes after the completed run and recorded endpoint snapshot content have been asserted.</returns>
         [Fact]
-        public async Task GetExtractionStatus_WhenWp008MinimalApiExtractionRuns_ShouldPersistEndpointFactsThroughSnapshotWriter()
+        public async Task GetExtractionStatus_WhenAspNetCoreRuntimeMinimalApiExtractionRuns_ShouldPersistEndpointFactsThroughSnapshotWriter()
         {
             // The test exercises the accepted API orchestration path without starting Aspire, Neo4j, or the target ASP.NET Core application.
             string repositoryRoot = CreateRepositoryRoot();
@@ -211,11 +211,11 @@ namespace Archon.Api.Extraction.Tests
         }
 
         /// <summary>
-        /// Verifies the API-triggered extraction path persists all currently wired WP008 runtime slices through the shared snapshot writer seam.
+        /// Verifies the API-triggered extraction path persists all currently wired ASP.NET Core runtime runtime slices through the shared snapshot writer seam.
         /// </summary>
         /// <returns>A task that completes after runtime graph facts from web, console, worker, and non-HTTP consumer slices have been asserted.</returns>
         [Fact]
-        public async Task GetExtractionStatus_WhenWp008RuntimeExtractionRuns_ShouldPersistRuntimeFactsThroughSnapshotWriter()
+        public async Task GetExtractionStatus_WhenAspNetCoreRuntimeRuntimeExtractionRuns_ShouldPersistRuntimeFactsThroughSnapshotWriter()
         {
             // This test is the Work Item 7 orchestration guard: it proves runtime extraction runs after earlier stages through the public API path, without Aspire, target application startup, or direct extractor persistence.
             string repositoryRoot = CreateRepositoryRoot();
@@ -259,11 +259,11 @@ namespace Archon.Api.Extraction.Tests
         }
 
         /// <summary>
-        /// Verifies the API-triggered extraction path persists WP009 LINQ to SQL DBML data-access facts through the snapshot writer seam.
+        /// Verifies the API-triggered extraction path persists data-access DBML LINQ to SQL DBML data-access facts through the snapshot writer seam.
         /// </summary>
         /// <returns>A task that completes after the completed run and recorded DBML snapshot content have been asserted.</returns>
         [Fact]
-        public async Task GetExtractionStatus_WhenWp009DbmlExtractionRuns_ShouldPersistDataAccessFactsThroughSnapshotWriter()
+        public async Task GetExtractionStatus_WhenDataAccessDbmlExtractionRuns_ShouldPersistDataAccessFactsThroughSnapshotWriter()
         {
             // The test proves DBML extraction participates in the public API-triggered pipeline without target database connectivity or direct Neo4j writes.
             string repositoryRoot = CreateRepositoryRoot();
@@ -303,18 +303,18 @@ namespace Archon.Api.Extraction.Tests
         }
 
         /// <summary>
-        /// Verifies the API-triggered extraction path correlates WP009 data-access facts with earlier configuration, dependency-injection, and runtime facts.
+        /// Verifies the API-triggered extraction path correlates data-access DBML data-access facts with earlier configuration, dependency-injection, and runtime facts.
         /// </summary>
         /// <returns>A task that completes after the integrated data-access snapshot has been asserted.</returns>
         [Fact]
-        public async Task GetExtractionStatus_WhenWp009IntegratedExtractionRuns_ShouldCorrelateConfigurationDependencyInjectionRuntimeAndDataAccessFacts()
+        public async Task GetExtractionStatus_WhenDataAccessIntegratedExtractionRuns_ShouldCorrelateConfigurationDependencyInjectionRuntimeAndDataAccessFacts()
         {
-            // The fixture intentionally exercises all API-wired precursor stages before WP009 so cross-slice correlation is validated at the public orchestration seam.
+            // The fixture intentionally exercises all API-wired precursor stages before data-access DBML so cross-slice correlation is validated at the public orchestration seam.
             string repositoryRoot = CreateRepositoryRoot();
             CreateSolutionFile(repositoryRoot, "CustomerSuite.sln", "Customer.Api", "Customer.Api.csproj");
             CreateProjectFile(repositoryRoot, "Customer.Api.csproj", "Customer.Api.DataAccess.cs");
-            CreateWp009IntegratedDataAccessSourceFile(repositoryRoot, "Customer.Api.DataAccess.cs");
-            CreateWp009ConnectionConfigurationFiles(repositoryRoot);
+            CreateDataAccessIntegratedDataAccessSourceFile(repositoryRoot, "Customer.Api.DataAccess.cs");
+            CreateDataAccessConnectionConfigurationFiles(repositoryRoot);
             RecordingSnapshotWriter writer = new("snapshot://wp009-integrated-api-test");
             await using WebApplication app = await CreateApplicationAsync(services => services.AddSingleton<IArchitectureSnapshotWriter>(writer));
             using HttpClient client = app.GetTestClient();
@@ -388,13 +388,13 @@ namespace Archon.Api.Extraction.Tests
         }
 
         /// <summary>
-        /// Creates a top-level ASP.NET Core minimal API program source file for WP008 endpoint extraction tests.
+        /// Creates a top-level ASP.NET Core minimal API program source file for ASP.NET Core runtime endpoint extraction tests.
         /// </summary>
         /// <param name="repositoryRoot">The repository root that contains the source file.</param>
         /// <param name="relativeSourcePath">The repository-relative source path to write.</param>
         private static void CreateMinimalApiProgramFile(string repositoryRoot, string relativeSourcePath)
         {
-            // Local stubs make the fixture compile under the lightweight Roslyn loader while preserving the Program.cs MapGet shape WP008 extracts.
+            // Local stubs make the fixture compile under the lightweight Roslyn loader while preserving the Program.cs MapGet shape ASP.NET Core runtime extracts.
             string sourcePath = Path.Combine(repositoryRoot, relativeSourcePath);
             Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
             File.WriteAllText(
@@ -424,7 +424,7 @@ namespace Archon.Api.Extraction.Tests
         }
 
         /// <summary>
-        /// Creates a runtime-rich C# source file that exercises the currently orchestrated WP008 runtime slices in one API extraction request.
+        /// Creates a runtime-rich C# source file that exercises the currently orchestrated ASP.NET Core runtime runtime slices in one API extraction request.
         /// </summary>
         /// <param name="repositoryRoot">The repository root that contains the source file.</param>
         /// <param name="relativeSourcePath">The repository-relative source path to write.</param>
@@ -461,18 +461,18 @@ namespace Archon.Api.Extraction.Tests
         }
 
         /// <summary>
-        /// Verifies the API-triggered extraction path composes WP007 dependency-injection and configuration extractors into one snapshot.
+        /// Verifies the API-triggered extraction path composes configuration and dependency-injection dependency-injection and configuration extractors into one snapshot.
         /// </summary>
-        /// <returns>A task that completes after the completed run and combined WP007 snapshot content have been asserted.</returns>
+        /// <returns>A task that completes after the completed run and combined configuration and dependency-injection snapshot content have been asserted.</returns>
         [Fact]
-        public async Task GetExtractionStatus_WhenWp007ExtractionRuns_ShouldPersistDependencyInjectionAndConfigurationFacts()
+        public async Task GetExtractionStatus_WhenConfigurationDependencyInjectionExtractionRuns_ShouldPersistDependencyInjectionAndConfigurationFacts()
         {
-            // The fixture deliberately flows through the public API route so WP007 composition is validated at the same orchestration seam used by callers.
+            // The fixture deliberately flows through the public API route so configuration and dependency-injection composition is validated at the same orchestration seam used by callers.
             string repositoryRoot = CreateRepositoryRoot();
             CreateSolutionFile(repositoryRoot, "CustomerSuite.sln", "Customer.Api", "Customer.Api.csproj");
             CreateProjectFile(repositoryRoot, "Customer.Api.csproj", "Customer.Api.Composition.cs");
-            CreateWp007SourceFile(repositoryRoot, "Customer.Api.Composition.cs");
-            CreateWp007ConfigurationFiles(repositoryRoot);
+            CreateConfigurationDependencyInjectionSourceFile(repositoryRoot, "Customer.Api.Composition.cs");
+            CreateConfigurationDependencyInjectionConfigurationFiles(repositoryRoot);
             RecordingSnapshotWriter writer = new("snapshot://wp007-api-test");
             await using WebApplication app = await CreateApplicationAsync(services => services.AddSingleton<IArchitectureSnapshotWriter>(writer));
             using HttpClient client = app.GetTestClient();
@@ -1096,11 +1096,11 @@ namespace Archon.Api.Extraction.Tests
         }
 
         /// <summary>
-        /// Creates a C# source fixture that combines WP007 DI, WP008 runtime, EF Core context, and ADO.NET raw SQL usage for WP009 final integration tests.
+        /// Creates a C# source fixture that combines configuration and dependency-injection DI, ASP.NET Core runtime runtime, EF Core context, and ADO.NET raw SQL usage for data-access DBML final integration tests.
         /// </summary>
         /// <param name="repositoryRoot">The repository root that contains the source file.</param>
         /// <param name="relativeSourcePath">The repository-relative source path to write.</param>
-        private static void CreateWp009IntegratedDataAccessSourceFile(string repositoryRoot, string relativeSourcePath)
+        private static void CreateDataAccessIntegratedDataAccessSourceFile(string repositoryRoot, string relativeSourcePath)
         {
             // Local framework stubs keep the fixture self-contained while still giving Roslyn enough symbol shape for all participating extractors.
             string sourcePath = Path.Combine(repositoryRoot, relativeSourcePath);
@@ -1171,12 +1171,12 @@ namespace Archon.Api.Extraction.Tests
         }
 
         /// <summary>
-        /// Creates configuration artifacts containing a redacted connection string key used by the integrated WP009 API fixture.
+        /// Creates configuration artifacts containing a redacted connection string key used by the integrated data-access DBML API fixture.
         /// </summary>
         /// <param name="repositoryRoot">The repository root that should contain configuration files.</param>
-        private static void CreateWp009ConnectionConfigurationFiles(string repositoryRoot)
+        private static void CreateDataAccessConnectionConfigurationFiles(string repositoryRoot)
         {
-            // Legacy configuration is used because its stable keys explicitly distinguish connection-string entries and values are already redacted by WP007.
+            // Legacy configuration is used because its stable keys explicitly distinguish connection-string entries and values are already redacted by configuration and dependency-injection.
             File.WriteAllText(
                 Path.Combine(repositoryRoot, "app.config"),
                 string.Join(
@@ -1217,11 +1217,11 @@ namespace Archon.Api.Extraction.Tests
         }
 
         /// <summary>
-        /// Creates a representative C# source file containing WP007 DI, legacy container, options, and ConfigurationManager usage.
+        /// Creates a representative C# source file containing configuration and dependency-injection DI, legacy container, options, and ConfigurationManager usage.
         /// </summary>
         /// <param name="repositoryRoot">The repository root that contains the source file.</param>
         /// <param name="relativeSourcePath">The repository-relative source path to write.</param>
-        private static void CreateWp007SourceFile(string repositoryRoot, string relativeSourcePath)
+        private static void CreateConfigurationDependencyInjectionSourceFile(string repositoryRoot, string relativeSourcePath)
         {
             // Local stubs make the API integration test self-contained while still forcing Roslyn to bind realistic API owners and method shapes.
             string sourcePath = Path.Combine(repositoryRoot, relativeSourcePath);
@@ -1275,10 +1275,10 @@ namespace Archon.Api.Extraction.Tests
         }
 
         /// <summary>
-        /// Creates modern and legacy configuration artifacts used by the WP007 API integration fixture.
+        /// Creates modern and legacy configuration artifacts used by the configuration and dependency-injection API integration fixture.
         /// </summary>
         /// <param name="repositoryRoot">The repository root that should contain configuration files.</param>
-        private static void CreateWp007ConfigurationFiles(string repositoryRoot)
+        private static void CreateConfigurationDependencyInjectionConfigurationFiles(string repositoryRoot)
         {
             // Both artifact families are present so the composed configuration extractor must merge modern and legacy facts into one snapshot.
             File.WriteAllText(

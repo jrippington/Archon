@@ -6,19 +6,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Archon.Application\Archon.Application.csproj" />
-    <ProjectReference Include="..\Archon.Extractors.Avalonia\Archon.Extractors.Avalonia.csproj" />
-    <ProjectReference Include="..\Archon.Extractors.AspNet\Archon.Extractors.AspNet.csproj" />
-    <ProjectReference Include="..\Archon.Extractors.Blazor\Archon.Extractors.Blazor.csproj" />
-    <ProjectReference Include="..\Archon.Extractors.Configuration\Archon.Extractors.Configuration.csproj" />
-    <ProjectReference Include="..\Archon.Extractors.DataAccess\Archon.Extractors.DataAccess.csproj" />
-    <ProjectReference Include="..\Archon.Extractors.DependencyInjection\Archon.Extractors.DependencyInjection.csproj" />
-    <ProjectReference Include="..\Archon.Extractors.Integrations\Archon.Extractors.Integrations.csproj" />
-    <ProjectReference Include="..\Archon.Extractors.Maui\Archon.Extractors.Maui.csproj" />
-    <ProjectReference Include="..\Archon.Extractors.Projects\Archon.Extractors.Projects.csproj" />
-    <ProjectReference Include="..\Archon.Extractors.Razor\Archon.Extractors.Razor.csproj" />
-    <ProjectReference Include="..\Archon.Extractors.WinForms\Archon.Extractors.WinForms.csproj" />
-    <ProjectReference Include="..\Archon.Extractors.WinUI\Archon.Extractors.WinUI.csproj" />
-    <ProjectReference Include="..\Archon.Extractors.Wpf\Archon.Extractors.Wpf.csproj" />
+    <ProjectReference Include="..\Archon.Extractors\Archon.Extractors.csproj" />
     <ProjectReference Include="..\Archon.Infrastructure.Roslyn\Archon.Infrastructure.Roslyn.csproj" />
   </ItemGroup>
 

@@ -17,24 +17,7 @@
     <Project Path="src/Archon.Roslyn/Archon.Roslyn.csproj" />
   </Folder>
   <Folder Name="/src/40 Extractors/">
-    <Project Path="src/Archon.Extractors.AdoNet/Archon.Extractors.AdoNet.csproj" />
-    <Project Path="src/Archon.Extractors.AspNet/Archon.Extractors.AspNet.csproj" />
-    <Project Path="src/Archon.Extractors.Avalonia/Archon.Extractors.Avalonia.csproj" />
-    <Project Path="src/Archon.Extractors.Blazor/Archon.Extractors.Blazor.csproj" />
-    <Project Path="src/Archon.Extractors.Configuration/Archon.Extractors.Configuration.csproj" />
-    <Project Path="src/Archon.Extractors.DataAccess/Archon.Extractors.DataAccess.csproj" />
-    <Project Path="src/Archon.Extractors.DependencyInjection/Archon.Extractors.DependencyInjection.csproj" />
-    <Project Path="src/Archon.Extractors.EntityFramework/Archon.Extractors.EntityFramework.csproj" />
-    <Project Path="src/Archon.Extractors.Hotlist/Archon.Extractors.Hotlist.csproj" />
-    <Project Path="src/Archon.Extractors.LegacyWeb/Archon.Extractors.LegacyWeb.csproj" />
-    <Project Path="src/Archon.Extractors.LinqToSql/Archon.Extractors.LinqToSql.csproj" />
-    <Project Path="src/Archon.Extractors.Maui/Archon.Extractors.Maui.csproj" />
-    <Project Path="src/Archon.Extractors.Projects/Archon.Extractors.Projects.csproj" />
-    <Project Path="src/Archon.Extractors.Razor/Archon.Extractors.Razor.csproj" />
-    <Project Path="src/Archon.Extractors.Ui/Archon.Extractors.Ui.csproj" />
-    <Project Path="src/Archon.Extractors.WinForms/Archon.Extractors.WinForms.csproj" />
-    <Project Path="src/Archon.Extractors.WinUI/Archon.Extractors.WinUI.csproj" />
-    <Project Path="src/Archon.Extractors.Wpf/Archon.Extractors.Wpf.csproj" />
+    <Project Path="src/Archon.Extractors/Archon.Extractors.csproj" />
   </Folder>
   <Folder Name="/src/50 Infrastructure/">
     <Project Path="src/Archon.Infrastructure.Markdown/Archon.Infrastructure.Markdown.csproj" />
@@ -64,24 +47,7 @@
     <Project Path="test/Archon.Roslyn.VisualBasic.Tests/Archon.Roslyn.VisualBasic.Tests.csproj" />
   </Folder>
   <Folder Name="/test/40 Extractors/">
-    <Project Path="test/Archon.Extractors.AdoNet.Tests/Archon.Extractors.AdoNet.Tests.csproj" />
-    <Project Path="test/Archon.Extractors.AspNet.Tests/Archon.Extractors.AspNet.Tests.csproj" />
-    <Project Path="test/Archon.Extractors.Avalonia.Tests/Archon.Extractors.Avalonia.Tests.csproj" />
-    <Project Path="test/Archon.Extractors.Blazor.Tests/Archon.Extractors.Blazor.Tests.csproj" />
-    <Project Path="test/Archon.Extractors.Configuration.Tests/Archon.Extractors.Configuration.Tests.csproj" />
-    <Project Path="test/Archon.Extractors.DataAccess.Tests/Archon.Extractors.DataAccess.Tests.csproj" />
-    <Project Path="test/Archon.Extractors.DependencyInjection.Tests/Archon.Extractors.DependencyInjection.Tests.csproj" />
-    <Project Path="test/Archon.Extractors.EntityFramework.Tests/Archon.Extractors.EntityFramework.Tests.csproj" />
-    <Project Path="test/Archon.Extractors.Hotlist.Tests/Archon.Extractors.Hotlist.Tests.csproj" />
-    <Project Path="test/Archon.Extractors.LegacyWeb.Tests/Archon.Extractors.LegacyWeb.Tests.csproj" />
-    <Project Path="test/Archon.Extractors.LinqToSql.Tests/Archon.Extractors.LinqToSql.Tests.csproj" />
-    <Project Path="test/Archon.Extractors.Maui.Tests/Archon.Extractors.Maui.Tests.csproj" />
-    <Project Path="test/Archon.Extractors.Projects.Tests/Archon.Extractors.Projects.Tests.csproj" />
-    <Project Path="test/Archon.Extractors.Razor.Tests/Archon.Extractors.Razor.Tests.csproj" />
-    <Project Path="test/Archon.Extractors.Ui.Tests/Archon.Extractors.Ui.Tests.csproj" />
-    <Project Path="test/Archon.Extractors.WinForms.Tests/Archon.Extractors.WinForms.Tests.csproj" />
-    <Project Path="test/Archon.Extractors.WinUI.Tests/Archon.Extractors.WinUI.Tests.csproj" />
-    <Project Path="test/Archon.Extractors.Wpf.Tests/Archon.Extractors.Wpf.Tests.csproj" />
+    <Project Path="test/Archon.Extractors.Tests/Archon.Extractors.Tests.csproj" />
   </Folder>
   <Folder Name="/test/50 Infrastructure/">
     <Project Path="test/Archon.Infrastructure.Markdown.Tests/Archon.Infrastructure.Markdown.Tests.csproj" />

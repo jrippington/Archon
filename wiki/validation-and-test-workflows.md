@@ -81,14 +81,14 @@ The WP005 extraction slices replace placeholder pipeline behavior with real repo
 Use these focused commands from the repository root after building changed projects:
 
 ```powershell
-dotnet build .\src\Archon.Extractors.Projects\Archon.Extractors.Projects.csproj
+dotnet build .\src\Archon.Extractors\Archon.Extractors.csproj
 dotnet build .\src\Archon.Api.Extraction\Archon.Api.Extraction.csproj
-dotnet build .\test\Archon.Extractors.Projects.Tests\Archon.Extractors.Projects.Tests.csproj
+dotnet build .\test\Archon.Extractors.Tests\Archon.Extractors.Tests.csproj
 dotnet build .\test\Archon.Application.Tests\Archon.Application.Tests.csproj
 dotnet build .\test\Archon.Api.Extraction.Tests\Archon.Api.Extraction.Tests.csproj
-dotnet test .\test\Archon.Extractors.Projects.Tests\Archon.Extractors.Projects.Tests.csproj --no-build --filter FullyQualifiedName~ProjectMetadataExtractionStageTests
-dotnet test .\test\Archon.Extractors.Projects.Tests\Archon.Extractors.Projects.Tests.csproj --no-build
-dotnet test .\test\Archon.Extractors.Projects.Tests\Archon.Extractors.Projects.Tests.csproj --no-build --filter FullyQualifiedName~RepositorySolutionExtractionStageTests
+dotnet test .\test\Archon.Extractors.Tests\Archon.Extractors.Tests.csproj --no-build --filter FullyQualifiedName~ProjectMetadataExtractionStageTests
+dotnet test .\test\Archon.Extractors.Tests\Archon.Extractors.Tests.csproj --no-build --filter FullyQualifiedName~Archon.Extractors.Tests.Projects
+dotnet test .\test\Archon.Extractors.Tests\Archon.Extractors.Tests.csproj --no-build --filter FullyQualifiedName~RepositorySolutionExtractionStageTests
 dotnet test .\test\Archon.Application.Tests\Archon.Application.Tests.csproj --no-build --filter FullyQualifiedName~ExtractionOrchestratorTests
 dotnet test .\test\Archon.Api.Extraction.Tests\Archon.Api.Extraction.Tests.csproj --no-build --filter "FullyQualifiedName~ExtractionEndpointTests|FullyQualifiedName~AddArchonExtractionApi"
 ```
@@ -121,13 +121,13 @@ The current WP007 implementation covers the Microsoft dependency-injection regis
 Use this focused command when changing the dependency-injection extractor:
 
 ```powershell
-dotnet test .\test\Archon.Extractors.DependencyInjection.Tests\Archon.Extractors.DependencyInjection.Tests.csproj
+dotnet test .\test\Archon.Extractors.Tests\Archon.Extractors.Tests.csproj --filter FullyQualifiedName~Archon.Extractors.Tests.DependencyInjection
 ```
 
 Use this focused command when changing the configuration extractor:
 
 ```powershell
-dotnet test .\test\Archon.Extractors.Configuration.Tests\Archon.Extractors.Configuration.Tests.csproj
+dotnet test .\test\Archon.Extractors.Tests\Archon.Extractors.Tests.csproj --filter FullyQualifiedName~Archon.Extractors.Tests.Configuration
 ```
 
 Use this focused command when changing the API pipeline stage composition or the API-triggered WP007 snapshot handoff:
@@ -153,15 +153,38 @@ The API extraction tests run an in-memory ASP.NET Core test host, submit an acce
 Use these focused commands when changing WP009 LINQ to SQL, EF6, EF Core, ADO.NET, typed DataSet, raw SQL, or API orchestration integration:
 
 ```powershell
-dotnet test .\test\Archon.Extractors.DataAccess.Tests\Archon.Extractors.DataAccess.Tests.csproj
-dotnet test .\test\Archon.Extractors.DataAccess.Tests\Archon.Extractors.DataAccess.Tests.csproj --filter TypedDataSet
-dotnet test .\test\Archon.Extractors.DataAccess.Tests\Archon.Extractors.DataAccess.Tests.csproj --filter AdoNet
-dotnet test .\test\Archon.Extractors.DataAccess.Tests\Archon.Extractors.DataAccess.Tests.csproj --filter RawSql
+dotnet test .\test\Archon.Extractors.Tests\Archon.Extractors.Tests.csproj --filter FullyQualifiedName~Archon.Extractors.Tests.DataAccess
+dotnet test .\test\Archon.Extractors.Tests\Archon.Extractors.Tests.csproj --filter TypedDataSet
+dotnet test .\test\Archon.Extractors.Tests\Archon.Extractors.Tests.csproj --filter AdoNet
+dotnet test .\test\Archon.Extractors.Tests\Archon.Extractors.Tests.csproj --filter RawSql
 dotnet test .\test\Archon.Api.Extraction.Tests\Archon.Api.Extraction.Tests.csproj --filter DataAccess
 dotnet build .\Archon.slnx --no-restore
 ```
 
 Contributor-facing details for DBML graph shape, generated designer graph shape, EF6 and EF Core graph shape, ADO.NET command graph shape, typed DataSet graph shape, generated typed DataSet source correlation, source usage relationships, raw SQL handling, stored procedure handling, affected-table hints, dynamic SQL unknowns, migrations, provider configuration, evidence, stable keys, redaction, confidence, unknown state, API stage boundaries, and current exclusions are described in [data access extraction](data-access-extraction.md).
+
+## WP018 extractor consolidation validation
+
+WP018 consolidates the extractor implementation estate without changing extractor behavior. The solution-owned extractor projects are `src/Archon.Extractors/Archon.Extractors.csproj` and `test/Archon.Extractors.Tests/Archon.Extractors.Tests.csproj`, with extractor categories represented by folders and namespaces inside those projects. API extraction stage adapter classes now use behavior-focused names, such as `DataAccessExtractionStage` and `UiClientExtractionStage`, while stable pipeline `StageId` values remain unchanged until a later explicit contract decision updates them. This distinction matters for validation: source symbols and filenames should describe runtime responsibilities, but tests may still assert existing stage identifiers where those identifiers are part of the current pipeline contract.
+
+The obsolete category project directories, such as `src/Archon.Extractors.DataAccess` and `test/Archon.Extractors.DataAccess.Tests`, have been deleted after migration through an exact-path safeguard process. A local tree that contains only `src/Archon.Extractors` and `test/Archon.Extractors.Tests` for extractor implementation and tests is therefore the expected current state. If an old category project directory reappears, treat it as stale build output or an accidental project reintroduction and verify that no solution or project file references it before continuing.
+
+Use these focused builds after changing the consolidated production or test project skeletons, package references, project references, or solution membership:
+
+```powershell
+dotnet build .\src\Archon.Extractors\Archon.Extractors.csproj
+dotnet build .\test\Archon.Extractors.Tests\Archon.Extractors.Tests.csproj
+```
+
+These commands prove that the consolidated extractor production and test projects can restore and compile with the normalized .NET 10 settings, inward-facing dependencies, and shared test package baseline. They do not remove the need for targeted API extraction tests when API orchestration adapters are renamed, because those adapters live in `src/Archon.Api.Extraction` and compose the consolidated extractor categories into the application pipeline.
+
+For migrated extractor category behavior, run the consolidated extractor tests from the repository root after the consolidated test project has been built:
+
+```powershell
+dotnet test .\test\Archon.Extractors.Tests\Archon.Extractors.Tests.csproj --no-restore --no-build --filter FullyQualifiedName~Archon.Extractors.Tests
+```
+
+This command verifies migrated category behavior through the consolidated test assembly. When a change touches API extraction stage adapter names or dependency-injection registration, also run the focused API extraction tests that cover `AddArchonExtractionApi`, `ExtractionEndpointTests`, and the renamed adapter test classes.
 
 ## WP010 external integration extraction validation
 
@@ -170,12 +193,12 @@ The current WP010 validation path covers the integration extractor project marke
 Use these focused commands when changing WP010 foundation contracts, HTTP/REST detectors, RPC/generated-client detectors, messaging detectors, storage/email/payment detectors, stable-key behavior, graph projection, provider seams, or API orchestration integration:
 
 ```powershell
-dotnet test .\test\Archon.Extractors.Integrations.Tests\Archon.Extractors.Integrations.Tests.csproj
-dotnet test .\test\Archon.Extractors.Integrations.Tests\Archon.Extractors.Integrations.Tests.csproj --filter RpcGeneratedClientIntegrationExtractorTests
-dotnet test .\test\Archon.Extractors.Integrations.Tests\Archon.Extractors.Integrations.Tests.csproj --filter MessagingIntegrationExtractorTests
-dotnet test .\test\Archon.Extractors.Integrations.Tests\Archon.Extractors.Integrations.Tests.csproj --filter ExternalServiceIntegrationExtractorTests
-dotnet test .\test\Archon.Extractors.Integrations.Tests\Archon.Extractors.Integrations.Tests.csproj --filter InternalServiceIntegrationExtractorTests
-dotnet test .\test\Archon.Api.Extraction.Tests\Archon.Api.Extraction.Tests.csproj --filter Wp010ExternalIntegrationExtractionStageTests
+dotnet test .\test\Archon.Extractors.Tests\Archon.Extractors.Tests.csproj --filter FullyQualifiedName~Archon.Extractors.Tests.Integrations
+dotnet test .\test\Archon.Extractors.Tests\Archon.Extractors.Tests.csproj --filter RpcGeneratedClientIntegrationExtractorTests
+dotnet test .\test\Archon.Extractors.Tests\Archon.Extractors.Tests.csproj --filter MessagingIntegrationExtractorTests
+dotnet test .\test\Archon.Extractors.Tests\Archon.Extractors.Tests.csproj --filter ExternalServiceIntegrationExtractorTests
+dotnet test .\test\Archon.Extractors.Tests\Archon.Extractors.Tests.csproj --filter InternalServiceIntegrationExtractorTests
+dotnet test .\test\Archon.Api.Extraction.Tests\Archon.Api.Extraction.Tests.csproj --filter ExternalIntegrationExtractionStageTests
 dotnet build .\Archon.slnx --no-restore
 ```
 
@@ -189,8 +212,8 @@ Use these focused commands when changing WP008 runtime extraction or its API orc
 
 ```powershell
 dotnet test .\test\Archon.Api.Extraction.Tests\Archon.Api.Extraction.Tests.csproj --no-restore
-dotnet test .\test\Archon.Extractors.AspNet.Tests\Archon.Extractors.AspNet.Tests.csproj --no-restore
-dotnet test .\test\Archon.Extractors.LegacyWeb.Tests\Archon.Extractors.LegacyWeb.Tests.csproj --no-restore
+dotnet test .\test\Archon.Extractors.Tests\Archon.Extractors.Tests.csproj --no-restore --filter FullyQualifiedName~Archon.Extractors.Tests.AspNet
+dotnet test .\test\Archon.Extractors.Tests\Archon.Extractors.Tests.csproj --no-restore --filter FullyQualifiedName~Archon.Extractors.Tests.LegacyWeb
 dotnet build .\Archon.slnx --no-restore
 ```
 
@@ -277,27 +300,23 @@ These commands prove that `rules/**/*.json` content is copied into runtime outpu
 
 ## WP011 .NET UI and client extraction validation
 
-The current WP011 validation path covers the shared UI helper layer, Blazor `.razor` extraction, Razor Pages and MVC Razor `.cshtml` extraction, Windows Forms designer/source extraction, WPF XAML extraction, WinUI XAML and package-manifest extraction, .NET MAUI XAML/Shell/platform-head extraction, Avalonia AXAML/view-locator/ReactiveUI extraction, and the unified API-triggered `wp011-ui-client` stage that runs all framework adapters through one orchestration path. The framework extractor tests create temporary repository roots with minimal project files and source-controlled UI artifacts, then execute the corresponding extractor project directly. The unified API tests create a mixed UI fixture so one run can assert cross-framework snapshot output, stable-key deduplication, redaction, warnings, unknowns, and the absence of product UI artifacts. Those tests validate supported static patterns and degraded dynamic patterns without compiling the target UI project, loading designers, loading XAML or AXAML, starting platform runtimes, launching browsers, opening database connections, or contacting live APIs.
+The current WP011 validation path covers the shared UI helper layer, Blazor `.razor` extraction, Razor Pages and MVC Razor `.cshtml` extraction, Windows Forms designer/source extraction, WPF XAML extraction, WinUI XAML and package-manifest extraction, .NET MAUI XAML/Shell/platform-head extraction, Avalonia AXAML/view-locator/ReactiveUI extraction, and the unified API-triggered `wp011-ui-client` stage that runs all framework adapters through one orchestration path. The framework extractor tests now live in the consolidated `test/Archon.Extractors.Tests` project under category folders, and they execute the corresponding category types from the consolidated `src/Archon.Extractors` assembly. The unified API tests create a mixed UI fixture so one run can assert cross-framework snapshot output, stable-key deduplication, redaction, warnings, unknowns, and the absence of product UI artifacts. Those tests validate supported static patterns and degraded dynamic patterns without compiling the target UI project, loading designers, loading XAML or AXAML, starting platform runtimes, launching browsers, opening database connections, or contacting live APIs.
 
 The WP011 tests assert `UiApplication`, `UiComponent`, `UiPage`, `UiView`, `UiRoute`, `UiLayout`, `UiControl`, `UiResource`, `ViewModel`, `Command`, `Binding`, `Method`, `Controller`, `Type`, `Project`, `ExternalService`, and `ConfigurationKey` facts; `DECLARES_COMPONENT`, `DECLARES_UI_ROUTE`, `USES_LAYOUT`, `USES_COMPONENT`, `USES_CONTROL`, `USES_UI_RESOURCE`, `USES_VIEW_MODEL`, `NAVIGATES_TO`, `HANDLES_UI_EVENT`, `USES_COMMAND`, `BINDS_TO`, `CALLS_API`, `USES_CONFIG`, and `DEPENDS_ON` relationships; deterministic repository-relative evidence paths; line spans; snippet hashes; redacted previews; metadata values; confidence; warnings; deduplication; and explicit unknown state.
 
-Use these focused commands when changing WP011 shared UI helpers, framework-specific UI extraction, or API orchestration integration:
+Use these focused commands when changing extractor categories, WP011 shared UI helpers, framework-specific UI extraction, or API orchestration integration:
 
 ```powershell
-dotnet test .\test\Archon.Extractors.Ui.Tests\Archon.Extractors.Ui.Tests.csproj
-dotnet test .\test\Archon.Extractors.Blazor.Tests\Archon.Extractors.Blazor.Tests.csproj --filter Blazor
-dotnet test .\test\Archon.Extractors.Razor.Tests\Archon.Extractors.Razor.Tests.csproj
-dotnet test .\test\Archon.Extractors.WinForms.Tests\Archon.Extractors.WinForms.Tests.csproj
-dotnet test .\test\Archon.Extractors.Wpf.Tests\Archon.Extractors.Wpf.Tests.csproj --filter Wpf
-dotnet test .\test\Archon.Extractors.WinUI.Tests\Archon.Extractors.WinUI.Tests.csproj --filter WinUI
-dotnet test .\test\Archon.Extractors.Maui.Tests\Archon.Extractors.Maui.Tests.csproj --filter Maui
-dotnet test .\test\Archon.Extractors.Avalonia.Tests\Archon.Extractors.Avalonia.Tests.csproj --filter Avalonia
+dotnet build .\src\Archon.Extractors\Archon.Extractors.csproj
+dotnet build .\test\Archon.Extractors.Tests\Archon.Extractors.Tests.csproj
+dotnet test .\test\Archon.Extractors.Tests\Archon.Extractors.Tests.csproj --filter "FullyQualifiedName~Archon.Extractors.Tests"
 dotnet test .\test\Archon.Api.Extraction.Tests\Archon.Api.Extraction.Tests.csproj --filter Ui
 dotnet test .\test\Archon.Api.Extraction.Tests\Archon.Api.Extraction.Tests.csproj --filter Wp011
+dotnet test .\test\Archon.Tests\Archon.Tests.csproj --filter "FullyQualifiedName~ProjectIdentityTests"
 dotnet build .\Archon.slnx --no-restore
 ```
 
-These commands do not start the Aspire AppHost, do not render Razor components or views, do not launch Playwright or a browser, do not call live APIs, do not instantiate target Blazor, ASP.NET Core, Windows Forms, WPF, WinUI, MAUI, or Avalonia applications, do not execute Razor Page handlers or MVC actions, do not evaluate tag helpers, do not load Windows Forms designers, do not load XAML or AXAML, do not run MAUI platform heads, do not start Avalonia desktop lifetimes, do not instantiate controls, do not open database connections, do not require Neo4j credentials, and do not invoke MCP tools. When package or project references have changed, run `dotnet restore .\Archon.slnx` first; otherwise use the focused test commands and the no-restore build gate so failures point to compile, extraction, or graph-contract behavior rather than package acquisition. Contributor-facing details for supported Blazor, Razor Pages, MVC Razor, Windows Forms, WPF, WinUI, MAUI, and Avalonia facts, stable keys, evidence, confidence, unknown state, redaction, current exclusions, and extension guidance live in [.NET UI and client extraction](dotnet-ui-client-extraction.md).
+These commands do not start the Aspire AppHost, do not render Razor components or views, do not launch Playwright or a browser, do not call live APIs, do not instantiate target Blazor, ASP.NET Core, Windows Forms, WPF, WinUI, MAUI, or Avalonia applications, do not execute Razor Page handlers or MVC actions, do not evaluate tag helpers, do not load Windows Forms designers, do not load XAML or AXAML, do not run MAUI platform heads, do not start Avalonia desktop lifetimes, do not instantiate controls, do not open database connections, do not require Neo4j credentials, and do not invoke MCP tools. When package or project references have changed, run `dotnet restore .\Archon.slnx` first; otherwise use the focused test commands and the no-restore build gate so failures point to compile, extraction, or graph-contract behavior rather than package acquisition. The consolidated extractor test command also covers non-UI extractor categories such as projects, configuration, dependency injection, data access, ASP.NET runtime, legacy web, and external integrations because their tests now share the same assembly. Contributor-facing details for supported Blazor, Razor Pages, MVC Razor, Windows Forms, WPF, WinUI, MAUI, and Avalonia facts, stable keys, evidence, confidence, unknown state, redaction, current exclusions, and extension guidance live in [.NET UI and client extraction](dotnet-ui-client-extraction.md).
 
 ## WP015 MCP server validation
 
