@@ -1,6 +1,6 @@
 import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
-import type { ButtonHTMLAttributes } from 'react';
+import { forwardRef, type ButtonHTMLAttributes } from 'react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -52,10 +52,10 @@ export interface ButtonProps
  * @param props.variant Selects the visual treatment for the primitive.
  * @returns A native button or slotted child element with the selected button styling.
  */
-export function Button({ asChild = false, className, size, variant, ...props }: ButtonProps) {
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button({ asChild = false, className, size, variant, ...props }, ref) {
   // Slot support mirrors shadcn/ui behavior, while the default native button keeps placeholder
   // shell actions keyboard-accessible without introducing menu or command dependencies yet.
   const Comp = asChild ? Slot : 'button';
 
-  return <Comp className={cn(buttonVariants({ className, size, variant }))} {...props} />;
-}
+  return <Comp ref={ref} className={cn(buttonVariants({ className, size, variant }))} {...props} />;
+});

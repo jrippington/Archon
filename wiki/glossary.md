@@ -12,7 +12,7 @@ An AppHost is an Aspire project that describes which services, containers, and d
 
 ## ArchonExplorer
 
-ArchonExplorer is Archon's browser-facing user interface application. In the current foundation it is a standalone Vite, React, and TypeScript application under `src/ArchonExplorer` with a visible workbench shell, shadcn-compatible component foundation, safe API connectivity indicator, the shared ArchonApi route catalog, a typed operational API client, stable query-key and polling helpers, deterministic runtime test doubles, a safe notification runtime, placeholder-only workbench regions, and Aspire AppHost composition as a local Vite resource; later work items add functional API-backed feature behavior.
+ArchonExplorer is Archon's browser-facing user interface application. In the current foundation it is a standalone Vite, React, and TypeScript application under `src/ArchonExplorer` with a visible workbench shell, local activity and tab state, contextual primary sidebar placeholders, persisted layout preferences, a controllable bottom panel, a keyboard-driven command palette, shell notification placement, a shadcn-compatible component foundation, safe API connectivity indicator, the shared ArchonApi route catalog, a typed operational API client, stable query-key and polling helpers, deterministic runtime test doubles, a safe notification runtime, placeholder-only workbench regions, and Aspire AppHost composition as a local Vite resource; later work items add functional API-backed feature behavior.
 
 ## ArchonApi route catalog
 
@@ -78,6 +78,18 @@ A notification runtime is the frontend provider, hook, helper API, and viewport 
 
 A transient notification is a short-lived application message used to announce that an operation started, completed, changed state, or failed safely. It can help users notice operational events, but it must not be the only representation for validation failures, long-lived outages, retryable page errors, or other conditions that need durable page-level context.
 
+## Notification host
+
+A notification host is the shell placement seam that explains where safe transient notification messages appear. ArchonExplorer's current notification host does not create a second toast runtime; it points shell commands to the existing notification runtime and reminds contributors that persistent errors still belong in their owning feature region.
+
+## Browser validation
+
+Browser validation is automated validation that opens the frontend in a real browser engine and interacts with visible controls, keyboard shortcuts, focus behavior, landmarks, and accessible names. ArchonExplorer uses focused Playwright tests for this purpose under `src/ArchonExplorer/src/test-e2e` without starting ArchonApi, Neo4j, the MCP host, or the Aspire AppHost.
+
+## Playwright
+
+Playwright is the browser automation runner used for focused ArchonExplorer shell journeys. The current frontend-local configuration starts the Vite development server, runs Chromium-based checks for shell rendering and keyboard flow, and keeps generated reports beside the frontend project.
+
 ## Validation problem
 
 A validation problem is the ASP.NET Core problem-details response shape that carries request validation failures in an `errors` dictionary. ArchonExplorer converts validation problems into normalized field or form issues after sanitizing field names, messages, and trace metadata.
@@ -92,19 +104,55 @@ A Vite resource is an Aspire-managed JavaScript application that starts a Vite d
 
 ## Workbench shell
 
-A workbench shell is the persistent desktop-style frame around ArchonExplorer's future feature areas. The current shell includes the top app frame, activity rail, command/search affordance, main workspace start state, status bar, theme affordance, and safe setup indicators without implementing extraction, snapshot, search, graph, evidence, findings, or notification behavior.
+A workbench shell is the persistent desktop-style frame around ArchonExplorer's future feature areas. The current shell includes the top app frame, activity rail, primary sidebar, tabbed work area, command/search affordance, keyboard-driven command palette, notification host, status bar, theme affordance, and safe setup indicators without implementing extraction, snapshot administration, architecture search results, graph rendering, evidence inspection, findings workflows, or a notification center.
 
 ## Activity rail
 
-An activity rail is the left-side navigation region that identifies major workbench areas. ArchonExplorer currently uses it as a placeholder for Dashboard, Extraction Center, Snapshots, Search, Projects, Findings, Diagnostics, and Settings while keeping unavailable areas disabled.
+An activity rail is the left-side navigation region that identifies major workbench areas. ArchonExplorer currently uses it for local shell navigation among Dashboard, Extraction Center, Snapshots, Search, Projects, Findings, Diagnostics, and Settings while keeping each activity's feature content clearly marked as placeholder-only.
+
+## Primary sidebar
+
+A primary sidebar is the contextual navigation region beside the main work area. ArchonExplorer currently updates it from local activity state and renders safe placeholder navigation for the selected activity without loading feature data or exposing diagnostics.
+
+## Tabbed work area
+
+A tabbed work area is the central shell region that hosts one or more workbench tabs. ArchonExplorer currently renders a required `Workbench Start` tab and uses local state to select tabs while later work packages add real feature documents.
+
+## Workbench tab
+
+A workbench tab is a local shell document identity with a stable tab identifier, readable title, owning activity, and placeholder summary. The required start tab is the recovery destination when stale or invalid tab identifiers are encountered.
+
+## Local workbench state
+
+Local workbench state is browser-owned UI state for the shell itself, such as active activity, open tabs, active tab, sidebar state, bounded layout sizes, bottom-panel visibility, and command-palette visibility. It is distinct from server state and must not store secrets, raw diagnostics, API responses, architecture facts, extraction run histories, snapshot lists, or search results.
+
+## Persisted layout preference
+
+A persisted layout preference is the versioned browser-local record that remembers safe shell chrome choices such as selected activity, sidebar width, bottom-panel height, sidebar collapsed state, and bottom-panel visibility. ArchonExplorer validates the record before use and falls back to defaults for missing, malformed, future-version, or out-of-range values.
+
+## Resizable panel
+
+A resizable panel is a workbench shell region whose size can be adjusted while the shell frame remains stable. ArchonExplorer currently uses bounded percentage values and accessible separator controls for the primary sidebar and bottom panel without introducing a separate layout component library.
+
+## Bottom panel
+
+A bottom panel is the lower contextual workbench region reserved for background work, extraction run feedback, and diagnostics. In the current shell it is controllable, persisted, and placeholder-only; it must not display raw stack traces, connection strings, environment variables, raw Cypher, Neo4j internals, driver details, or fabricated feature data.
+
+## Command palette
+
+A command palette is a keyboard-oriented shell dialog that lists and filters available local commands. ArchonExplorer opens the current palette with `Ctrl+K`, `Meta+K`, or the top-frame button, and scopes it to shell commands rather than global architecture search or API-backed results.
+
+## Shell command
+
+A shell command is a named local action that changes workbench shell state or publishes safe transient feedback. Current examples include switching activities, toggling the bottom panel, focusing the required start tab, resetting layout preferences, and explaining unavailable future architecture search.
 
 ## Command/search affordance
 
-A command/search affordance is a visible control region that reserves space for future architecture search and command-palette workflows. In the current ArchonExplorer shell it is intentionally disabled and explanatory, so it does not imply that real search or command execution exists.
+A command/search affordance is a visible control region that opens the current shell command palette while reserving space for future architecture search. In the current ArchonExplorer shell it runs local shell commands only and uses explicit wording to avoid implying that global search results or graph-backed architecture queries exist.
 
 ## Status bar
 
-A status bar is the bottom shell region that carries cross-cutting context. ArchonExplorer currently reserves status slots for active snapshot `current`, API connectivity, background work, and selection context while showing safe placeholder or connectivity text.
+A status bar is the bottom shell region that carries cross-cutting context. ArchonExplorer currently reserves status slots for active snapshot `current`, API connectivity, background work with bottom-panel visibility, and selected activity context while showing safe placeholder or connectivity text.
 
 ## Shell placeholder
 
@@ -112,7 +160,7 @@ A shell placeholder is visible UI that reserves a future feature location while 
 
 ## shadcn/ui
 
-shadcn/ui is a copy-and-own React component convention used by ArchonExplorer for local UI primitives, token names, aliases, and component metadata. The current foundation provides minimal local Button, Badge, and Card primitives rather than adopting a separate ordinary component library.
+shadcn/ui is a copy-and-own React component convention used by ArchonExplorer for local UI primitives, token names, aliases, and component metadata. The current foundation provides minimal local Button, Badge, Card, and command primitives rather than adopting a separate ordinary component library.
 
 ## Frontend foundation
 

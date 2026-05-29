@@ -122,7 +122,7 @@ The first graph or visual analytics implementation should not begin until WP004 
 
 # 4. Work Packages
 
-## WP001 - ArchonExplorer Foundation
+## WP001 - ArchonExplorer Foundation - complete
 
 ### UI brief references
 
@@ -206,7 +206,7 @@ Introduce the minimal application bootstrap state only:
 
 ---
 
-## WP002 - API Client and Runtime Foundation
+## WP002 - API Client and Runtime Foundation - complete
 
 ### UI brief references
 

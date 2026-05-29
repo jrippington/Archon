@@ -51,7 +51,10 @@ const startStateItems: readonly StartStateItem[] = [
 ];
 
 /**
- * Renders the main workspace start state for the foundation shell.
+ * Renders the legacy main workspace start state for the foundation shell.
+ *
+ * The WP003 tabbed work area now hosts the default start content, but this component remains
+ * available for older tests or transitional callers that still need the foundation copy.
  *
  * @returns A non-interactive workspace panel that explains what exists and what remains pending.
  */
