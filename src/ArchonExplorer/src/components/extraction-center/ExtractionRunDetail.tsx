@@ -1,4 +1,4 @@
-import { Activity, Copy, ExternalLink } from 'lucide-react';
+import { Copy, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { ExtractionRunPersistenceCountsResponse, ExtractionRunPersistenceDiagnosticsResponse, ExtractionRunStatusResponse, ExtractionRunTimingResponse, NormalizedArchonApiError } from '@/api/archonApiTypes';
@@ -73,7 +73,7 @@ export function ExtractionRunDetail({ selectedRunId, run, error, isLoading, isRe
   if (normalizedSelectedRunId === undefined || normalizedSelectedRunId.length === 0) {
     return (
       <section aria-labelledby="selected-run-detail-title" className="extraction-run-detail">
-        <RunDetailNotice title="Selected run detail" message="Select a history row or submit a new extraction request to monitor one run here." />
+        <RunDetailNotice title="Selected run detail" message="Select a run." />
       </section>
     );
   }
@@ -81,7 +81,7 @@ export function ExtractionRunDetail({ selectedRunId, run, error, isLoading, isRe
   if (isLoading && run === undefined) {
     return (
       <section aria-labelledby="selected-run-detail-title" className="extraction-run-detail">
-        <RunDetailNotice title="Loading selected run" message={`ArchonExplorer is reading status for run ${normalizedSelectedRunId}.`} />
+        <RunDetailNotice title="Loading selected run" message={`Reading ${normalizedSelectedRunId}.`} />
         <UnavailableRunFollowUpActions reason={duplicateRequestUnavailableReason} />
       </section>
     );
@@ -98,7 +98,7 @@ export function ExtractionRunDetail({ selectedRunId, run, error, isLoading, isRe
   if (run === undefined) {
     return (
       <section aria-labelledby="selected-run-detail-title" className="extraction-run-detail">
-        <RunDetailNotice title="Selected run unavailable" message="The selected run cannot be displayed yet. Choose another run or refresh history." />
+        <RunDetailNotice title="Selected run unavailable" message="Choose another run or refresh history." />
         <UnavailableRunFollowUpActions reason={duplicateRequestUnavailableReason} />
       </section>
     );
@@ -131,16 +131,16 @@ function UnavailableRunFollowUpActions({ reason }: UnavailableRunFollowUpActions
     <section aria-labelledby="selected-run-actions-title" className="extraction-run-detail__section extraction-run-detail__actions">
       <h3 id="selected-run-actions-title">Run follow-up actions</h3>
       <div className="extraction-run-detail__action-row">
-        <Button type="button" variant="outline" size="sm" disabled aria-disabled="true">
+        <Button type="button" variant="outline" size="sm" disabled aria-disabled="true" title="History rows do not include explicit solution paths. Load GET /extractions/{runId} before duplicating a request.">
           <Copy aria-hidden="true" size={16} />
           Duplicate request unavailable
         </Button>
-        <Button type="button" variant="outline" size="sm" disabled aria-disabled="true">
+        <Button type="button" variant="outline" size="sm" disabled aria-disabled="true" title="Produced snapshot opening is reserved for WP006 snapshot context activation.">
           <ExternalLink aria-hidden="true" size={16} />
           Open produced snapshot
         </Button>
       </div>
-      <p>{reason ?? 'Load selected run detail to duplicate the prior request values safely. History rows only expose compact summaries.'}</p>
+      <p title="History rows do not include explicit solution paths. Load GET /extractions/{runId} before duplicating a request.">{reason ?? 'Load details before duplicating.'}</p>
     </section>
   );
 }
@@ -172,7 +172,6 @@ function RunDetailNotice({ title, message }: RunDetailNoticeProps) {
   // A status region announces state transitions without implying that an error occurred.
   return (
     <div className="extraction-run-detail__notice" role="status">
-      <Activity aria-hidden="true" size={20} />
       <div>
         <h2 id="selected-run-detail-title">{title}</h2>
         <p>{message}</p>
@@ -214,7 +213,6 @@ function RunDetailErrorNotice({ error, selectedRunId }: RunDetailErrorNoticeProp
 
   return (
     <div className="extraction-run-detail__notice extraction-run-detail__notice--error" role="alert">
-      <Activity aria-hidden="true" size={20} />
       <div>
         <h2 id="selected-run-detail-title">{title}</h2>
         <p>{error.message}</p>
@@ -273,10 +271,8 @@ function RunDetailLoaded({ run, isRefetching, onDuplicateRequest, duplicateReque
     <section aria-labelledby="selected-run-detail-title" className="extraction-run-detail">
       <div className="extraction-run-detail__heading">
         <div>
-          <h2 id="selected-run-detail-title">Selected run detail</h2>
-          <p>
-            This monitor reads <code>GET /extractions/{'{runId}'}</code> through the typed client and stops automatic polling when the run reaches a terminal status.
-          </p>
+          <h2 id="selected-run-detail-title">Selected run properties</h2>
+          <p title="Selected run detail is read through GET /extractions/{runId}.">Route: GET /extractions/{'{runId}'}</p>
         </div>
         <div className="extraction-run-detail__badges" aria-label="Selected run state">
           <Badge variant="outline">{formatPollingState(pollingState)}</Badge>
@@ -284,14 +280,16 @@ function RunDetailLoaded({ run, isRefetching, onDuplicateRequest, duplicateReque
           {isTerminal ? <Badge variant="secondary">Terminal status</Badge> : <Badge variant="outline">Active monitor</Badge>}
         </div>
       </div>
-      <RunIdentitySection run={run} />
+      <div className="extraction-run-detail__properties" data-scroll-region="selected-run-properties">
+        <RunIdentitySection run={run} />
+        <SubmittedRequestSection run={run} />
+        <ProgressSection run={run} pollingState={pollingState} />
+        <RunTimings timings={run.timings} title="Top-level timings" emptyMessage="No timing measurements." />
+        <PersistenceDiagnostics diagnostics={run.persistenceDiagnostics} />
+      </div>
       <RunFollowUpActions duplicateRequestUnavailableReason={duplicateRequestUnavailableReason} onDuplicateRequest={onDuplicateRequest} onOpenProducedSnapshot={onOpenProducedSnapshot} run={run} />
-      <SubmittedRequestSection run={run} />
-      <ProgressSection run={run} pollingState={pollingState} />
-      <RunTimings timings={run.timings} title="Top-level timings" emptyMessage="No top-level timing measurements are available yet." />
-      <PersistenceDiagnostics diagnostics={run.persistenceDiagnostics} />
       <p className="extraction-run-detail__safe-note">
-        Warning and error details are intentionally not fabricated when ArchonApi exposes only counts. Metadata values are omitted; only metadata keys are shown.
+        Counts and metadata keys only.
       </p>
     </section>
   );
@@ -341,20 +339,20 @@ function RunFollowUpActions({ run, onDuplicateRequest, duplicateRequestUnavailab
     <section aria-labelledby="selected-run-actions-title" className="extraction-run-detail__section extraction-run-detail__actions">
       <h3 id="selected-run-actions-title">Run follow-up actions</h3>
       <div className="extraction-run-detail__action-row">
-        <Button type="button" variant="outline" size="sm" onClick={onDuplicateRequest} disabled={duplicateDisabled} aria-disabled={duplicateDisabled}>
+        <Button type="button" variant="outline" size="sm" onClick={onDuplicateRequest} disabled={duplicateDisabled} aria-disabled={duplicateDisabled} title="Copy safe submitted request fields into New Extraction without submitting.">
           <Copy aria-hidden="true" size={16} />
           Duplicate request
         </Button>
-        <Button type="button" variant="outline" size="sm" onClick={onOpenProducedSnapshot} disabled={!hasProducedSnapshot || onOpenProducedSnapshot === undefined} aria-disabled={!hasProducedSnapshot || onOpenProducedSnapshot === undefined}>
+        <Button type="button" variant="outline" size="sm" onClick={onOpenProducedSnapshot} disabled={!hasProducedSnapshot || onOpenProducedSnapshot === undefined} aria-disabled={!hasProducedSnapshot || onOpenProducedSnapshot === undefined} title="Announce produced snapshot identity without opening WP006 snapshot context.">
           <ExternalLink aria-hidden="true" size={16} />
           Open produced snapshot
         </Button>
       </div>
-      {duplicateDisabled ? <p><strong>Duplicate request unavailable.</strong> {duplicateRequestUnavailableReason ?? 'The selected run has not exposed enough request values yet.'}</p> : <p>Duplicate request copies available repository, solution path, branch, commit, and requested-by values into the form without submitting a new extraction.</p>}
+      {duplicateDisabled ? <p><strong>Duplicate unavailable.</strong> {duplicateRequestUnavailableReason ?? 'Request values are incomplete.'}</p> : <p title="Copy safe submitted request fields into New Extraction without submitting.">Copies request fields.</p>}
       {hasProducedSnapshot ? (
-        <p>Snapshot context is not active yet. WP006 owns opening produced snapshots for dashboards, search, graph views, and lenses. WP006 owns full snapshot context activation. This action does not query graph data, dashboard metrics, search, lenses, or visualizations.</p>
+        <p title="This placeholder does not query graph data, dashboard metrics, search, lenses, visualizations, or snapshot lifecycle routes.">Snapshot handoff is pending WP006.</p>
       ) : (
-        <p>No produced snapshot is available to open for this run yet.</p>
+        <p>No produced snapshot yet.</p>
       )}
     </section>
   );
@@ -381,7 +379,7 @@ function RunIdentitySection({ run }: RunSectionProps) {
   // Identity fields stay grouped so users can copy the run ID and understand whether a snapshot was produced.
   return (
     <section aria-labelledby="selected-run-identity-title" className="extraction-run-detail__section">
-      <h3 id="selected-run-identity-title">Run identity and lifecycle</h3>
+      <h3 id="selected-run-identity-title">Run</h3>
       <dl className="extraction-run-detail__grid">
         <DetailItem label="Run ID" value={run.runId} />
         <DetailItem label="Status" value={formatStatus(run.status)} />
@@ -407,7 +405,7 @@ function SubmittedRequestSection({ run }: RunSectionProps) {
   // not turn into a secret or environment-specific diagnostic leak.
   return (
     <section aria-labelledby="selected-run-request-title" className="extraction-run-detail__section">
-      <h3 id="selected-run-request-title">Submitted request summary</h3>
+      <h3 id="selected-run-request-title">Request</h3>
       <dl className="extraction-run-detail__grid">
         <DetailItem label="Repository root" value={run.submittedRequest.repositoryRootDirectory} />
         <DetailItem label="Solution paths" value={formatList(run.submittedRequest.solutionPaths, 'No solution paths supplied')} />
@@ -490,23 +488,31 @@ interface RunTimingsProps {
    * Provides the explanatory message shown when no timings are available.
    */
   readonly emptyMessage: string;
+
+  /**
+   * Indicates whether the timing section is nested inside another selected-run property group.
+   */
+  readonly isNested?: boolean;
 }
 
 /**
  * Renders an ordered timing summary table.
  *
- * @param props Contains title, timing rows, and empty-state text.
+ * @param props Contains title, timing rows, nesting, and empty-state text.
  * @param props.title The section heading.
  * @param props.timings The ordered timing measurements to render.
  * @param props.emptyMessage The safe empty-state explanation.
+ * @param props.isNested Indicates that the section is visually nested inside another property group.
  * @returns A timing table or safe empty-state message.
  */
-function RunTimings({ title, timings, emptyMessage }: RunTimingsProps) {
+function RunTimings({ title, timings, emptyMessage, isNested = false }: RunTimingsProps) {
   // Timing stage names are API-controlled display strings. Durations are formatted from numeric
   // milliseconds so the UI does not infer unreported performance detail.
+  const sectionClassName = isNested ? 'extraction-run-detail__section extraction-run-detail__section--nested' : 'extraction-run-detail__section';
+
   if (timings.length === 0) {
     return (
-      <section aria-labelledby={`${toDomId(title)}-title`} className="extraction-run-detail__section">
+      <section aria-labelledby={`${toDomId(title)}-title`} className={sectionClassName}>
         <h3 id={`${toDomId(title)}-title`}>{title}</h3>
         <p>{emptyMessage}</p>
       </section>
@@ -514,7 +520,7 @@ function RunTimings({ title, timings, emptyMessage }: RunTimingsProps) {
   }
 
   return (
-    <section aria-labelledby={`${toDomId(title)}-title`} className="extraction-run-detail__section">
+    <section aria-labelledby={`${toDomId(title)}-title`} className={sectionClassName}>
       <h3 id={`${toDomId(title)}-title`}>{title}</h3>
       <div className="extraction-run-detail__table-wrap">
         <table className="extraction-run-detail__table">
@@ -565,7 +571,7 @@ function PersistenceDiagnostics({ diagnostics }: PersistenceDiagnosticsProps) {
     return (
       <section aria-labelledby="selected-run-persistence-title" className="extraction-run-detail__section">
         <h3 id="selected-run-persistence-title">Persistence diagnostics</h3>
-        <p>Persistence diagnostics are not available for this run yet. Counts remain limited to the top-level warning and error totals.</p>
+        <p>Not available.</p>
       </section>
     );
   }
@@ -573,9 +579,9 @@ function PersistenceDiagnostics({ diagnostics }: PersistenceDiagnosticsProps) {
   return (
     <section aria-labelledby="selected-run-persistence-title" className="extraction-run-detail__section">
       <h3 id="selected-run-persistence-title">Persistence diagnostics</h3>
-      <p>{diagnostics.completed ? 'The persistence diagnostic set represents a completed persistence attempt.' : 'The persistence diagnostic set may represent partial evidence collected before failure.'}</p>
+      <p>{diagnostics.completed ? 'Completed persistence attempt.' : 'Partial persistence evidence.'}</p>
       <PersistenceCounts counts={diagnostics.counts} />
-      <RunTimings title="Persistence timings" timings={diagnostics.timings} emptyMessage="No persistence sub-stage timings are available." />
+      <RunTimings title="Persistence timings" timings={diagnostics.timings} emptyMessage="No persistence timings." isNested={true} />
     </section>
   );
 }

@@ -1,4 +1,4 @@
-import { defaultWorkbenchTabId, type WorkbenchState } from '@/state/workbenchStore';
+import { snapshotWorkspaceTabId, type WorkbenchState } from '@/state/workbenchStore';
 import type { ExtractionCenterState } from '@/state/extractionCenterStore';
 import { workbenchActivities, type WorkbenchActivityId } from './workbenchActivities';
 import type { OperationNotificationOptions } from '@/providers/NotificationProvider';
@@ -6,7 +6,7 @@ import type { OperationNotificationOptions } from '@/providers/NotificationProvi
 /**
  * Names the stable command groups shown in the Workbench command palette.
  */
-export type WorkbenchCommandGroup = 'Activities' | 'Panels' | 'Tabs' | 'Layout' | 'Focus' | 'Extraction Center' | 'Future Search';
+export type WorkbenchCommandGroup = 'Activities' | 'Panels' | 'Tabs' | 'Layout' | 'Focus' | 'Snapshot Workspace' | 'Future Search';
 
 /**
  * Describes one shell-level command that can be rendered and executed by the command palette.
@@ -149,7 +149,7 @@ export function getWorkbenchShellCommands(context: WorkbenchCommandContext): rea
     ...createTabCommands(context),
     ...createLayoutCommands(context),
     ...createFocusCommands(context),
-    ...createExtractionCenterCommands(context),
+    ...createSnapshotWorkspaceCommands(context),
     createFutureSearchCommand(context),
   ];
 }
@@ -219,16 +219,16 @@ function createPanelCommands(context: WorkbenchCommandContext): readonly Workben
  * @returns Tab commands for focusing the required start tab.
  */
 function createTabCommands(context: WorkbenchCommandContext): readonly WorkbenchShellCommand[] {
-  // The shell currently has one required start tab. Using a command now proves the tab command
-  // seam without creating fabricated document tabs or feature-specific editor content.
+  // The shell currently has one required Snapshot workspace tab. Using a command now proves the
+  // tab command seam without creating fabricated document tabs or browser navigation.
   return [
     {
-      id: 'workbench.tab.start',
-      label: 'Open Workbench Start',
+      id: 'workbench.tab.snapshotWorkspace',
+      label: 'Open Snapshot Workspace Tab',
       group: 'Tabs',
-      description: 'Focus the required local start tab in the work area.',
+      description: 'Focus the required Snapshot workspace tab in the work area.',
       execute: () => {
-        context.selectTab(defaultWorkbenchTabId);
+        context.selectTab(snapshotWorkspaceTabId);
       },
     },
   ];
@@ -291,39 +291,39 @@ function createFocusCommands(context: WorkbenchCommandContext): readonly Workben
 }
 
 /**
- * Creates Extraction Center workflow commands that coordinate with the feature store.
+ * Creates Snapshot workspace workflow commands that coordinate with the feature store.
  *
- * @param context The command context that supplies shell navigation plus Extraction Center actions.
- * @returns Extraction Center commands for opening the feature, focusing the form, refreshing history, and selecting tracked runs.
+ * @param context The command context that supplies shell navigation plus Snapshot workspace actions.
+ * @returns Snapshot commands for opening the feature, focusing the form, refreshing history, and selecting tracked runs.
  */
-function createExtractionCenterCommands(context: WorkbenchCommandContext): readonly WorkbenchShellCommand[] {
+function createSnapshotWorkspaceCommands(context: WorkbenchCommandContext): readonly WorkbenchShellCommand[] {
   // These commands keep users in the existing workbench frame. They communicate feature intents
   // through shared local state while TanStack Query remains responsible for server-state refreshes.
   const extractionCenter = context.extractionCenter;
   const hasVisibleTrackedRun = extractionCenter?.state.trackedRuns.some((run) => !run.isAcknowledged) === true;
-  const prerequisiteMessage = 'Open Extraction Center before running this command so the feature workflow state is available.';
+  const prerequisiteMessage = 'Open Snapshot Workspace before running this command so the feature workflow state is available.';
 
   return [
     {
-      id: 'extractionCenter.open',
-      label: 'Open Extraction Center',
-      group: 'Extraction Center',
-      description: 'Open or focus the API-backed Extraction Center tab inside the workbench shell.',
+      id: 'snapshotWorkspace.open',
+      label: 'Open Snapshot Workspace',
+      group: 'Snapshot Workspace',
+      description: 'Open or focus the API-backed Snapshot workspace tab inside the workbench shell.',
       execute: () => {
-        context.selectActivity('extraction-center');
+        context.selectActivity('snapshots');
       },
     },
     {
-      id: 'extractionCenter.focusForm',
-      label: 'Focus Extraction Center New Request Form',
-      group: 'Extraction Center',
-      description: 'Open Extraction Center and move focus to the persistent start-form summary when the page is mounted.',
+      id: 'snapshotWorkspace.focusForm',
+      label: 'Focus Snapshot New Extraction Pane',
+      group: 'Snapshot Workspace',
+      description: 'Open Snapshot Workspace and move focus to the persistent new-extraction summary when the pane is mounted.',
       isDisabled: extractionCenter === undefined,
       disabledReason: extractionCenter === undefined ? prerequisiteMessage : undefined,
       execute: () => {
-        context.selectActivity('extraction-center');
+        context.selectActivity('snapshots');
         if (extractionCenter === undefined) {
-          context.notifyInformation({ operationName: 'Extraction Center command unavailable', detail: prerequisiteMessage });
+          context.notifyInformation({ operationName: 'Snapshot Workspace command unavailable', detail: prerequisiteMessage });
           return;
         }
 
@@ -331,16 +331,16 @@ function createExtractionCenterCommands(context: WorkbenchCommandContext): reado
       },
     },
     {
-      id: 'extractionCenter.refreshHistory',
-      label: 'Refresh Extraction Center History',
-      group: 'Extraction Center',
-      description: 'Open Extraction Center and request a safe TanStack Query refresh of recent extraction history.',
+      id: 'snapshotWorkspace.refreshHistory',
+      label: 'Refresh Snapshot Run History',
+      group: 'Snapshot Workspace',
+      description: 'Open Snapshot Workspace and request a safe TanStack Query refresh of recent extraction history.',
       isDisabled: extractionCenter === undefined,
       disabledReason: extractionCenter === undefined ? prerequisiteMessage : undefined,
       execute: () => {
-        context.selectActivity('extraction-center');
+        context.selectActivity('snapshots');
         if (extractionCenter === undefined) {
-          context.notifyInformation({ operationName: 'Extraction Center command unavailable', detail: prerequisiteMessage });
+          context.notifyInformation({ operationName: 'Snapshot Workspace command unavailable', detail: prerequisiteMessage });
           return;
         }
 
@@ -348,14 +348,14 @@ function createExtractionCenterCommands(context: WorkbenchCommandContext): reado
       },
     },
     {
-      id: 'extractionCenter.focusActiveBackgroundRun',
+      id: 'snapshotWorkspace.focusActiveBackgroundRun',
       label: 'Focus Active Extraction Background Run',
-      group: 'Extraction Center',
-      description: 'Open Extraction Center and select the first tracked run still visible in the bottom-panel monitor.',
+      group: 'Snapshot Workspace',
+      description: 'Open Snapshot Workspace and select the first tracked run still visible in the bottom-panel monitor.',
       isDisabled: !hasVisibleTrackedRun,
       disabledReason: hasVisibleTrackedRun ? undefined : 'No tracked extraction run is currently visible in the bottom-panel monitor.',
       execute: () => {
-        context.selectActivity('extraction-center');
+        context.selectActivity('snapshots');
         if (extractionCenter === undefined || !hasVisibleTrackedRun) {
           context.notifyInformation({
             operationName: 'No active extraction background run',

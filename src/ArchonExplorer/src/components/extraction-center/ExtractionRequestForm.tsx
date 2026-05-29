@@ -1,6 +1,5 @@
 import type { FormEvent, ReactNode, RefObject } from 'react';
-import { Activity, Plus, Trash2 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { ApiConnectivityState } from '@/api/connectivity';
 import type { StartExtractionError } from '@/hooks/useStartExtraction';
@@ -74,6 +73,9 @@ export function ExtractionRequestForm({ state, validationMessages, submissionErr
   // preserve every entered value for correction.
   const isApiConfigured = connectivityState.status !== 'unconfigured';
   const canSubmit = isApiConfigured && !isSubmitting;
+  const guardedSubmitMessage = connectivityState.status === 'unconfigured'
+    ? 'API not configured.'
+    : 'API unavailable.';
 
   /**
    * Handles the native submit event without allowing browser page navigation.
@@ -91,110 +93,113 @@ export function ExtractionRequestForm({ state, validationMessages, submissionErr
     <section aria-labelledby="start-extraction-title" className="extraction-request-form">
       <div className="extraction-request-form__heading">
         <div>
-          <h2 id="start-extraction-title">Start extraction</h2>
-          <p>
-            Submit an explicit repository root and one or more explicit solution paths. ArchonExplorer does not recursively discover solution files.
-          </p>
+          <h2 id="start-extraction-title">New Extraction</h2>
+          <p title="Submit explicit solution paths through POST /extractions. Recursive discovery is not used.">Route: POST /extractions</p>
         </div>
-        <Badge variant={connectivityState.status === 'reachable' ? 'secondary' : 'outline'}>{connectivityState.label}</Badge>
+        <span className="extraction-request-form__connectivity" data-connectivity-status={connectivityState.status}>{connectivityState.label}</span>
       </div>
       <form className="extraction-request-form__form" onSubmit={handleSubmit} noValidate>
         <SubmissionFeedback validationMessages={validationMessages} submissionError={submissionError} connectivityState={connectivityState} duplicateNotice={duplicateNotice} formSummaryRef={formSummaryRef} />
-        <FieldGroup fieldId="repository-root-directory" label="Repository root directory" messages={validationMessages.repositoryRootDirectory}>
-          <input
-            id="repository-root-directory"
-            name="repositoryRootDirectory"
-            type="text"
-            value={state.repositoryRootDirectory}
-            onChange={(event) => onStateChange({ ...state, repositoryRootDirectory: event.currentTarget.value })}
-            aria-describedby="repository-root-directory-description repository-root-directory-errors"
-            aria-invalid={validationMessages.repositoryRootDirectory !== undefined}
-            autoComplete="off"
-          />
-          <p id="repository-root-directory-description" className="extraction-request-form__help">
-            Use the repository root directory that contains the submitted solution files. Server validation remains authoritative.
-          </p>
-        </FieldGroup>
-        <fieldset className="extraction-request-form__fieldset" aria-describedby="solution-paths-description solution-paths-errors">
-          <legend>Explicit solution paths</legend>
-          <p id="solution-paths-description" className="extraction-request-form__help">
-            Relative solution paths resolve against the submitted repository root. Add every solution intentionally; recursive scanning is not performed.
-          </p>
-          <div className="extraction-request-form__solution-list">
-            {state.solutionPaths.map((solutionPath, index) => (
-              <SolutionPathRow
-                key={`solution-path-${index}`}
-                index={index}
-                value={solutionPath}
-                canRemove={state.solutionPaths.length > 1}
-                onChange={(value) => onStateChange(replaceSolutionPath(state, index, value))}
-                onRemove={() => onStateChange(removeSolutionPath(state, index))}
-              />
-            ))}
-          </div>
-          <Button type="button" variant="outline" size="sm" onClick={() => onStateChange(addSolutionPath(state))}>
-            <Plus aria-hidden="true" size={16} />
-            Add solution path
-          </Button>
-          <FieldMessages fieldId="solution-paths" messages={validationMessages.solutionPaths} />
-        </fieldset>
-        <div className="extraction-request-form__optional-grid">
-          <FieldGroup fieldId="branch-name" label="Branch name" messages={validationMessages.branchName}>
+        <div className="extraction-request-form__priority-fields" aria-label="Required extraction request fields">
+          <FieldGroup fieldId="repository-root-directory" label="Repository root directory" messages={validationMessages.repositoryRootDirectory}>
             <input
-              id="branch-name"
-              name="branchName"
+              id="repository-root-directory"
+              name="repositoryRootDirectory"
               type="text"
-              value={state.branchName}
-              onChange={(event) => onStateChange({ ...state, branchName: event.currentTarget.value })}
-              aria-describedby="branch-name-errors"
-              aria-invalid={validationMessages.branchName !== undefined}
+              value={state.repositoryRootDirectory}
+              onChange={(event) => onStateChange({ ...state, repositoryRootDirectory: event.currentTarget.value })}
+              aria-describedby="repository-root-directory-description repository-root-directory-errors"
+              aria-invalid={validationMessages.repositoryRootDirectory !== undefined}
               autoComplete="off"
             />
+            <p id="repository-root-directory-description" className="extraction-request-form__help">
+              Root for submitted solution paths.
+            </p>
           </FieldGroup>
-          <FieldGroup fieldId="commit-sha" label="Commit SHA" messages={validationMessages.commitSha}>
-            <input
-              id="commit-sha"
-              name="commitSha"
-              type="text"
-              value={state.commitSha}
-              onChange={(event) => onStateChange({ ...state, commitSha: event.currentTarget.value })}
-              aria-describedby="commit-sha-errors"
-              aria-invalid={validationMessages.commitSha !== undefined}
-              autoComplete="off"
-            />
-          </FieldGroup>
-          <FieldGroup fieldId="requested-by" label="Requested by" messages={validationMessages.requestedBy}>
-            <input
-              id="requested-by"
-              name="requestedBy"
-              type="text"
-              value={state.requestedBy}
-              onChange={(event) => onStateChange({ ...state, requestedBy: event.currentTarget.value })}
-              aria-describedby="requested-by-errors"
-              aria-invalid={validationMessages.requestedBy !== undefined}
-              autoComplete="off"
-            />
-          </FieldGroup>
+          <fieldset className="extraction-request-form__fieldset" aria-describedby="solution-paths-description solution-paths-errors">
+            <legend>Explicit solution paths</legend>
+            <p id="solution-paths-description" className="extraction-request-form__help">
+              One path per row. No recursive discovery.
+            </p>
+            <div className="extraction-request-form__solution-list">
+              {state.solutionPaths.map((solutionPath, index) => (
+                <SolutionPathRow
+                  key={`solution-path-${index}`}
+                  index={index}
+                  value={solutionPath}
+                  canRemove={state.solutionPaths.length > 1}
+                  onChange={(value) => onStateChange(replaceSolutionPath(state, index, value))}
+                  onRemove={() => onStateChange(removeSolutionPath(state, index))}
+                />
+              ))}
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={() => onStateChange(addSolutionPath(state))} title="Add one explicit solution path row">
+              <Plus aria-hidden="true" size={16} />
+              Add solution path
+            </Button>
+            <FieldMessages fieldId="solution-paths" messages={validationMessages.solutionPaths} />
+          </fieldset>
         </div>
-        <FieldGroup fieldId="metadata-text" label="Metadata" messages={validationMessages.metadata}>
-          <textarea
-            id="metadata-text"
-            name="metadata"
-            value={state.metadataText}
-            onChange={(event) => onStateChange({ ...state, metadataText: event.currentTarget.value })}
-            aria-describedby="metadata-text-description metadata-text-errors"
-            aria-invalid={validationMessages.metadata !== undefined}
-            rows={4}
-          />
-          <p id="metadata-text-description" className="extraction-request-form__help">
-            Optional metadata uses one key=value entry per line. Status responses expose metadata keys only.
-          </p>
-        </FieldGroup>
+        <fieldset className="extraction-request-form__fieldset extraction-request-form__fieldset--optional">
+          <legend>Optional context</legend>
+          <div className="extraction-request-form__optional-grid">
+            <FieldGroup fieldId="branch-name" label="Branch name" messages={validationMessages.branchName}>
+              <input
+                id="branch-name"
+                name="branchName"
+                type="text"
+                value={state.branchName}
+                onChange={(event) => onStateChange({ ...state, branchName: event.currentTarget.value })}
+                aria-describedby="branch-name-errors"
+                aria-invalid={validationMessages.branchName !== undefined}
+                autoComplete="off"
+              />
+            </FieldGroup>
+            <FieldGroup fieldId="commit-sha" label="Commit SHA" messages={validationMessages.commitSha}>
+              <input
+                id="commit-sha"
+                name="commitSha"
+                type="text"
+                value={state.commitSha}
+                onChange={(event) => onStateChange({ ...state, commitSha: event.currentTarget.value })}
+                aria-describedby="commit-sha-errors"
+                aria-invalid={validationMessages.commitSha !== undefined}
+                autoComplete="off"
+              />
+            </FieldGroup>
+            <FieldGroup fieldId="requested-by" label="Requested by" messages={validationMessages.requestedBy}>
+              <input
+                id="requested-by"
+                name="requestedBy"
+                type="text"
+                value={state.requestedBy}
+                onChange={(event) => onStateChange({ ...state, requestedBy: event.currentTarget.value })}
+                aria-describedby="requested-by-errors"
+                aria-invalid={validationMessages.requestedBy !== undefined}
+                autoComplete="off"
+              />
+            </FieldGroup>
+          </div>
+          <FieldGroup fieldId="metadata-text" label="Metadata" messages={validationMessages.metadata}>
+            <textarea
+              id="metadata-text"
+              name="metadata"
+              value={state.metadataText}
+              onChange={(event) => onStateChange({ ...state, metadataText: event.currentTarget.value })}
+              aria-describedby="metadata-text-description metadata-text-errors"
+              aria-invalid={validationMessages.metadata !== undefined}
+              rows={4}
+            />
+            <p id="metadata-text-description" className="extraction-request-form__help">
+              One key=value entry per line.
+            </p>
+          </FieldGroup>
+        </fieldset>
         <div className="extraction-request-form__actions">
-          <Button type="submit" disabled={isSubmitting} aria-disabled={!canSubmit}>
+          <Button type="submit" size="sm" disabled={isSubmitting} aria-disabled={!canSubmit} title="Submit explicit solution paths through POST /extractions">
             {isSubmitting ? 'Submitting extraction' : 'Submit extraction'}
           </Button>
-          {!canSubmit && !isSubmitting ? <p>Submission is guarded until the API is configured for browser requests.</p> : null}
+          {!canSubmit && !isSubmitting ? <p>{guardedSubmitMessage}</p> : null}
         </div>
       </form>
     </section>
@@ -342,7 +347,7 @@ function SolutionPathRow({ index, value, canRemove, onChange, onRemove }: Soluti
         onChange={(event) => onChange(event.currentTarget.value)}
         autoComplete="off"
       />
-      <Button type="button" variant="outline" size="sm" onClick={onRemove} disabled={!canRemove} aria-disabled={!canRemove} aria-label={`Remove solution path ${index + 1}`}>
+      <Button type="button" variant="outline" size="sm" onClick={onRemove} disabled={!canRemove} aria-disabled={!canRemove} aria-label={`Remove solution path ${index + 1}`} title={`Remove solution path ${index + 1}`}>
         <Trash2 aria-hidden="true" size={16} />
         Remove
       </Button>
@@ -402,7 +407,6 @@ function SubmissionFeedback({ validationMessages, submissionError, connectivityS
 
   return (
     <div className="extraction-request-form__feedback" role={submissionError === undefined ? 'status' : 'alert'} tabIndex={-1} ref={formSummaryRef}>
-      <Activity aria-hidden="true" size={20} />
       <div>
         <h3>Submission needs attention</h3>
         {shouldShowConnectivity ? <p>{connectivityState.description ?? connectivityState.label}</p> : null}

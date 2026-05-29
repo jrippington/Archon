@@ -19,19 +19,19 @@ import {
 export type WorkbenchTabId = 'workbench-start' | string;
 
 /**
- * Names the stable workbench tab that hosts the Extraction Center history slice.
+ * Names the stable workbench tab that hosts the Snapshot workspace slice.
  */
-export const extractionCenterTabId: WorkbenchTabId = 'extraction-center';
+export const snapshotWorkspaceTabId: WorkbenchTabId = 'snapshot-workspace';
 
 /**
- * Provides the tab descriptor used whenever the Extraction Center activity opens.
+ * Provides the tab descriptor used whenever the Snapshot workspace activity opens.
  */
-export const extractionCenterTab: WorkbenchTab = {
-  id: extractionCenterTabId,
-  title: 'Extraction Center',
-  activityId: 'extraction-center',
-  isClosable: true,
-  placeholderSummary: 'The Extraction Center loads recent extraction run history from ArchonApi while later slices add submission and run-detail monitoring.',
+export const snapshotWorkspaceTab: WorkbenchTab = {
+  id: snapshotWorkspaceTabId,
+  title: 'Snapshot Workspace',
+  activityId: 'snapshots',
+  isClosable: false,
+  placeholderSummary: 'Snapshot workspace hosts explicit extraction requests, update status, run history, and selected run details without browser-page navigation.',
 };
 
 /**
@@ -209,18 +209,7 @@ export interface WorkbenchStore {
 /**
  * Names the required default tab that must always be recoverable in the shell.
  */
-export const defaultWorkbenchTabId: WorkbenchTabId = 'workbench-start';
-
-/**
- * Provides the required start tab for every new shell state instance.
- */
-const defaultWorkbenchTab: WorkbenchTab = {
-  id: defaultWorkbenchTabId,
-  title: 'Workbench Start',
-  activityId: 'dashboard',
-  isClosable: false,
-  placeholderSummary: 'The start tab explains the desktop workbench frame without loading extraction, snapshot, search, graph, evidence, lens, or finding data.',
-};
+export const defaultWorkbenchTabId: WorkbenchTabId = snapshotWorkspaceTabId;
 
 /**
  * Provides the default local panel switches for the first shell slice.
@@ -241,13 +230,13 @@ const WorkbenchStoreContext = createContext<WorkbenchStore | undefined>(undefine
 /**
  * Creates a fresh default state object for the local workbench shell.
  *
- * @returns The default workbench state with a dashboard activity and stable start tab.
+ * @returns The default workbench state with the Snapshot activity and stable workspace tab.
  */
 export function getDefaultWorkbenchState(): WorkbenchState {
   // A factory avoids accidental mutation sharing between tests, server rendering, and browser sessions.
   return {
     activeActivityId: getDefaultWorkbenchActivityId(),
-    openTabs: [defaultWorkbenchTab],
+    openTabs: [snapshotWorkspaceTab],
     activeTabId: defaultWorkbenchTabId,
     panels: defaultPanelState,
   };
@@ -330,7 +319,7 @@ function ensureDefaultTab(openTabs: readonly WorkbenchTab[]): readonly Workbench
   // is restored if a future action or persistence path accidentally omits it.
   const nonDefaultTabs = openTabs.filter((tab) => tab.id !== defaultWorkbenchTabId);
 
-  return [defaultWorkbenchTab, ...nonDefaultTabs];
+  return [snapshotWorkspaceTab, ...nonDefaultTabs];
 }
 
 /**
@@ -349,16 +338,16 @@ export function reduceWorkbenchState(state: WorkbenchState, action: WorkbenchAct
         ? action.activityId
         : getDefaultWorkbenchActivityId();
 
-      if (activeActivityId === 'extraction-center') {
-        // Selecting the Extraction Center activity opens the feature tab immediately so the
-        // main work area shows the real API-backed history surface instead of a placeholder.
-        const openTabs = ensureDefaultTab([...state.openTabs, extractionCenterTab]);
+      if (activeActivityId === 'snapshots') {
+        // Selecting the Snapshot workspace activity focuses the durable feature tab immediately so
+        // the main work area stays on the primary operational surface.
+        const openTabs = ensureDefaultTab([...state.openTabs, snapshotWorkspaceTab]);
 
         return {
           ...state,
           activeActivityId,
           openTabs,
-          activeTabId: resolveActiveTabId(extractionCenterTab.id, openTabs),
+          activeTabId: resolveActiveTabId(snapshotWorkspaceTab.id, openTabs),
         };
       }
 

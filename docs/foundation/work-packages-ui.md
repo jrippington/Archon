@@ -62,6 +62,10 @@ Future query endpoints should follow the same route convention.
 
 Even operational features must live inside the ArchonExplorer workbench model. Extraction history and snapshot administration are not isolated admin pages; they are workbench areas with shared activity navigation, command palette behaviour, status bar context, notifications, and safe diagnostics.
 
+Activity navigation should read as compact workbench chrome rather than a page sidebar. The activity rail should remain narrow and stable, use meaningful icons only for major workbench areas, provide accessible names and tooltip text for icon-only controls, and show selected state through structure or text in addition to standard theme-token styling. Primary workspace text should stay terse and operational. Longer explanations may move to title text, tooltips, popovers, documentation links, or wiki guidance, but labels, accessible names, validation messages, and status text must still be sufficient to complete the workflow without hover-only help. Non-actionable roadmap badges should not be placed in the rail or placeholder lists; unavailable capability boundaries belong in the contextual sidebar, workspace, or feature region where concise visible text and supplemental help can explain the boundary without making placeholder activities look like implemented status cards.
+
+The current ArchonExplorer landing context is the **Snapshot Workspace**, not a dashboard or a standalone Extraction Center page. Future operational work should preserve that default context: extraction requests, snapshot update status, run history, and selected run details belong in compact workbench regions inside the fixed shell, with browser-level scrolling avoided during normal use. The New Extraction pane should behave as a docked workbench pane: repository root directory, repeated explicit solution-path rows, and submit action are primary; optional branch, commit SHA, requested-by, and metadata fields are grouped compactly as secondary context. Snapshot update status should remain a small focused surface for accepted or selected extraction progress: lifecycle state, progress stage and message, warning/error counts, and produced snapshot identity may be shown when the existing API responses provide them, but the surface must not become a global output pane, log console, event stream, or reason to tighten bounded polling. Run history should be a dense scannable grid or workbench list fed by `GET /extractions`, with row-level selection for details, internal overflow, text-based status, and no card-heavy or oversized badge treatment. Selected run details should appear as compact selected-run properties: label/value property groups, dense timing rows, concise missing-state text, and internal details-pane overflow rather than large prose panels or stacked cards. The older Extraction Center terminology remains useful for the extraction workflow and API routes, but it should not reintroduce a page-like destination, hero header, stacked card layout, or decorative run-history or detail presentation.
+
 ## 1.5 Safety and evidence over spectacle
 
 The UI should prefer safe, explainable, evidence-backed interactions. It must not expose raw stack traces, connection strings, environment variables, raw Cypher, Neo4j internal identifiers, driver-specific diagnostics, or arbitrary graph query consoles.
@@ -149,6 +153,8 @@ Users and contributors can launch a visible ArchonExplorer shell from the local 
 ### Mandatory UI toolkit styling constraint
 
 This work package MUST use the standard coloring, text sizing, spacing, and control styling provided by the selected UI toolkit and existing ArchonExplorer component primitives. It MUST NOT introduce custom colors, custom type scales, custom button/control treatments, card-like visual treatments, marketing-style hero styling, or other bespoke visual styling unless the user explicitly asks for that deviation in the active implementation request. Prefer plain desktop-IDE-style composition over web-page-style presentation.
+
+Visible UI copy should remain terse and operational. Preserve accessible labels, form labels, validation text, status text, and keyboard/focus semantics first; use tooltips or title/help affordances only as supplemental explanation. Icons should represent major workbench areas or concrete actions, not decorative state. Badges should communicate meaningful state, categorization, keyboard hints, retry/action availability, or setup status, not placeholder decoration.
 
 ### Scope
 
@@ -335,6 +341,8 @@ This work package MUST use the standard coloring, text sizing, spacing, and cont
 - Implement command palette shell using shadcn/ui `Command` / cmdk.
 - Implement notification/toast placement.
 - Implement layout persistence for panel sizes and shell preferences.
+- Keep the workbench shell fixed to the browser viewport so the document body does not become the primary scrolling surface.
+- Confine overflow to explicit workbench regions such as activity navigation, primary sidebar, workspace panes, grids, forms, details areas, and bottom panels.
 
 ### Out of scope
 
@@ -377,6 +385,7 @@ Introduce local workbench state:
 - Status bar has slots for snapshot and API state.
 - Command palette opens and can show placeholder commands.
 - Layout uses shadcn/ui-compatible primitives and does not introduce another component library.
+- Shell chrome remains visible during normal use, with scrolling contained inside named panes or feature regions rather than page-flow containers.
 
 ### Validation
 
@@ -419,7 +428,7 @@ This work package MUST use the standard coloring, text sizing, spacing, and cont
 ### Scope
 
 - Add Extraction Center activity.
-- Add new extraction form.
+- Add docked New Extraction pane.
 - Capture repository root directory.
 - Capture one or more explicit solution paths.
 - Capture optional branch name.
@@ -429,10 +438,11 @@ This work package MUST use the standard coloring, text sizing, spacing, and cont
 - Submit extraction requests to `POST /extractions`.
 - Poll run status from `GET /extractions/{runId}`.
 - Display recent run history from `GET /extractions`.
-- Show queued, running, completed, failed, and cancelled states.
-- Show progress stage, progress message, optional percentage, and timestamps.
-- Show warning count and safe warning details.
-- Show error count and safe error details.
+- Show queued, running, completed, failed, cancelled, unavailable, and unknown states.
+- Show compact Snapshot update status using existing accepted-run and polling responses.
+- Show progress stage, progress message, optional percentage, and timestamps where the owning detail surface has room for them.
+- Show warning counts and safe warning details only when the API exposes safe detail.
+- Show error counts and safe error details only when the API exposes safe detail.
 - Show timing summary.
 - Show produced snapshot identity when available.
 - Show persistence diagnostics when available.
@@ -448,10 +458,11 @@ This work package MUST use the standard coloring, text sizing, spacing, and cont
 - Search over the produced snapshot.
 - Visualisations.
 - Automatic repository scanning for solution files.
+- Global output panes, build-output clones, verbose diagnostic consoles, or event-stream viewers for extraction progress.
 
 ### Primary UI surfaces
 
-- Extraction Center activity page.
+- Snapshot Workspace operational regions.
 - New extraction form.
 - Run history table.
 - Run detail panel.
@@ -490,7 +501,7 @@ The UI form must reflect the API contract: solution paths are explicit and are n
 
 ### Validation
 
-- Playwright journey for opening Extraction Center.
+- Playwright journey for opening directly into Snapshot Workspace.
 - Playwright journey for submitting a valid extraction request.
 - Playwright journey for viewing a queued/running/completed run.
 - Playwright journey for extraction history.

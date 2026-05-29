@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 /**
- * Clears browser-local state before each Extraction Center journey.
+ * Clears browser-local state before each Snapshot workspace journey.
  */
 test.beforeEach(async ({ page }) => {
   // The workbench reads local storage on initial render, so clearing before the second load keeps
@@ -11,9 +11,9 @@ test.beforeEach(async ({ page }) => {
 });
 
 /**
- * Validates that the Extraction Center activity opens inside the workbench and renders safe history.
+ * Validates that the Snapshot workspace opens as the primary workbench context and renders safe history.
  */
-test('opens Extraction Center from the activity rail and renders mocked history safely', async ({ page }) => {
+test('opens Snapshot workspace by default and renders mocked history safely', async ({ page }) => {
   // The route mock proves the browser journey consumes GET /extractions without a common /api
   // prefix while keeping the test independent of a live ArchonApi instance.
   await page.route('**/extractions?take=20', async (route) => {
@@ -39,19 +39,76 @@ test('opens Extraction Center from the activity rail and renders mocked history 
   });
 
   await page.goto('/', { waitUntil: 'networkidle' });
-  await page.getByRole('button', { name: /Extraction Center:/ }).click();
   const workRegion = page.getByRole('region', { name: 'Workbench editor and bottom panel region' });
 
-  await expect(page.getByRole('tab', { name: /Extraction Center/ })).toHaveAttribute('aria-selected', 'true');
-  await expect(workRegion.getByRole('heading', { name: 'Extraction Center' })).toBeVisible();
-  await expect(workRegion.getByRole('heading', { name: 'Recent extraction history' })).toBeVisible();
-  await expect(page.getByRole('row', { name: /run-e2e-001/ })).toContainText('Completed');
-  await expect(page.getByRole('row', { name: /run-e2e-001/ })).toContainText('D:/workspace/Archon');
-  await expect(page.getByRole('row', { name: /run-e2e-001/ })).toContainText('snapshot://archon/e2e');
+  await expect(page.getByRole('tab', { name: /Snapshot Workspace/ })).toHaveAttribute('aria-selected', 'true');
+  await expect(workRegion.getByRole('heading', { name: 'Snapshot Workspace' })).toBeVisible();
+  await expect(workRegion.getByRole('heading', { name: 'Run history' })).toBeVisible();
+  await expect(workRegion.locator('[data-snapshot-region="new-extraction"]')).toBeVisible();
+  await expect(workRegion.locator('[data-snapshot-region="update-status"]')).toBeVisible();
+  await expect(workRegion.locator('[data-snapshot-region="run-history"]')).toBeVisible();
+  await expect(workRegion.locator('[data-snapshot-region="run-details"]')).toBeVisible();
+  const historyGrid = workRegion.getByRole('table', { name: 'Dense recent extraction runs' });
+  const historyRow = historyGrid.getByRole('row', { name: /run-e2e-001/ });
+  await expect(historyGrid).toBeVisible();
+  await expect(historyRow).toContainText('Completed');
+  await expect(historyRow).toContainText('D:/workspace/Archon');
+  await expect(historyRow).toContainText('1 solution');
+  await expect(historyRow).toContainText('0 warnings');
+  await expect(historyRow).toContainText('0 errors');
+  await expect(historyRow).toContainText('snapshot://archon/e2e');
+  await expect(historyRow.getByRole('button', { name: 'Select run run-e2e-001 for details' })).toBeVisible();
   await expect(workRegion).not.toContainText('/api/extractions');
   await expect(workRegion).not.toContainText('System.Exception');
   await expect(workRegion).not.toContainText('Password=');
   await expect(workRegion).not.toContainText('Neo4j driver');
+});
+
+/**
+ * Validates that the Snapshot workspace uses flat split-pane styling instead of nested cards.
+ */
+test('renders Snapshot workspace as flat split panes without cramped nested scrollbars', async ({ page }) => {
+  // Empty history keeps the visual shell deterministic while the browser measures layout, border,
+  // and overflow behavior on the actual DOM nodes produced by the workbench.
+  await page.route('**/extractions?take=20', async (route) => {
+    await route.fulfill({ contentType: 'application/json', status: 200, body: JSON.stringify({ runs: [] }) });
+  });
+
+  await page.goto('/', { waitUntil: 'networkidle' });
+
+  const layoutMetrics = await page.evaluate(() => {
+    // The remediation contract is visual but measurable: the workspace shell should use one split
+    // grid, region components should not draw their own rounded card boxes, and tiny nested form
+    // scrollbars should not appear inside optional context.
+    const workspace = document.querySelector<HTMLElement>('.snapshot-workspace__regions');
+    const extractionCenter = document.querySelector<HTMLElement>('.extraction-center');
+    const history = document.querySelector<HTMLElement>('.extraction-history');
+    const form = document.querySelector<HTMLElement>('.extraction-request-form');
+    const optionalContext = document.querySelector<HTMLElement>('.extraction-request-form__fieldset--optional');
+    const statusWrapper = document.querySelector<HTMLElement>('.snapshot-workspace__pane--status');
+    const statusRegion = document.querySelector<HTMLElement>('.extraction-run-summary');
+
+    return {
+      extractionCenterBorderWidth: extractionCenter === null ? '' : window.getComputedStyle(extractionCenter).borderTopWidth,
+      historyBorderWidth: history === null ? '' : window.getComputedStyle(history).borderTopWidth,
+      historyLeftBorderWidth: history === null ? '' : window.getComputedStyle(history).borderLeftWidth,
+      optionalContextOverflowY: optionalContext === null ? '' : window.getComputedStyle(optionalContext).overflowY,
+      statusRegionBorderWidth: statusRegion === null ? '' : window.getComputedStyle(statusRegion).borderTopWidth,
+      statusWrapperDirectChildClass: statusWrapper?.firstElementChild?.className ?? '',
+      workspaceBorderTopWidth: workspace === null ? '' : window.getComputedStyle(workspace).borderTopWidth,
+      workspaceHeight: workspace?.getBoundingClientRect().height ?? 0,
+      formHeight: form?.getBoundingClientRect().height ?? 0,
+    };
+  });
+
+  expect(layoutMetrics.extractionCenterBorderWidth).toBe('0px');
+  expect(layoutMetrics.historyLeftBorderWidth).toBe('0px');
+  expect(layoutMetrics.statusRegionBorderWidth).toBe('0px');
+  expect(layoutMetrics.optionalContextOverflowY).toBe('visible');
+  expect(layoutMetrics.statusWrapperDirectChildClass).toContain('extraction-run-summary');
+  expect(layoutMetrics.workspaceBorderTopWidth).toBe('1px');
+  expect(layoutMetrics.workspaceHeight).toBeGreaterThan(100);
+  expect(layoutMetrics.formHeight).toBeGreaterThan(100);
 });
 
 /**
@@ -91,7 +148,7 @@ test('keeps a tracked extraction run visible in the bottom panel while navigatin
         status: 'Running',
         submittedRequest: {
           repositoryRootDirectory: 'D:/workspace/Archon',
-          solutionPaths: ['Archon.sln'],
+          solutionPaths: ['Archon.sln', 'src/ArchonApi/ArchonApi.sln'],
           branchName: 'main',
           commitSha: 'abc123',
           requestedBy: 'playwright',
@@ -110,10 +167,9 @@ test('keeps a tracked extraction run visible in the bottom panel while navigatin
   });
 
   await page.goto('/', { waitUntil: 'networkidle' });
-  await page.getByRole('button', { name: /Extraction Center:/ }).click();
   const workRegion = page.getByRole('region', { name: 'Workbench editor and bottom panel region' });
 
-  await workRegion.getByRole('button', { name: 'View details' }).click();
+  await workRegion.getByRole('button', { name: 'Select run run-e2e-background for details' }).click();
   await expect(workRegion).toContainText('run-e2e-background');
   await page.getByRole('button', { name: /Search:/ }).click();
   await page.getByRole('button', { name: 'Show bottom panel' }).click();
@@ -125,14 +181,14 @@ test('keeps a tracked extraction run visible in the bottom panel while navigatin
   await expect(bottomPanel).toContainText('Extraction: Extraction is running. 50% complete.');
   await bottomPanel.getByRole('button', { name: 'Open run' }).click();
 
-  await expect(page.getByRole('tab', { name: /Extraction Center/ })).toHaveAttribute('aria-selected', 'true');
-  await expect(workRegion).toContainText('Selected run detail');
+  await expect(page.getByRole('tab', { name: /Snapshot Workspace/ })).toHaveAttribute('aria-selected', 'true');
+  await expect(workRegion.getByRole('heading', { name: 'Selected run properties' })).toBeVisible();
   await expect(workRegion).not.toContainText('/api/extractions');
   await expect(workRegion).not.toContainText('Password=');
 });
 
 /**
- * Validates Extraction Center commands in the command palette.
+ * Validates Snapshot workspace commands in the command palette.
  */
 test('runs Extraction Center command palette actions safely', async ({ page }) => {
   // Empty history is sufficient because this journey validates command discovery, form focus, and
@@ -143,15 +199,15 @@ test('runs Extraction Center command palette actions safely', async ({ page }) =
 
   await page.goto('/', { waitUntil: 'networkidle' });
   await page.getByRole('button', { name: 'Open command palette' }).click();
-  await page.getByLabel('Filter workbench shell commands').fill('Extraction');
-  await expect(page.getByRole('button', { name: /^Open Extraction Center/ })).toBeVisible();
-  await page.getByRole('button', { name: /^Open Extraction Center/ }).click();
-  await expect(page.getByRole('tab', { name: /Extraction Center/ })).toHaveAttribute('aria-selected', 'true');
+  await page.getByLabel('Filter workbench shell commands').fill('Snapshot');
+  await expect(page.getByRole('button', { name: 'Open Snapshot Workspace Open' })).toBeVisible();
+  await page.getByRole('button', { name: 'Open Snapshot Workspace Open' }).click();
+  await expect(page.getByRole('tab', { name: /Snapshot Workspace/ })).toHaveAttribute('aria-selected', 'true');
 
   await page.getByRole('button', { name: 'Open command palette' }).click();
-  await page.getByLabel('Filter workbench shell commands').fill('Focus Extraction Center New Request Form');
-  await page.getByRole('button', { name: /^Focus Extraction Center New Request Form/ }).click();
-  await expect(page.getByRole('heading', { name: 'Start extraction' })).toBeVisible();
+  await page.getByLabel('Filter workbench shell commands').fill('Focus Snapshot New Extraction Pane');
+  await page.getByRole('button', { name: /^Focus Snapshot New Extraction Pane/ }).click();
+  await expect(page.getByRole('heading', { name: 'New Extraction' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Open command palette' }).click();
   await page.getByLabel('Filter workbench shell commands').fill('Focus Active Extraction Background Run');
@@ -227,10 +283,9 @@ test('duplicates selected extraction request values without submitting them auto
   });
 
   await page.goto('/', { waitUntil: 'networkidle' });
-  await page.getByRole('button', { name: /Extraction Center:/ }).click();
   const workRegion = page.getByRole('region', { name: 'Workbench editor and bottom panel region' });
 
-  await workRegion.getByRole('button', { name: 'View details' }).click();
+  await workRegion.getByRole('button', { name: 'Select run run-e2e-duplicate for details' }).click();
   await expect(workRegion).toContainText('Run follow-up actions');
   await workRegion.getByRole('button', { name: 'Duplicate request' }).click();
 
@@ -314,16 +369,15 @@ test('shows produced-snapshot placeholder action without calling graph or search
   });
 
   await page.goto('/', { waitUntil: 'networkidle' });
-  await page.getByRole('button', { name: /Extraction Center:/ }).click();
   const workRegion = page.getByRole('region', { name: 'Workbench editor and bottom panel region' });
 
-  await workRegion.getByRole('button', { name: 'View details' }).click();
+  await workRegion.getByRole('button', { name: 'Select run run-e2e-snapshot for details' }).click();
   await expect(workRegion).toContainText('snapshot://archon/e2e-snapshot');
   await workRegion.getByRole('button', { name: 'Open produced snapshot' }).click();
 
   await expect(page.getByRole('status', { name: /Information: Produced snapshot handoff/ })).toBeVisible();
-  await expect(workRegion).toContainText('Snapshot context is not active yet. WP006 owns opening produced snapshots for dashboards, search, graph views, and lenses.');
-  await expect(workRegion).toContainText('This action does not query graph data, dashboard metrics, search, lenses, or visualizations.');
+  await expect(workRegion).toContainText('Snapshot handoff is pending WP006.');
+  await expect(workRegion.getByText('Snapshot handoff is pending WP006.')).toHaveAttribute('title', 'This placeholder does not query graph data, dashboard metrics, search, lenses, visualizations, or snapshot lifecycle routes.');
   expect(forbiddenRouteHits).toEqual([]);
   await expect(workRegion).not.toContainText('raw Cypher');
   await expect(workRegion).not.toContainText('Neo4j driver');
@@ -421,15 +475,24 @@ test('polls selected extraction status from running to completed safely', async 
   });
 
   await page.goto('/', { waitUntil: 'networkidle' });
-  await page.getByRole('button', { name: /Extraction Center:/ }).click();
   const workRegion = page.getByRole('region', { name: 'Workbench editor and bottom panel region' });
 
-  await workRegion.getByRole('button', { name: 'View details' }).click();
-  await expect(workRegion.getByRole('heading', { name: 'Selected run detail' })).toBeVisible();
+  await workRegion.getByRole('button', { name: 'Select run run-e2e-polling for details' }).click();
+  const updateStatusRegion = workRegion.locator('[data-snapshot-region="update-status"]');
+  await expect(updateStatusRegion).toContainText('Running: run-e2e-polling.');
+  await expect(updateStatusRegion).toContainText('Extraction is running.');
+  await expect(updateStatusRegion).toContainText('0 warnings');
+  await expect(updateStatusRegion).toContainText('0 errors');
+  await expect(updateStatusRegion).toContainText('No snapshot yet');
+  await expect(workRegion.getByRole('heading', { name: 'Selected run properties' })).toBeVisible();
   await expect(workRegion).toContainText('run-e2e-polling');
   await expect(workRegion).toContainText('Active monitor');
+  await expect(workRegion.locator('[data-snapshot-region="run-details"]')).toContainText('Request');
+  await expect(workRegion.locator('[data-snapshot-region="run-details"]')).not.toContainText('This monitor reads');
 
   await page.waitForResponse((response) => response.url().includes('/extractions/run-e2e-polling') && response.status() === 200);
+  await expect(updateStatusRegion).toContainText('Completed: run-e2e-polling.', { timeout: 8_000 });
+  await expect(updateStatusRegion).toContainText('snapshot://archon/e2e-polling');
   await expect(workRegion).toContainText('Terminal status', { timeout: 8_000 });
   await expect(workRegion).toContainText('Extraction completed successfully.');
   await expect(workRegion).toContainText('snapshot://archon/e2e-polling');
@@ -439,12 +502,15 @@ test('polls selected extraction status from running to completed safely', async 
   await expect(workRegion).not.toContainText('System.Exception');
   await expect(workRegion).not.toContainText('Password=');
   await expect(workRegion).not.toContainText('Neo4j driver');
+  await expect(workRegion).not.toContainText('Output pane');
+  await expect(workRegion).not.toContainText('Log console');
+  await expect(workRegion).not.toContainText('Event stream');
 });
 
 /**
- * Validates that an empty Extraction Center history response remains safe and explanatory.
+ * Validates that an empty Snapshot workspace history response remains safe and terse.
  */
-test('renders the empty Extraction Center history state safely', async ({ page }) => {
+test('renders the empty Snapshot history state safely', async ({ page }) => {
   // Returning an empty history list exercises the end-to-end empty state without inventing local
   // history data or bypassing the typed frontend request path.
   await page.route('**/extractions?take=20', async (route) => {
@@ -452,11 +518,10 @@ test('renders the empty Extraction Center history state safely', async ({ page }
   });
 
   await page.goto('/', { waitUntil: 'networkidle' });
-  await page.getByRole('button', { name: /Extraction Center:/ }).click();
   const workRegion = page.getByRole('region', { name: 'Workbench editor and bottom panel region' });
 
-  await expect(workRegion).toContainText('No extraction runs are available yet.');
-  await expect(workRegion).toContainText('Submit an explicit extraction request above.');
+  await expect(workRegion).toContainText('No runs yet.');
+  await expect(workRegion).toContainText('Submit an explicit extraction request.');
   await expect(workRegion).not.toContainText('/api/extractions');
   await expect(workRegion).not.toContainText('raw Cypher');
 });
@@ -477,6 +542,33 @@ test('submits a valid mocked extraction request and renders the accepted run saf
     });
   });
 
+  await page.route('**/extractions/run-e2e-accepted', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      status: 200,
+      body: JSON.stringify({
+        runId: 'run-e2e-accepted',
+        status: 'Queued',
+        submittedRequest: {
+          repositoryRootDirectory: 'D:/workspace/Archon',
+          solutionPaths: ['Archon.sln'],
+          branchName: 'main',
+          commitSha: 'abc123',
+          requestedBy: 'playwright',
+          metadataKeys: ['source'],
+        },
+        startedUtc: '2026-01-01T00:00:00Z',
+        completedUtc: null,
+        progress: { stage: 'Queued', message: 'The extraction run is queued.', percentage: null, lastUpdatedUtc: '2026-01-01T00:00:00Z' },
+        warningCount: 0,
+        errorCount: 0,
+        timings: [],
+        snapshotIdentity: null,
+        persistenceDiagnostics: null,
+      }),
+    });
+  });
+
   await page.route('**/ready', async (route) => {
     await route.fulfill({
       contentType: 'application/json',
@@ -490,6 +582,8 @@ test('submits a valid mocked extraction request and renders the accepted run saf
   });
 
   await page.route('**/extractions', async (route) => {
+    expect(route.request().url()).not.toContain('/api/extractions');
+
     if (route.request().method() !== 'POST') {
       await route.fallback();
       return;
@@ -523,24 +617,29 @@ test('submits a valid mocked extraction request and renders the accepted run saf
   });
 
   await page.goto('/', { waitUntil: 'networkidle' });
-  await page.getByRole('button', { name: /Extraction Center:/ }).click();
   const workRegion = page.getByRole('region', { name: 'Workbench editor and bottom panel region' });
 
+  await expect(workRegion.getByRole('heading', { name: 'New Extraction' })).toBeVisible();
+  await expect(workRegion.locator('[data-snapshot-region="new-extraction"]')).toContainText('Route: POST /extractions');
+  await expect(workRegion.getByText('Route: POST /extractions')).toHaveAttribute('title', 'Submit explicit solution paths through POST /extractions. Recursive discovery is not used.');
   await workRegion.getByLabel('Repository root directory').fill('D:/workspace/Archon');
   await workRegion.getByRole('textbox', { name: 'Solution path 1' }).fill('Archon.sln');
+  await workRegion.getByRole('button', { name: 'Add solution path' }).click();
+  await workRegion.getByRole('textbox', { name: 'Solution path 2' }).fill('src/ArchonApi/ArchonApi.sln');
   await workRegion.getByLabel('Branch name').fill('main');
   await workRegion.getByLabel('Commit SHA').fill('abc123');
   await workRegion.getByLabel('Requested by').fill('playwright');
   await workRegion.getByLabel('Metadata').fill('source=e2e');
   await workRegion.getByRole('button', { name: 'Submit extraction' }).click();
 
-  await expect(workRegion.getByRole('heading', { name: 'Accepted run' })).toBeVisible();
+  await expect(workRegion.getByRole('heading', { name: 'Update status' })).toBeVisible();
   await expect(workRegion).toContainText('run-e2e-accepted');
+  await expect(workRegion).toContainText('Queued: run-e2e-accepted.');
   await expect(workRegion).toContainText('Queued');
   await expect(workRegion).toContainText('The extraction run is queued.');
   expect(capturedRequest).toEqual({
     repositoryRootDirectory: 'D:/workspace/Archon',
-    solutionPaths: ['Archon.sln'],
+    solutionPaths: ['Archon.sln', 'src/ArchonApi/ArchonApi.sln'],
     branchName: 'main',
     commitSha: 'abc123',
     requestedBy: 'playwright',

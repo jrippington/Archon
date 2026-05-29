@@ -24,14 +24,69 @@ test.beforeEach(async ({ page }) => {
 test('opens the workbench shell with accessible desktop regions', async ({ page }) => {
   await expect(page.getByRole('navigation', { name: 'ArchonExplorer workbench activities' })).toBeVisible();
   await expect(page.getByRole('complementary', { name: 'Primary workbench sidebar' })).toBeVisible();
-  await expect(page.getByRole('main', { name: 'Workbench Start' })).toBeVisible();
+  await expect(page.getByRole('main', { name: 'Snapshot Workspace' })).toBeVisible();
   await expect(page.getByRole('tablist', { name: 'Open workbench tabs' })).toBeVisible();
-  await expect(page.getByRole('tab', { name: /Workbench Start/ })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('tab', { name: /Snapshot Workspace/ })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('button', { name: 'Show bottom panel' })).toBeVisible();
   await expect(page.getByRole('contentinfo', { name: 'ArchonExplorer shell status' })).toContainText('current unavailable');
   await expect(page.getByRole('contentinfo', { name: 'ArchonExplorer shell status' })).toContainText('bottom panel hidden');
   await expect(page.getByRole('button', { name: 'Open command palette' })).toBeVisible();
   await expect(page.getByText('Notification host ready for safe shell feedback.')).toBeVisible();
+});
+
+/**
+ * Validates the compact activity rail contract for icon-only workbench navigation.
+ */
+test('renders compact icon-only activity navigation with accessible labels and tooltip text', async ({ page }) => {
+  const activityRailMetrics = await page.evaluate(() => {
+    // Width and label visibility are measured in the browser because the compact rail is a visual
+    // workbench contract, while accessible names and title text remain available through markup.
+    const rail = document.querySelector<HTMLElement>('.workbench-activity-rail');
+    const visibleLabels = Array.from(document.querySelectorAll<HTMLElement>('.workbench-activity-rail__item-label'))
+      .filter((label) => window.getComputedStyle(label).display !== 'none');
+
+    return {
+      railWidth: rail?.getBoundingClientRect().width ?? 0,
+      visibleLabelCount: visibleLabels.length,
+    };
+  });
+
+  expect(activityRailMetrics.railWidth).toBeLessThanOrEqual(88);
+  expect(activityRailMetrics.visibleLabelCount).toBe(0);
+  await expect(page.getByRole('button', { name: 'Snapshot Workspace: Primary extraction and snapshot operations workspace.' })).toHaveAttribute('title', 'Snapshot Workspace: Primary extraction and snapshot operations workspace.');
+  await expect(page.getByRole('button', { name: 'Snapshot Workspace: Primary extraction and snapshot operations workspace.' })).toContainText('Snapshot Workspace selected');
+  await expect(page.locator('.workbench-activity-rail').getByText('Later')).toHaveCount(0);
+});
+
+/**
+ * Validates that the browser document is a fixed shell host rather than the primary scroll surface.
+ */
+test('contains scrolling inside named workbench regions instead of the browser document', async ({ page }) => {
+  const scrollMetrics = await page.evaluate(() => {
+    // Browser-level scroll metrics prove the app root owns the viewport while selected internal
+    // regions retain overflow containment for panes, lists, grids, forms, and details surfaces.
+    const root = document.querySelector<HTMLElement>('[data-scroll-root="workbench"]');
+    const namedRegions = Array.from(document.querySelectorAll<HTMLElement>('[data-scroll-region]'));
+
+    return {
+      bodyClientHeight: document.body.clientHeight,
+      bodyScrollHeight: document.body.scrollHeight,
+      documentClientHeight: document.documentElement.clientHeight,
+      documentScrollHeight: document.documentElement.scrollHeight,
+      rootClientHeight: root?.clientHeight ?? 0,
+      viewportHeight: window.innerHeight,
+      regionNames: namedRegions.map((region) => region.dataset.scrollRegion ?? ''),
+      regionOverflowValues: namedRegions.map((region) => window.getComputedStyle(region).overflowY),
+    };
+  });
+
+  expect(scrollMetrics.rootClientHeight).toBe(scrollMetrics.viewportHeight);
+  expect(scrollMetrics.bodyClientHeight).toBe(scrollMetrics.viewportHeight);
+  expect(scrollMetrics.bodyScrollHeight).toBe(scrollMetrics.viewportHeight);
+  expect(scrollMetrics.documentClientHeight).toBe(scrollMetrics.viewportHeight);
+  expect(scrollMetrics.documentScrollHeight).toBe(scrollMetrics.viewportHeight);
+  expect(scrollMetrics.regionNames).toEqual(expect.arrayContaining(['activity-rail', 'primary-sidebar', 'workspace']));
+  expect(scrollMetrics.regionOverflowValues).toEqual(expect.arrayContaining(['auto']));
 });
 
 /**
@@ -46,7 +101,8 @@ test('opens the command palette with the keyboard shortcut and moves focus into 
 
   await expect(palette).toBeVisible();
   await expect(filterInput).toBeFocused();
-  await expect(palette).toContainText('Global architecture search arrives in a later work package.');
+  await expect(palette).toContainText('Local shell commands only.');
+  await expect(palette.getByText('Local shell commands only.')).toHaveAttribute('title', 'Global architecture search arrives in a later work package; this palette only filters local shell commands.');
   await filterInput.fill('bottom');
   await expect(page.getByRole('button', { name: /Toggle Bottom Panel/ })).toBeVisible();
 });
@@ -55,12 +111,12 @@ test('opens the command palette with the keyboard shortcut and moves focus into 
  * Validates activity navigation without leaving the shell frame.
  */
 test('switches activities and updates contextual sidebar and status text', async ({ page }) => {
-  await page.getByRole('button', { name: /Snapshots:/ }).click();
+  await page.getByRole('button', { name: 'Search: Future architecture search and command area.' }).click();
 
-  await expect(page.getByRole('complementary', { name: 'Primary workbench sidebar' })).toContainText('Snapshots');
-  await expect(page.getByRole('complementary', { name: 'Primary workbench sidebar' })).toContainText('Snapshot administration arrives in a later work package.');
-  await expect(page.getByRole('contentinfo', { name: 'ArchonExplorer shell status' })).toContainText('Snapshots activity selected; no item selected');
-  await expect(page.getByRole('main', { name: 'Workbench Start' })).toBeVisible();
+  await expect(page.getByRole('complementary', { name: 'Primary workbench sidebar' })).toContainText('Search');
+  await expect(page.getByRole('complementary', { name: 'Primary workbench sidebar' })).toContainText('Search placeholder');
+  await expect(page.getByRole('contentinfo', { name: 'ArchonExplorer shell status' })).toContainText('Search activity selected; no item selected');
+  await expect(page.getByRole('main', { name: 'Snapshot Workspace' })).toBeVisible();
 });
 
 /**
@@ -93,7 +149,8 @@ test('keeps major shell controls keyboard reachable with visible focus indicator
 
   await expect(page.getByRole('separator', { name: 'Resize primary sidebar' })).toHaveAttribute('aria-valuenow', /\d+/);
   await expect(page.getByRole('separator', { name: 'Resize bottom panel' })).toHaveAttribute('aria-valuenow', /\d+/);
-  await expect(page.getByRole('button', { name: /Dashboard:/ })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('button', { name: 'Snapshot Workspace: Primary extraction and snapshot operations workspace.' })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('button', { name: 'Snapshot Workspace: Primary extraction and snapshot operations workspace.' })).toContainText('Snapshot Workspace selected');
   await expect(page.getByRole('button', { name: 'Hide panel' })).toBeVisible();
 });
 

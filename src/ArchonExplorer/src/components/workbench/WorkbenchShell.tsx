@@ -124,15 +124,14 @@ function WorkbenchShellFrame({ apiConfiguration, connectivityState }: WorkbenchS
   });
 
   return (
-    <div className="workbench-shell">
+    <div className="workbench-shell" data-scroll-root="workbench">
       <ActivityRail activeActivityId={state.activeActivityId} onSelectActivity={selectActivity} />
       <div className="workbench-shell__main">
         <header className="workbench-top-bar">
           <div className="workbench-top-bar__title-group">
-            <Badge variant="outline">ArchonExplorer</Badge>
             <div>
               <p className="workbench-top-bar__eyebrow">Architecture intelligence workbench</p>
-              <p className="workbench-top-bar__title">Foundation shell</p>
+              <p className="workbench-top-bar__title">ArchonExplorer</p>
             </div>
           </div>
           <CommandPaletteTrigger onOpen={() => setCommandPaletteVisible(true)} triggerRef={commandPaletteTriggerRef} />
@@ -221,13 +220,13 @@ interface CommandPaletteTriggerProps {
  * @returns A command/search affordance that makes future architecture search boundaries explicit.
  */
 function CommandPaletteTrigger({ onOpen, triggerRef }: CommandPaletteTriggerProps) {
-  // The trigger replaces the earlier disabled placeholder: commands are now functional, while the
-  // copy still clearly states that global architecture search remains a later work package.
+  // The compact command surface keeps the top frame operational: the visible button and shortcut
+  // remain available, while the label avoids prose-heavy search placeholder treatment.
   return (
     <div className="workbench-command-search" aria-label="Command palette and future search">
       <div className="workbench-command-search__copy">
-        <span>Run shell commands</span>
-        <span>Global architecture search arrives in a later work package.</span>
+        <span>Commands</span>
+        <span>Local shell actions</span>
       </div>
       <Badge variant="outline">Ctrl+K</Badge>
       <Button ref={triggerRef} aria-keyshortcuts="Control+K Meta+K" type="button" variant="outline" onClick={onOpen}>

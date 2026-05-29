@@ -501,9 +501,9 @@ describe('ExtractionBackgroundMonitorContent', () => {
 });
 
 /**
- * Verifies Extraction Center command palette registrations.
+ * Verifies Snapshot workspace command palette registrations.
  */
-describe('Extraction Center command registrations', () => {
+describe('Snapshot workspace command registrations', () => {
   /**
    * Confirms commands execute through local shell and feature actions rather than browser navigation.
    */
@@ -532,18 +532,18 @@ describe('Extraction Center command registrations', () => {
       },
     });
 
-    commands.find((command) => command.id === 'extractionCenter.open')?.execute();
-    commands.find((command) => command.id === 'extractionCenter.focusForm')?.execute();
-    commands.find((command) => command.id === 'extractionCenter.refreshHistory')?.execute();
-    commands.find((command) => command.id === 'extractionCenter.focusActiveBackgroundRun')?.execute();
+    commands.find((command) => command.id === 'snapshotWorkspace.open')?.execute();
+    commands.find((command) => command.id === 'snapshotWorkspace.focusForm')?.execute();
+    commands.find((command) => command.id === 'snapshotWorkspace.refreshHistory')?.execute();
+    commands.find((command) => command.id === 'snapshotWorkspace.focusActiveBackgroundRun')?.execute();
 
-    expect(commands.filter((command) => command.group === 'Extraction Center').map((command) => command.id)).toEqual([
-      'extractionCenter.open',
-      'extractionCenter.focusForm',
-      'extractionCenter.refreshHistory',
-      'extractionCenter.focusActiveBackgroundRun',
+    expect(commands.filter((command) => command.group === 'Snapshot Workspace').map((command) => command.id)).toEqual([
+      'snapshotWorkspace.open',
+      'snapshotWorkspace.focusForm',
+      'snapshotWorkspace.refreshHistory',
+      'snapshotWorkspace.focusActiveBackgroundRun',
     ]);
-    expect(calls).toContain('activity:extraction-center');
+    expect(calls).toContain('activity:snapshots');
     expect(calls).toContain('focusForm');
     expect(calls).toContain('refreshHistory');
     expect(calls).toContain('focusActiveRun');
@@ -555,9 +555,9 @@ describe('Extraction Center command registrations', () => {
  */
 describe('ExtractionCenterContent', () => {
   /**
-   * Confirms populated history renders required fields without leaking unsafe diagnostics.
+   * Confirms populated Snapshot workspace renders required regions without leaking unsafe diagnostics.
    */
-  it('renders populated recent extraction history with required summary fields', () => {
+  it('renders populated Snapshot workspace with compact operational regions', () => {
     const markup = renderToStaticMarkup(
       <QueryClientProvider client={createTestQueryClient()}>
         <ExtractionCenterContent
@@ -582,8 +582,20 @@ describe('ExtractionCenterContent', () => {
       </QueryClientProvider>,
     );
 
-    expect(markup).toContain('Recent extraction history');
-    expect(markup).toContain('Start extraction');
+    expect(markup).toContain('Snapshot Workspace');
+    expect(markup).toContain('aria-label="Snapshot workspace regions"');
+    expect(markup).toContain('data-snapshot-region="new-extraction"');
+    expect(markup).toContain('data-snapshot-region="update-status"');
+    expect(markup).toContain('data-snapshot-region="run-history"');
+    expect(markup).toContain('data-snapshot-region="run-details"');
+    expect(markup).toContain('Run history');
+    expect(markup).toContain('class="extraction-history__grid-wrap"');
+    expect(markup).toContain('aria-label="Dense recent extraction runs"');
+    expect(markup).toContain('class="extraction-history__status-text"');
+    expect(markup).toContain('New Extraction');
+    expect(markup).toContain('Route: POST /extractions');
+    expect(markup).toContain('title="Submit explicit solution paths through POST /extractions. Recursive discovery is not used."');
+    expect(markup).toContain('aria-label="Required extraction request fields"');
     expect(markup).toContain('run-completed');
     expect(markup).toContain('Completed');
     expect(markup).toContain('D:/workspace/Archon');
@@ -591,6 +603,8 @@ describe('ExtractionCenterContent', () => {
     expect(markup).toContain('1 warning');
     expect(markup).toContain('0 errors');
     expect(markup).toContain('snapshot://archon/current');
+    expect(markup).not.toContain('ui-card');
+    expect(markup).not.toContain('snapshot-workspace__pane snapshot-workspace__pane--status"><section');
     expect(markup).not.toContain('/api/extractions');
     expect(markup).not.toContain('System.Exception');
     expect(markup).not.toContain('Password=');
@@ -598,21 +612,21 @@ describe('ExtractionCenterContent', () => {
   });
 
   /**
-   * Confirms empty history explains that no runs exist yet.
+   * Confirms empty history uses terse operational wording.
    */
-  it('renders a safe empty history explanation', () => {
+  it('renders a terse empty history state', () => {
     const markup = renderToStaticMarkup(
       <ExtractionCenterContent history={{ runs: [] }} isLoading={false} isRefetching={false} />,
     );
 
-    expect(markup).toContain('No extraction runs are available yet.');
-    expect(markup).toContain('Submit an explicit extraction request above.');
+    expect(markup).toContain('No runs yet.');
+    expect(markup).toContain('Submit an explicit extraction request.');
   });
 
   /**
-   * Confirms accepted runs render the accepted identity and safe summary fields.
+   * Confirms accepted runs render the compact Snapshot update status fields.
    */
-  it('renders an accepted run summary after successful submission', () => {
+  it('renders compact Snapshot update status after successful submission', () => {
     const markup = renderToStaticMarkup(
       <ExtractionCenterContent
         acceptedRun={createExtractionRunStatus({ runId: 'run-accepted-002', status: 'Queued', repositoryRootDirectory: 'D:/workspace/Archon' })}
@@ -622,20 +636,98 @@ describe('ExtractionCenterContent', () => {
       />,
     );
 
-    expect(markup).toContain('Accepted run');
+    expect(markup).toContain('Update status');
+    expect(markup).toContain('Queued: run-accepted-002.');
     expect(markup).toContain('run-accepted-002');
     expect(markup).toContain('Queued');
+    expect(markup).toContain('Stage');
     expect(markup).toContain('Extraction is running.');
     expect(markup).toContain('0 warnings');
     expect(markup).toContain('0 errors');
+    expect(markup).toContain('No snapshot yet');
     expect(markup).not.toContain('Neo4j driver');
     expect(markup).not.toContain('Password=');
   });
 
   /**
-   * Confirms selected-run detail renders queued status with request and progress fields.
+   * Confirms the compact update status maps all applicable lifecycle states to visible text.
    */
-  it('renders queued selected-run detail safely', () => {
+  it('maps Snapshot update status states without relying on color', () => {
+    const statuses = ['Queued', 'Running', 'Completed', 'Failed', 'Cancelled', 'Unavailable', 'Unknown'];
+    const markup = statuses.map((status) => renderToStaticMarkup(
+      <ExtractionCenterContent
+        acceptedRun={createExtractionRunStatus({ runId: `run-${status.toLowerCase()}`, status })}
+        history={{ runs: [] }}
+        isLoading={false}
+        isRefetching={false}
+      />,
+    )).join('\n');
+
+    expect(markup).toContain('Queued: run-queued.');
+    expect(markup).toContain('Running: run-running.');
+    expect(markup).toContain('Completed: run-completed.');
+    expect(markup).toContain('Failed: run-failed.');
+    expect(markup).toContain('Cancelled: run-cancelled.');
+    expect(markup).toContain('Unavailable: run-unavailable.');
+    expect(markup).toContain('Unknown: run-unknown.');
+    expect(markup).toContain('aria-label="Snapshot update state"');
+    expect(markup).not.toContain('System.Exception');
+    expect(markup).not.toContain('Password=');
+  });
+
+  /**
+   * Confirms selected polling data overrides accepted-run state in the compact update status.
+   */
+  it('renders polling-backed Snapshot update status with snapshot identity and diagnostic counts', () => {
+    const markup = renderToStaticMarkup(
+      <ExtractionCenterContent
+        acceptedRun={createExtractionRunStatus({ runId: 'run-accepted-old', status: 'Queued' })}
+        history={{ runs: [] }}
+        isLoading={false}
+        isRefetching={false}
+        isUpdateStatusRefreshing={true}
+        selectedRun={createExtractionRunStatus({ runId: 'run-selected-current', status: 'Completed' })}
+        selectedRunId="run-selected-current"
+      />,
+    );
+
+    expect(markup).toContain('Completed: run-selected-current.');
+    expect(markup).toContain('Refreshing');
+    expect(markup).toContain('snapshot://repo/current');
+    expect(markup).toContain('Warnings');
+    expect(markup).toContain('Errors');
+    expect(markup).not.toContain('run-accepted-old</dd>');
+    expect(markup).not.toContain('raw Cypher');
+  });
+
+  /**
+   * Confirms unavailable status feedback remains safe and does not become a diagnostic console.
+   */
+  it('renders unavailable Snapshot update status without unsafe diagnostics or log-pane language', () => {
+    const markup = renderToStaticMarkup(
+      <ExtractionCenterContent
+        history={{ runs: [] }}
+        isLoading={false}
+        isRefetching={false}
+        selectedRunId="run-unavailable-summary"
+        updateStatusError={{ category: 'network', message: 'Archon API could not be reached. Check that the service is running and accessible.', retryable: true, status: 503 }}
+      />,
+    );
+
+    expect(markup).toContain('Unavailable: run-unavailable-summary.');
+    expect(markup).toContain('Archon API could not be reached. Check that the service is running and accessible.');
+    expect(markup).toContain('title="Status shows lifecycle, stage, message, aggregate warning and error counts, and snapshot identity when ArchonApi returns those safe fields."');
+    expect(markup).not.toContain('System.Exception');
+    expect(markup).not.toContain('ConnectionString');
+    expect(markup).not.toContain('Output pane');
+    expect(markup).not.toContain('Log console');
+    expect(markup).not.toContain('Event stream');
+  });
+
+  /**
+   * Confirms selected-run detail renders queued status as compact property groups.
+   */
+  it('renders queued selected-run detail as compact properties safely', () => {
     const markup = renderToStaticMarkup(
       <ExtractionRunDetail
         selectedRunId="run-queued"
@@ -645,14 +737,16 @@ describe('ExtractionCenterContent', () => {
       />,
     );
 
-    expect(markup).toContain('Selected run detail');
+    expect(markup).toContain('Selected run properties');
+    expect(markup).toContain('class="extraction-run-detail__properties"');
     expect(markup).toContain('run-queued');
     expect(markup).toContain('Queued');
     expect(markup).toContain('Polling');
     expect(markup).toContain('Active monitor');
-    expect(markup).toContain('Submitted request summary');
+    expect(markup).toContain('Request');
     expect(markup).toContain('Archon.sln');
     expect(markup).toContain('Metadata keys');
+    expect(markup).not.toContain('This monitor reads');
     expect(markup).not.toContain('Neo4j driver');
     expect(markup).not.toContain('Password=');
   });
@@ -697,6 +791,7 @@ describe('ExtractionCenterContent', () => {
     expect(markup).toContain('Persistence.Commit');
     expect(markup).toContain('1500 ms (1.5 s)');
     expect(markup).toContain('Not measured');
+    expect(markup).toContain('class="extraction-run-detail__section extraction-run-detail__section--nested"');
     expect(markup).not.toContain('Neo4j');
     expect(markup).not.toContain('ConnectionString');
   });
@@ -717,8 +812,8 @@ describe('ExtractionCenterContent', () => {
     expect(markup).toContain('Failed');
     expect(markup).toContain('Terminal status');
     expect(markup).toContain('No snapshot yet');
-    expect(markup).toContain('Persistence diagnostics are not available for this run yet.');
-    expect(markup).toContain('Warning and error details are intentionally not fabricated');
+    expect(markup).toContain('Not available.');
+    expect(markup).toContain('Counts and metadata keys only.');
   });
 
   /**
@@ -754,7 +849,7 @@ describe('ExtractionCenterContent', () => {
   /**
    * Confirms selected history rows expose an enabled detail action and selected state.
    */
-  it('renders selectable history rows for selected-run polling', () => {
+  it('renders selectable dense history rows for selected-run polling', () => {
     const markup = renderToStaticMarkup(
       <ExtractionCenterContent
         history={{
@@ -780,7 +875,11 @@ describe('ExtractionCenterContent', () => {
     );
 
     expect(markup).toContain('aria-selected="true"');
+    expect(markup).toContain('extraction-history__row-action');
+    expect(markup).toContain('aria-label="Select run run-selected-row for details"');
     expect(markup).toContain('Selected');
+    expect(markup).toContain('Not completed');
+    expect(markup).toContain('No snapshot yet');
     expect(markup).not.toContain('Details later');
   });
 
@@ -813,7 +912,8 @@ describe('ExtractionCenterContent', () => {
     );
 
     expect(markup).toContain('Duplicate request unavailable');
-    expect(markup).toContain('Load selected run detail to duplicate the prior request values safely. History rows only expose compact summaries.');
+    expect(markup).toContain('Load details before duplicating.');
+    expect(markup).toContain('title="History rows do not include explicit solution paths. Load GET /extractions/{runId} before duplicating a request."');
     expect(markup).not.toContain('source=');
     expect(markup).not.toContain('Password=');
   });
@@ -836,7 +936,8 @@ describe('ExtractionCenterContent', () => {
     expect(markup).toContain('Run follow-up actions');
     expect(markup).toContain('Duplicate request');
     expect(markup).toContain('Open produced snapshot');
-    expect(markup).toContain('WP006 owns full snapshot context activation. This action does not query graph data, dashboard metrics, search, lenses, or visualizations.');
+    expect(markup).toContain('Snapshot handoff is pending WP006.');
+    expect(markup).toContain('title="This placeholder does not query graph data, dashboard metrics, search, lenses, visualizations, or snapshot lifecycle routes."');
     expect(markup).toContain('snapshot://repo/current');
     expect(markup).not.toContain('/api/extractions');
     expect(markup).not.toContain('raw Cypher');
@@ -901,8 +1002,9 @@ describe('ExtractionCenterContent', () => {
 
     expect(markup).toContain('API base URL not configured');
     expect(markup).toContain('Set the Archon API base URL before API-backed features can run.');
+    expect(markup).toContain('API not configured.');
     expect(markup).toContain('aria-disabled="true"');
-    expect(markup).toContain('<button class="ui-button ui-button--default ui-button--default-size" type="submit" aria-disabled="true">Submit extraction</button>');
+    expect(markup).toContain('<button class="ui-button ui-button--default ui-button--sm" type="submit" aria-disabled="true" title="Submit explicit solution paths through POST /extractions">Submit extraction</button>');
     expect(markup).toContain('Enter the repository root directory to extract.');
     expect(markup).toContain('ArchonExplorer does not discover solutions recursively.');
     expect(markup).not.toContain('VITE_ARCHON_API_BASE_URL');

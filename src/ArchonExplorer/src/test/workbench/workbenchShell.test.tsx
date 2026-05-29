@@ -64,35 +64,59 @@ describe('workbench shell rendering', () => {
     const markup = renderShellMarkup();
 
     expect(markup).toContain('ArchonExplorer');
+    expect(markup).toContain('data-scroll-root="workbench"');
+    expect(markup).toContain('data-scroll-region="activity-rail"');
+    expect(markup).toContain('data-scroll-region="primary-sidebar"');
+    expect(markup).toContain('data-scroll-region="workspace"');
     expect(markup).toContain('aria-label="ArchonExplorer workbench activities"');
     expect(markup).toContain('aria-label="Primary workbench sidebar"');
     expect(markup).toContain('aria-label="Workbench tabs"');
-    expect(markup).toContain('Workbench Start');
+    expect(markup).toContain('Snapshot Workspace');
   });
 
   /**
-   * Confirms placeholders remain honest about unavailable feature workflows.
+   * Confirms the shell declares fixed-frame scroll ownership in its rendered regions.
    */
-  it('renders safe placeholder text without implying unavailable features are complete', () => {
+  it('declares the fixed workbench frame and named internal scroll regions', () => {
     const markup = renderShellMarkup();
 
-    expect(markup).toContain('Extraction history is available in this slice. Snapshot, search, project, finding, diagnostics, submission, and run-monitoring workflows arrive in later work packages.');
-    expect(markup).toContain('No extraction runs, snapshots, graph data, search results, evidence, or findings are loaded in this shell slice.');
+    expect(markup).toContain('class="workbench-shell"');
+    expect(markup).toContain('aria-label="Workbench editor and bottom panel region"');
+    expect(markup).toContain('data-scroll-root="workbench"');
+    expect(markup).toContain('data-scroll-region="activity-rail"');
+    expect(markup).toContain('data-scroll-region="primary-sidebar"');
+    expect(markup).toContain('data-scroll-region="workspace"');
+  });
+
+  /**
+   * Confirms the shell starts in the Snapshot workspace instead of a page-like dashboard.
+   */
+  it('renders Snapshot workspace as the default operational context', () => {
+    const markup = renderShellMarkup();
+
+    expect(markup).toContain('Snapshot Workspace');
+    expect(markup).toContain('aria-label="Snapshot workspace regions"');
+    expect(markup).toContain('data-snapshot-region="new-extraction"');
+    expect(markup).toContain('data-snapshot-region="update-status"');
+    expect(markup).toContain('data-snapshot-region="run-history"');
+    expect(markup).toContain('data-snapshot-region="run-details"');
+    expect(markup).not.toContain('Workbench Start');
+    expect(markup).not.toContain('No extraction runs, snapshots, graph data, search results, evidence, or findings are loaded in this shell slice.');
     expect(markup).not.toContain('Password=');
     expect(markup).not.toContain('System.Exception');
     expect(markup).not.toContain('Neo4j driver');
   });
 
   /**
-   * Confirms selecting Extraction Center opens the API-backed feature tab.
+   * Confirms selecting the Snapshot activity opens the API-backed feature tab.
    */
-  it('opens the Extraction Center tab when its activity is selected', () => {
+  it('opens the Snapshot Workspace tab when its activity is selected', () => {
     const initialState = getDefaultWorkbenchState();
-    const selectedState = reduceWorkbenchState(initialState, { type: 'selectActivity', activityId: 'extraction-center' });
+    const selectedState = reduceWorkbenchState(initialState, { type: 'selectActivity', activityId: 'snapshots' });
 
-    expect(selectedState.activeActivityId).toBe('extraction-center');
-    expect(selectedState.activeTabId).toBe('extraction-center');
-    expect(selectedState.openTabs.some((tab) => tab.id === 'extraction-center' && tab.title === 'Extraction Center')).toBe(true);
+    expect(selectedState.activeActivityId).toBe('snapshots');
+    expect(selectedState.activeTabId).toBe('snapshot-workspace');
+    expect(selectedState.openTabs.some((tab) => tab.id === 'snapshot-workspace' && tab.title === 'Snapshot Workspace')).toBe(true);
   });
 });
 
@@ -111,37 +135,51 @@ describe('workbench activity navigation state', () => {
     );
 
     expect(selectedState.activeActivityId).toBe('snapshots');
-    expect(sidebarMarkup).toContain('Snapshots');
-    expect(sidebarMarkup).toContain('Snapshot administration arrives in a later work package.');
+    expect(sidebarMarkup).toContain('Snapshot Workspace');
+    expect(sidebarMarkup).toContain('Snapshot operations');
+    expect(sidebarMarkup).toContain('title="Snapshot workspace is the primary operational context for explicit extraction requests, update status, run history, and selected run inspection."');
   });
 
   /**
-   * Confirms invalid activity identifiers recover to the default dashboard activity.
+   * Confirms invalid activity identifiers recover to the default Snapshot activity.
    */
-  it('recovers to the dashboard when an invalid activity is selected', () => {
+  it('recovers to the Snapshot workspace when an invalid activity is selected', () => {
     const initialState = getDefaultWorkbenchState();
     const selectedState = reduceWorkbenchState(initialState, { type: 'selectActivity', activityId: 'missing-area' });
 
-    expect(selectedState.activeActivityId).toBe('dashboard');
+    expect(selectedState.activeActivityId).toBe('snapshots');
   });
 
   /**
-   * Confirms the activity rail exposes keyboard-reachable controls for each roadmap activity.
+   * Confirms the activity rail exposes compact keyboard-reachable controls for each roadmap activity.
    */
-  it('renders enabled controls for roadmap-aligned activities', () => {
+  it('renders compact icon activity controls with accessible names and tooltip text', () => {
     const state = getDefaultWorkbenchState();
     const markup = renderToStaticMarkup(
       <ActivityRail activeActivityId={state.activeActivityId} onSelectActivity={() => undefined} />,
     );
 
     expect(markup).toContain('type="button"');
-    expect(markup).toContain('Dashboard');
-    expect(markup).toContain('Extraction Center');
-    expect(markup).toContain('Snapshots');
-    expect(markup).toContain('Search');
-    expect(markup).toContain('Projects');
-    expect(markup).toContain('Findings');
-    expect(markup).toContain('Diagnostics');
+    expect(markup).toContain('aria-label="Snapshot Workspace: Primary extraction and snapshot operations workspace."');
+    expect(markup).toContain('title="Snapshot Workspace: Primary extraction and snapshot operations workspace."');
+    expect(markup).toContain('aria-label="Diagnostics: Future safe setup and runtime diagnostics area."');
+    expect(markup).toContain('workbench-activity-rail__tooltip');
+    expect(markup).not.toContain('>Later<');
+    expect(markup).not.toContain('workbench-activity-rail__item-label">Later');
+  });
+
+  /**
+   * Confirms the selected activity is represented by text and structure rather than color alone.
+   */
+  it('renders selected activity state with non-color selected text and marker semantics', () => {
+    const state = getDefaultWorkbenchState();
+    const markup = renderToStaticMarkup(
+      <ActivityRail activeActivityId={state.activeActivityId} onSelectActivity={() => undefined} />,
+    );
+
+    expect(markup).toContain('aria-current="page"');
+    expect(markup).toContain('Snapshot Workspace selected');
+    expect(markup).toContain('workbench-activity-rail__selected-indicator');
   });
 });
 
@@ -150,14 +188,15 @@ describe('workbench activity navigation state', () => {
  */
 describe('workbench tab state', () => {
   /**
-   * Confirms the default workbench state contains one stable start tab.
+   * Confirms the default workbench state lands directly in the Snapshot workspace tab.
    */
-  it('creates a stable default start tab', () => {
+  it('creates a stable default Snapshot workspace tab', () => {
     const state = getDefaultWorkbenchState();
 
     expect(state.openTabs).toHaveLength(1);
-    expect(state.openTabs[0]?.id).toBe('workbench-start');
-    expect(state.activeTabId).toBe('workbench-start');
+    expect(state.openTabs[0]?.id).toBe('snapshot-workspace');
+    expect(state.openTabs[0]?.title).toBe('Snapshot Workspace');
+    expect(state.activeTabId).toBe('snapshot-workspace');
   });
 
   /**
@@ -170,7 +209,7 @@ describe('workbench tab state', () => {
       tab: {
         id: 'dashboard-overview',
         title: 'Dashboard Overview',
-        activityId: 'dashboard',
+        activityId: 'projects',
         isClosable: true,
         placeholderSummary: 'Dashboard placeholder.',
       },
@@ -180,7 +219,7 @@ describe('workbench tab state', () => {
       tab: {
         id: 'dashboard-overview',
         title: 'Dashboard Overview',
-        activityId: 'dashboard',
+        activityId: 'projects',
         isClosable: true,
         placeholderSummary: 'Dashboard placeholder.',
       },
@@ -191,28 +230,32 @@ describe('workbench tab state', () => {
   });
 
   /**
-   * Confirms invalid tab selections fall back to the default start tab.
+   * Confirms invalid tab selections fall back to the default Snapshot workspace tab.
    */
-  it('recovers to the default start tab when a missing tab is selected', () => {
+  it('recovers to the default Snapshot workspace tab when a missing tab is selected', () => {
     const state = reduceWorkbenchState(getDefaultWorkbenchState(), { type: 'selectTab', tabId: 'missing-tab' });
 
-    expect(state.activeTabId).toBe('workbench-start');
+    expect(state.activeTabId).toBe('snapshot-workspace');
   });
 
   /**
-   * Confirms the tabbed work area renders accessible tab semantics and placeholder content.
+   * Confirms the tabbed work area renders accessible tab semantics and Snapshot content.
    */
-  it('renders the active tab panel with safe placeholder content', () => {
+  it('renders the active tab panel with Snapshot workspace content', () => {
     const state = getDefaultWorkbenchState();
     const markup = renderToStaticMarkup(
-      <TabbedWorkArea tabs={state.openTabs} activeTabId={state.activeTabId} onSelectTab={() => undefined} />,
+      <ApplicationProviders>
+        <ExtractionCenterStoreProvider>
+          <TabbedWorkArea tabs={state.openTabs} activeTabId={state.activeTabId} onSelectTab={() => undefined} />
+        </ExtractionCenterStoreProvider>
+      </ApplicationProviders>,
     );
 
     expect(markup).toContain('role="tablist"');
     expect(markup).toContain('role="tab"');
     expect(markup).toContain('role="tabpanel"');
-    expect(markup).toContain('Workbench Start');
-    expect(markup).toContain('No extraction runs, snapshots, graph data, search results, evidence, or findings are loaded in this shell slice.');
+    expect(markup).toContain('Snapshot Workspace');
+    expect(markup).toContain('aria-label="Snapshot workspace regions"');
   });
 });
 
@@ -231,7 +274,7 @@ describe('workbench status bar placeholders', () => {
     expect(markup).toContain('Background work:');
     expect(markup).toContain('none running; bottom panel hidden');
     expect(markup).toContain('Selection:');
-    expect(markup).toContain('Dashboard activity selected; no item selected');
+    expect(markup).toContain('Snapshot Workspace activity selected; no item selected');
   });
 
   /**
@@ -243,7 +286,7 @@ describe('workbench status bar placeholders', () => {
     );
 
     expect(markup).toContain('bottom panel visible');
-    expect(markup).toContain('Snapshots activity selected; no item selected');
+    expect(markup).toContain('Snapshot Workspace activity selected; no item selected');
     expect(markup).not.toContain('System.Exception');
     expect(markup).not.toContain('Password=');
   });
@@ -390,7 +433,8 @@ describe('workbench bottom panel', () => {
     expect(markup).toContain('Background Work');
     expect(markup).toContain('Extraction Runs');
     expect(markup).toContain('Diagnostics');
-    expect(markup).toContain('never include stack traces, connection strings, environment variables, raw Cypher, Neo4j internals, or driver details');
+    expect(markup).toContain('Safe diagnostics only.');
+    expect(markup).toContain('title="Safe diagnostics never include stack traces, connection strings, environment variables, raw Cypher, Neo4j internals, or driver details."');
     expect(markup).not.toContain('System.Exception');
     expect(markup).not.toContain('Password=');
   });

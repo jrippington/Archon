@@ -1,11 +1,9 @@
 import {
-  Activity,
   ChartNoAxesCombined,
   FolderKanban,
-  LayoutDashboard,
   Search,
   Settings,
-  Sparkles,
+  Wrench,
   SquareStack,
   type LucideIcon,
 } from 'lucide-react';
@@ -35,6 +33,11 @@ export interface WorkbenchActivity {
   readonly sidebarTitle: string;
 
   /**
+   * Provides terse visible sidebar copy for the selected activity.
+   */
+  readonly sidebarSummary: string;
+
+  /**
    * Explains the current placeholder boundary for the selected activity.
    */
   readonly sidebarDescription: string;
@@ -51,34 +54,17 @@ export interface WorkbenchActivity {
 }
 
 /**
- * Lists the roadmap-aligned activities available in the Work Item 1 shell.
+ * Lists the roadmap-aligned activities available in the local workbench shell.
  */
 export const workbenchActivities = [
   {
-    id: 'dashboard',
-    label: 'Dashboard',
-    description: 'Shell overview and orientation placeholders.',
-    sidebarTitle: 'Dashboard orientation',
-    sidebarDescription: 'The dashboard activity introduces the workbench frame. Real summaries, run status, and architecture metrics arrive in later work packages.',
-    placeholderItems: ['Workbench start', 'Current context placeholder', 'Future summary slots'],
-    icon: LayoutDashboard,
-  },
-  {
-    id: 'extraction-center',
-    label: 'Extraction Center',
-    description: 'API-backed extraction history and future submission area.',
-    sidebarTitle: 'Extraction Center',
-    sidebarDescription: 'Recent extraction history is available now. Submission, run-detail monitoring, and background run controls arrive in later Extraction Center slices.',
-    placeholderItems: ['Recent extraction history', 'Future extraction queue', 'Future run monitor'],
-    icon: Activity,
-  },
-  {
     id: 'snapshots',
-    label: 'Snapshots',
-    description: 'Future architecture snapshot administration area.',
-    sidebarTitle: 'Snapshots placeholder',
-    sidebarDescription: 'Snapshot administration arrives in a later work package. This shell does not list, select, delete, or compare snapshots.',
-    placeholderItems: ['Future current snapshot selector', 'Future snapshot list', 'Future snapshot comparison'],
+    label: 'Snapshot Workspace',
+    description: 'Primary extraction and snapshot operations workspace.',
+    sidebarTitle: 'Snapshot Workspace',
+    sidebarSummary: 'Snapshot operations',
+    sidebarDescription: 'Snapshot workspace is the primary operational context for explicit extraction requests, update status, run history, and selected run inspection.',
+    placeholderItems: ['New Extraction pane', 'Snapshot update status', 'Run history', 'Selected run details'],
     icon: SquareStack,
   },
   {
@@ -86,6 +72,7 @@ export const workbenchActivities = [
     label: 'Search',
     description: 'Future architecture search and command area.',
     sidebarTitle: 'Search placeholder',
+    sidebarSummary: 'Search placeholder',
     sidebarDescription: 'Global architecture search arrives in a later work package. This activity does not run queries or display search results.',
     placeholderItems: ['Future search filters', 'Future saved searches', 'Future result scopes'],
     icon: Search,
@@ -95,6 +82,7 @@ export const workbenchActivities = [
     label: 'Projects',
     description: 'Future project catalogue and workspace grouping area.',
     sidebarTitle: 'Projects placeholder',
+    sidebarSummary: 'Projects placeholder',
     sidebarDescription: 'Project catalogue navigation arrives in a later work package. This shell does not load repository, solution, or project data.',
     placeholderItems: ['Future project catalogue', 'Future workspace grouping', 'Future project filters'],
     icon: FolderKanban,
@@ -104,6 +92,7 @@ export const workbenchActivities = [
     label: 'Findings',
     description: 'Future findings and modernization review area.',
     sidebarTitle: 'Findings placeholder',
+    sidebarSummary: 'Findings placeholder',
     sidebarDescription: 'Findings triage and modernization review arrive in later work packages. This activity does not invent findings or recommendations.',
     placeholderItems: ['Future findings inbox', 'Future review queues', 'Future modernization labels'],
     icon: ChartNoAxesCombined,
@@ -113,15 +102,17 @@ export const workbenchActivities = [
     label: 'Diagnostics',
     description: 'Future safe setup and runtime diagnostics area.',
     sidebarTitle: 'Diagnostics placeholder',
+    sidebarSummary: 'Diagnostics placeholder',
     sidebarDescription: 'Safe diagnostics arrive in a later work package. This shell does not expose raw stack traces, environment variables, connection strings, or driver internals.',
     placeholderItems: ['Future setup status', 'Future safe runtime checks', 'Future troubleshooting prompts'],
-    icon: Sparkles,
+    icon: Wrench,
   },
   {
     id: 'settings',
     label: 'Settings',
     description: 'Future local shell preference area.',
     sidebarTitle: 'Settings placeholder',
+    sidebarSummary: 'Settings placeholder',
     sidebarDescription: 'Local layout preferences arrive in a later work package. This activity does not persist panel sizes, secrets, diagnostics, or API values.',
     placeholderItems: ['Future layout reset', 'Future shell preferences', 'Future accessibility preferences'],
     icon: Settings,
@@ -136,12 +127,12 @@ export type WorkbenchActivityId = (typeof workbenchActivities)[number]['id'];
 /**
  * Returns the default activity selected when the shell starts or recovers from invalid state.
  *
- * @returns The stable dashboard activity identifier.
+ * @returns The stable Snapshot workspace activity identifier.
  */
 export function getDefaultWorkbenchActivityId(): WorkbenchActivityId {
-  // Dashboard is the safest fallback because it presents orientation copy rather than implying
-  // a feature-specific workflow such as extraction, snapshots, search, or diagnostics is active.
-  return 'dashboard';
+  // Snapshot workspace is the intended first operational context, so fallback recovery keeps users
+  // in the extraction/snapshot workflow rather than returning to a page-style dashboard.
+  return 'snapshots';
 }
 
 /**
@@ -164,7 +155,7 @@ export function isWorkbenchActivityId(activityId: string): activityId is Workben
  */
 export function getWorkbenchActivity(activityId: string): WorkbenchActivity {
   // Unknown identifiers can appear through stale UI callbacks or later persisted preferences;
-  // rendering the dashboard keeps the shell stable and avoids surfacing an exception to users.
+  // rendering the default Snapshot workspace keeps the shell stable and avoids exceptions.
   return workbenchActivities.find((activity) => activity.id === activityId)
     ?? workbenchActivities[0];
 }

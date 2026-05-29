@@ -1,4 +1,3 @@
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { workbenchActivities, type WorkbenchActivityId } from './workbenchActivities';
 
@@ -28,8 +27,10 @@ export interface ActivityRailProps {
 export function ActivityRail({ activeActivityId, onSelectActivity }: ActivityRailProps) {
   // Activity buttons update local shell state only. They intentionally avoid browser navigation,
   // route changes, data loading, or claims that future workbench features are already complete.
+  // The rail is deliberately icon-first so it behaves like IDE activity navigation instead of a
+  // page sidebar; accessible labels, title text, and hidden text keep the compact controls usable.
   return (
-    <nav aria-label="ArchonExplorer workbench activities" className="workbench-activity-rail">
+    <nav aria-label="ArchonExplorer workbench activities" className="workbench-activity-rail" data-scroll-region="activity-rail">
       <div className="workbench-activity-rail__brand" aria-label="ArchonExplorer product mark">
         <span className="workbench-activity-rail__brand-mark" aria-hidden="true">
           AX
@@ -40,20 +41,24 @@ export function ActivityRail({ activeActivityId, onSelectActivity }: ActivityRai
         {workbenchActivities.map((area) => {
           const Icon = area.icon;
           const isActive = area.id === activeActivityId;
+          const activityLabel = `${area.label}: ${area.description}`;
 
           return (
             <li key={area.id}>
               <Button
                 aria-current={isActive ? 'page' : undefined}
-                aria-label={`${area.label}: ${area.description}`}
+                aria-label={activityLabel}
                 className="workbench-activity-rail__item"
                 onClick={() => onSelectActivity(area.id)}
+                title={activityLabel}
                 type="button"
                 variant={isActive ? 'secondary' : 'ghost'}
               >
+                {isActive ? <span className="workbench-activity-rail__selected-indicator" aria-hidden="true" /> : null}
                 <Icon aria-hidden="true" size={18} />
                 <span className="workbench-activity-rail__item-label">{area.label}</span>
-                {!isActive && <Badge variant="outline">Later</Badge>}
+                <span className="workbench-activity-rail__tooltip" aria-hidden="true">{area.label}</span>
+                {isActive ? <span className="workbench-sr-only">{area.label} selected</span> : null}
               </Button>
             </li>
           );

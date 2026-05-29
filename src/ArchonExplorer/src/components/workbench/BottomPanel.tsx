@@ -1,4 +1,3 @@
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ExtractionBackgroundMonitor } from '@/components/extraction-center/ExtractionBackgroundMonitor';
 
@@ -22,14 +21,14 @@ interface BottomPanelSection {
   readonly title: string;
 
   /**
-   * Provides safe explanatory copy without raw diagnostics or fabricated feature data.
+   * Provides terse visible copy without raw diagnostics or fabricated feature data.
    */
-  readonly description: string;
+  readonly summary: string;
 
   /**
-   * Provides the short state label used by the placeholder badge.
+   * Provides title-based help for the placeholder boundary.
    */
-  readonly stateLabel: string;
+  readonly help: string;
 }
 
 /**
@@ -38,13 +37,13 @@ interface BottomPanelSection {
 const bottomPanelSections: readonly BottomPanelSection[] = [
   {
     title: 'Background Work',
-    description: 'No browser-local background work is running. Future packages can report safe queued activity here without exposing raw worker diagnostics.',
-    stateLabel: 'Idle',
+    summary: 'Idle.',
+    help: 'No browser-local background work is running. Future packages can report safe queued activity here without exposing raw worker diagnostics.',
   },
   {
     title: 'Diagnostics',
-    description: 'Diagnostics are limited to safe shell placeholders and never include stack traces, connection strings, environment variables, raw Cypher, Neo4j internals, or driver details.',
-    stateLabel: 'Safe placeholder',
+    summary: 'Safe diagnostics only.',
+    help: 'Safe diagnostics never include stack traces, connection strings, environment variables, raw Cypher, Neo4j internals, or driver details.',
   },
 ];
 
@@ -62,7 +61,6 @@ export function BottomPanel({ onHide }: BottomPanelProps) {
     <aside className="workbench-bottom-panel" aria-label="Workbench bottom panel">
       <div className="workbench-bottom-panel__header">
         <div>
-          <Badge variant="secondary">Contextual panel</Badge>
           <h2>Bottom Panel</h2>
         </div>
         <Button type="button" variant="ghost" size="sm" onClick={onHide}>
@@ -75,9 +73,8 @@ export function BottomPanel({ onHide }: BottomPanelProps) {
           <section key={section.title} className="workbench-bottom-panel__section" aria-label={section.title}>
             <div className="workbench-bottom-panel__section-heading">
               <h3>{section.title}</h3>
-              <Badge variant="outline">{section.stateLabel}</Badge>
             </div>
-            <p>{section.description}</p>
+            <p title={section.help}>{section.summary}</p>
           </section>
         ))}
       </div>

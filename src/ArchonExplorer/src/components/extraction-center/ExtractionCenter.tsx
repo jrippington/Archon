@@ -1,6 +1,5 @@
 import { createRef, useEffect, useRef, useState, type RefObject } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Activity } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { ArchonApiClient } from '@/api/archonApiClient';
@@ -50,12 +49,12 @@ interface PublishExtractionRunStatusNotificationOptions extends ExtractionRunSta
 }
 
 /**
- * Describes the typed client surface consumed by the integrated Extraction Center feature.
+ * Describes the typed client surface consumed by the integrated Snapshot workspace feature.
  */
 export type ExtractionCenterClient = ExtractionHistoryClient & StartExtractionClient & Pick<ArchonApiClient, 'getExtractionStatus' | 'getHealth' | 'getReadiness'>;
 
 /**
- * Describes inputs accepted by the Extraction Center feature entry component.
+ * Describes inputs accepted by the Snapshot workspace feature entry component.
  */
 export interface ExtractionCenterProps {
   /**
@@ -65,7 +64,7 @@ export interface ExtractionCenterProps {
 }
 
 /**
- * Describes the render-only state accepted by the Extraction Center content component.
+ * Describes the render-only state accepted by the Snapshot workspace content component.
  */
 export interface ExtractionCenterContentProps {
   /**
@@ -149,6 +148,16 @@ export interface ExtractionCenterContentProps {
   readonly isSelectedRunRefetching?: boolean;
 
   /**
+   * Contains the latest polling-backed status failure for the compact update surface.
+   */
+  readonly updateStatusError?: ExtractionRunDetailError;
+
+  /**
+   * Indicates whether the compact update status surface is currently refreshing.
+   */
+  readonly isUpdateStatusRefreshing?: boolean;
+
+  /**
    * Receives edited browser-owned form state.
    */
   readonly onFormStateChange?: (state: ExtractionRequestFormState) => void;
@@ -175,11 +184,11 @@ export interface ExtractionCenterContentProps {
 }
 
 /**
- * Renders the API-backed Extraction Center workbench surface.
+ * Renders the API-backed Snapshot workspace surface.
  *
  * @param props Contains optional runtime dependencies for deterministic tests.
  * @param props.client Optional typed API client override used instead of the production client.
- * @returns The Extraction Center feature surface with recent run history states.
+ * @returns The Snapshot workspace feature surface with extraction workflow states.
  */
 export function ExtractionCenter({ client }: ExtractionCenterProps) {
   // Form values are browser-owned interaction state. They are deliberately separate from
@@ -321,6 +330,7 @@ export function ExtractionCenter({ client }: ExtractionCenterProps) {
       isRefetching={historyQuery.isRefetching && !historyQuery.isLoading}
       isSelectedRunLoading={selectedRunId !== undefined && selectedRunPolling.status === undefined && selectedRunPolling.isFetching}
       isSelectedRunRefetching={selectedRunPolling.status !== undefined && selectedRunPolling.isFetching}
+      isUpdateStatusRefreshing={selectedRunPolling.isFetching || startExtractionMutation.isPending}
       isSubmitting={startExtractionMutation.isPending}
       onFormStateChange={setFormState}
       onRetry={() => void historyQuery.refetch()}
@@ -334,12 +344,13 @@ export function ExtractionCenter({ client }: ExtractionCenterProps) {
       selectedRunError={selectedRunPolling.error}
       selectedRunId={selectedRunId}
       submissionError={startExtractionMutation.error ?? undefined}
+      updateStatusError={selectedRunPolling.error}
     />
   );
 }
 
 /**
- * Renders the Extraction Center content for a supplied query state.
+ * Renders the Snapshot workspace content for a supplied query state.
  *
  * @param props Contains form, accepted-run, history, safe error, and query-state flags to render.
  * @param props.history The loaded extraction history response, when available.
@@ -358,17 +369,21 @@ export function ExtractionCenter({ client }: ExtractionCenterProps) {
  * @param props.selectedRunError Safe selected-run polling failure.
  * @param props.isSelectedRunLoading Indicates whether initial selected-run status is loading.
  * @param props.isSelectedRunRefetching Indicates whether selected-run status is refreshing.
+ * @param props.updateStatusError Safe polling failure for the compact update status region.
+ * @param props.isUpdateStatusRefreshing Indicates whether the compact update status region is actively refreshing.
  * @param props.onFormStateChange Receives edited form state.
  * @param props.onSubmitExtraction Requests validation and submission.
  * @param props.onSelectRun Selects a run from history for detail monitoring.
- * @returns A desktop-style feature panel showing loading, empty, error, refetching, or populated states.
+ * @returns A desktop-style Snapshot workspace showing request, status, history, and details regions.
  */
-export function ExtractionCenterContent({ history, error, isLoading, isRefetching, onRetry, formState = createInitialExtractionRequestFormState(), formValidationMessages = {}, submissionError, connectivityState = createConfiguredConnectivityState(), isSubmitting = false, acceptedRun, selectedRunId, selectedRun, selectedRunError, isSelectedRunLoading = false, isSelectedRunRefetching = false, onFormStateChange = () => undefined, onSubmitExtraction = () => undefined, onSelectRun = () => undefined, onOpenProducedSnapshot = () => undefined, formSummaryRef }: ExtractionCenterContentProps) {
+export function ExtractionCenterContent({ history, error, isLoading, isRefetching, onRetry, formState = createInitialExtractionRequestFormState(), formValidationMessages = {}, submissionError, connectivityState = createConfiguredConnectivityState(), isSubmitting = false, acceptedRun, selectedRunId, selectedRun, selectedRunError, isSelectedRunLoading = false, isSelectedRunRefetching = false, updateStatusError, isUpdateStatusRefreshing = false, onFormStateChange = () => undefined, onSubmitExtraction = () => undefined, onSelectRun = () => undefined, onOpenProducedSnapshot = () => undefined, formSummaryRef }: ExtractionCenterContentProps) {
   // This component is intentionally render-only so tests can assert every state without mocking
   // TanStack internals, while the parent component remains responsible for query execution.
   const runs = history?.runs.filter((run) => run.runId.trim().length > 0) ?? [];
   const displayedRunId = selectedRunId ?? acceptedRun?.runId;
   const displayedRun = selectedRun ?? (selectedRunId === undefined ? acceptedRun : undefined);
+  const updateStatusRun = selectedRun ?? acceptedRun;
+  const updateStatusRunId = selectedRunId ?? acceptedRun?.runId;
   const stableFormSummaryRef = formSummaryRef ?? createRef<HTMLDivElement>();
 
   /**
@@ -409,57 +424,60 @@ export function ExtractionCenterContent({ history, error, isLoading, isRefetchin
   const duplicateResult = displayedRun === undefined ? undefined : mapRunStatusToDuplicateFormState(displayedRun);
 
   return (
-    <section aria-labelledby="extraction-center-title" className="extraction-center">
+    <section aria-labelledby="snapshot-workspace-title" className="extraction-center snapshot-workspace">
       <header className="extraction-center__header">
         <div className="extraction-center__title-group">
-          <Badge variant="secondary">Operational feature</Badge>
-          <h1 id="extraction-center-title">Extraction Center</h1>
-          <p>
-            Submit explicit extraction requests, review accepted run feedback, and inspect recent extraction runs loaded from ArchonApi.
-          </p>
+          <h1 id="snapshot-workspace-title">Snapshot Workspace</h1>
+          <p title="Primary workbench context for New Extraction, update status, recent runs, and selected run properties.">Extraction operations.</p>
         </div>
-        <div className="extraction-center__header-actions" aria-label="Extraction Center status">
-          {isRefetching ? <Badge variant="outline">Refreshing history</Badge> : <Badge variant="outline">History view</Badge>}
+        <div className="extraction-center__header-actions" aria-label="Snapshot workspace status">
+          {isRefetching ? <Badge variant="outline">Refreshing</Badge> : <Badge variant="outline">Current</Badge>}
         </div>
       </header>
-      <ExtractionRequestForm
-        connectivityState={connectivityState}
-        duplicateNotice={duplicateResult?.ok === true && duplicateResult.validationMessages.form !== undefined ? duplicateResult.validationMessages.form[0] : undefined}
-        formSummaryRef={stableFormSummaryRef}
-        isSubmitting={isSubmitting}
-        onStateChange={onFormStateChange}
-        onSubmit={onSubmitExtraction}
-        state={formState}
-        submissionError={submissionError}
-        validationMessages={formValidationMessages}
-      />
-      <ExtractionRunSummary run={acceptedRun} />
-      <ExtractionRunDetail
-        duplicateRequestUnavailableReason={selectedRunId !== undefined && displayedRun === undefined ? 'Load selected run detail to duplicate the prior request values safely. History rows only expose compact summaries.' : duplicateResult?.ok === false ? duplicateResult.reason : undefined}
-        error={selectedRunError}
-        isLoading={isSelectedRunLoading}
-        isRefetching={isSelectedRunRefetching}
-        onDuplicateRequest={displayedRun !== undefined && duplicateResult?.ok === true ? handleDuplicateSelectedRun : undefined}
-        onOpenProducedSnapshot={displayedRun?.snapshotIdentity === null || displayedRun?.snapshotIdentity === undefined ? undefined : handleOpenProducedSnapshot}
-        run={displayedRun}
-        selectedRunId={displayedRunId}
-      />
-      <section aria-labelledby="extraction-history-title" className="extraction-history">
-        <div className="extraction-history__heading">
-          <div>
-            <h2 id="extraction-history-title">Recent extraction history</h2>
-            <p>
-              The list uses <code>GET /extractions</code> through the typed ArchonApi client and keeps route details out of feature components.
-            </p>
-          </div>
-          {onRetry !== undefined ? (
-            <Button type="button" variant="outline" size="sm" onClick={onRetry}>
-              Refresh history
-            </Button>
-          ) : null}
+      <div className="snapshot-workspace__regions" aria-label="Snapshot workspace regions">
+        <div className="snapshot-workspace__pane snapshot-workspace__pane--new-extraction" data-snapshot-region="new-extraction">
+          <ExtractionRequestForm
+            connectivityState={connectivityState}
+            duplicateNotice={duplicateResult?.ok === true && duplicateResult.validationMessages.form !== undefined ? duplicateResult.validationMessages.form[0] : undefined}
+            formSummaryRef={stableFormSummaryRef}
+            isSubmitting={isSubmitting}
+            onStateChange={onFormStateChange}
+            onSubmit={onSubmitExtraction}
+            state={formState}
+            submissionError={submissionError}
+            validationMessages={formValidationMessages}
+          />
         </div>
-        {renderHistoryState({ error, isLoading, onSelectRun, runs, selectedRunId: displayedRunId })}
-      </section>
+        <div className="snapshot-workspace__pane snapshot-workspace__pane--status" data-snapshot-region="update-status">
+          <ExtractionRunSummary error={updateStatusError} isRefreshing={isUpdateStatusRefreshing} run={updateStatusRun} runId={updateStatusRunId} />
+        </div>
+        <section aria-labelledby="extraction-history-title" className="extraction-history snapshot-workspace__pane snapshot-workspace__pane--history" data-snapshot-region="run-history">
+          <div className="extraction-history__heading">
+            <div>
+              <h2 id="extraction-history-title">Run history</h2>
+              <p title="History is loaded from GET /extractions through the typed ArchonApi client.">Recent runs.</p>
+            </div>
+            {onRetry !== undefined ? (
+            <Button type="button" variant="outline" size="sm" onClick={onRetry} title="Refresh recent runs from GET /extractions">
+                Refresh
+              </Button>
+            ) : null}
+          </div>
+          {renderHistoryState({ error, isLoading, onSelectRun, runs, selectedRunId: displayedRunId })}
+        </section>
+        <div className="snapshot-workspace__pane snapshot-workspace__pane--details" data-snapshot-region="run-details">
+          <ExtractionRunDetail
+            duplicateRequestUnavailableReason={selectedRunId !== undefined && displayedRun === undefined ? 'Load details before duplicating.' : duplicateResult?.ok === false ? duplicateResult.reason : undefined}
+            error={selectedRunError}
+            isLoading={isSelectedRunLoading}
+            isRefetching={isSelectedRunRefetching}
+            onDuplicateRequest={displayedRun !== undefined && duplicateResult?.ok === true ? handleDuplicateSelectedRun : undefined}
+            onOpenProducedSnapshot={displayedRun?.snapshotIdentity === null || displayedRun?.snapshotIdentity === undefined ? undefined : handleOpenProducedSnapshot}
+            run={displayedRun}
+            selectedRunId={displayedRunId}
+          />
+        </div>
+      </div>
     </section>
   );
 }
@@ -504,7 +522,7 @@ function renderHistoryState({ error, isLoading, onSelectRun, runs, selectedRunId
   // The ordering gives loading first paint priority, then persistent safe errors, then empty
   // guidance, and finally the compact history table for populated API responses.
   if (isLoading) {
-    return <HistoryNotice title="Loading extraction history" message="ArchonExplorer is reading recent extraction runs from ArchonApi." />;
+    return <HistoryNotice title="Loading runs." message="Reading runs." />;
   }
 
   if (error !== undefined) {
@@ -512,10 +530,10 @@ function renderHistoryState({ error, isLoading, onSelectRun, runs, selectedRunId
   }
 
   if (runs.length === 0) {
-    return <HistoryNotice title="No extraction runs are available yet." message="Submit an explicit extraction request above. Once runs exist, their safe summaries will appear here." />;
+    return <HistoryNotice title="No runs yet." message="Submit an explicit extraction request." />;
   }
 
-  return <HistoryTable onSelectRun={onSelectRun} runs={runs} selectedRunId={selectedRunId} />;
+  return <HistoryGrid onSelectRun={onSelectRun} runs={runs} selectedRunId={selectedRunId} />;
 }
 
 /**
@@ -607,7 +625,6 @@ function HistoryNotice({ title, message }: HistoryNoticeProps) {
   // Native status semantics make loading and empty state updates understandable to assistive tech.
   return (
     <div className="extraction-history__notice" role="status">
-      <Activity aria-hidden="true" size={20} />
       <div>
         <h3>{title}</h3>
         <p>{message}</p>
@@ -638,7 +655,6 @@ function HistoryErrorNotice({ error }: HistoryErrorNoticeProps) {
   // database terminology, or other implementation details in the surrounding text.
   return (
     <div className="extraction-history__notice extraction-history__notice--error" role="alert">
-      <Activity aria-hidden="true" size={20} />
       <div>
         <h3>Extraction history is unavailable</h3>
         <p>{error.message}</p>
@@ -649,9 +665,9 @@ function HistoryErrorNotice({ error }: HistoryErrorNoticeProps) {
 }
 
 /**
- * Describes the populated history table inputs.
+ * Describes the populated history grid inputs.
  */
-interface HistoryTableProps {
+interface HistoryGridProps {
   /**
    * Contains recent extraction run summaries from the API.
    */
@@ -669,7 +685,7 @@ interface HistoryTableProps {
 }
 
 /**
- * Renders recent extraction runs as a compact workbench history table.
+ * Renders recent extraction runs as a compact workbench history grid.
  *
  * @param props Contains the run summaries and selection callback to display.
  * @param props.runs The recent extraction run summaries returned by ArchonApi.
@@ -677,16 +693,16 @@ interface HistoryTableProps {
  * @param props.onSelectRun Receives a row-selected run identifier.
  * @returns A table with accessible row-selection affordances for polling-backed detail.
  */
-function HistoryTable({ runs, selectedRunId, onSelectRun }: HistoryTableProps) {
+function HistoryGrid({ runs, selectedRunId, onSelectRun }: HistoryGridProps) {
   // Selection remains a local interaction event. The selected status response itself is still
   // server state owned by the polling hook and TanStack Query.
   return (
-    <div className="extraction-history__table-wrap">
-      <table className="extraction-history__table">
-        <caption>Recent extraction runs returned by ArchonApi.</caption>
+    <div className="extraction-history__grid-wrap" data-scroll-region="run-history-grid">
+      <table className="extraction-history__grid" aria-label="Dense recent extraction runs">
+        <caption>Recent extraction runs loaded from GET /extractions.</caption>
         <thead>
           <tr>
-            <th scope="col">Run</th>
+            <th scope="col">Run ID</th>
             <th scope="col">Status</th>
             <th scope="col">Started</th>
             <th scope="col">Completed</th>
@@ -742,7 +758,7 @@ function HistoryRow({ run, isSelected, onSelectRun }: HistoryRowProps) {
   return (
     <tr aria-selected={isSelected}>
       <th scope="row">{run.runId}</th>
-      <td><Badge variant="outline">{formatStatus(run.status)}</Badge></td>
+      <td><span className="extraction-history__status-text">{formatStatus(run.status)}</span></td>
       <td>{formatTimestamp(run.startedUtc)}</td>
       <td>{run.completedUtc === null ? 'Not completed' : formatTimestamp(run.completedUtc)}</td>
       <td>{run.repositoryRootDirectory}</td>
@@ -750,7 +766,7 @@ function HistoryRow({ run, isSelected, onSelectRun }: HistoryRowProps) {
       <td>{formatCount(run.warningCount, 'warning')} · {formatCount(run.errorCount, 'error')}</td>
       <td>{run.snapshotIdentity ?? 'No snapshot yet'}</td>
       <td>
-        <Button type="button" variant="outline" size="sm" onClick={() => onSelectRun(run.runId)} aria-pressed={isSelected}>
+        <Button type="button" variant="outline" size="sm" className="extraction-history__row-action" onClick={() => onSelectRun(run.runId)} aria-label={`Select run ${run.runId} for details`} aria-pressed={isSelected} title={`Load details for ${run.runId}`}>
           {isSelected ? 'Selected' : 'View details'}
         </Button>
       </td>

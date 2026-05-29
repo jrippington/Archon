@@ -12,7 +12,11 @@ An AppHost is an Aspire project that describes which services, containers, and d
 
 ## ArchonExplorer
 
-ArchonExplorer is Archon's browser-facing user interface application. In the current foundation it is a standalone Vite, React, and TypeScript application under `src/ArchonExplorer` with a visible workbench shell, local activity and tab state, contextual primary sidebar placeholders, persisted layout preferences, a controllable bottom panel, a keyboard-driven command palette, shell notification placement, a shadcn-compatible component foundation, safe API connectivity indicator, the shared ArchonApi route catalog, a typed operational API client, stable query-key and polling helpers, deterministic runtime test doubles, a safe notification runtime, the API-backed Extraction Center history, start-submission, selected-run monitoring, bottom-panel background monitoring, command palette integration, duplicate-request, and produced-snapshot placeholder handoff surface, and Aspire AppHost composition as a local Vite resource; later work items add full snapshot context activation and analytical feature behavior.
+ArchonExplorer is Archon's browser-facing user interface application. In the current foundation it is a standalone Vite, React, and TypeScript application under `src/ArchonExplorer` with a visible workbench shell, local activity and tab state, contextual primary sidebar placeholders, persisted layout preferences, a controllable bottom panel, a keyboard-driven command palette, shell notification placement, a shadcn-compatible component foundation, safe API connectivity indicator, the shared ArchonApi route catalog, a typed operational API client, stable query-key and polling helpers, deterministic runtime test doubles, a safe notification runtime, the API-backed Snapshot Workspace history, start-submission, update-status, selected-run monitoring, bottom-panel background monitoring, command palette integration, duplicate-request, and produced-snapshot placeholder handoff surface, and Aspire AppHost composition as a local Vite resource; later work items add full snapshot context activation and analytical feature behavior.
+
+## Snapshot Workspace
+
+Snapshot Workspace is the default ArchonExplorer workbench tab and primary operational context for extraction and snapshot-producing activity. It currently contains compact regions for New Extraction, Snapshot update status, run history, and selected run details, uses the existing extraction API routes through the typed operational client, and deliberately does not implement graph visualization, global output logs, snapshot deletion, or full snapshot context activation.
 
 ## ArchonApi route catalog
 
@@ -30,13 +34,25 @@ An operational API client is the typed frontend wrapper over near-term ArchonApi
 
 Server state is data that belongs to ArchonApi and is cached in ArchonExplorer only as a browser-side copy. Examples include health and readiness responses, extraction run status, extraction history, snapshot lifecycle rows, dashboard summaries, search results, project catalogues, graph neighbourhoods, and finding lists.
 
+## Run history grid
+
+A run history grid is the dense Snapshot Workspace table-like surface that renders recent extraction run summaries returned by `GET /extractions`. It shows scannable columns for run identifier, lifecycle status, timestamps, repository root, solution count, warning count, error count, and produced snapshot identity, and it selects a run for details without copying server-owned history into local state.
+
 ## Extraction history surface
 
-An extraction history surface is the ArchonExplorer feature area that reads compact recent extraction run summaries from `GET /extractions` through the typed operational API client and TanStack Query, then renders loading, empty, safe error, refetching, and populated history states inside the workbench shell. Compact history rows can select a run for detail, but they do not expose enough solution path data to duplicate a prior request safely.
+An extraction history surface is the ArchonExplorer feature area that reads compact recent extraction run summaries from `GET /extractions` through the typed operational API client and TanStack Query, then renders loading, empty, safe error, refetching, and populated dense-grid history states inside the workbench shell. Compact history rows can select a run for detail, but they do not expose enough solution path data to duplicate a prior request safely.
 
 ## Extraction start form
 
-An extraction start form is the ArchonExplorer browser form that gathers the JSON request values for `POST /extractions`: repository root directory, explicit solution paths, optional source-control context, optional requester, and optional metadata. It performs convenience validation only and leaves filesystem, repository-boundary, extension, duplicate, and existence validation to ArchonApi.
+An extraction start form is the ArchonExplorer browser form that gathers the JSON request values for `POST /extractions`: repository root directory, explicit solution paths, optional source-control context, optional requester, and optional metadata. In the current Snapshot Workspace it appears as the docked New Extraction pane, with required request fields and submit action prioritized over optional context. It performs convenience validation only and leaves filesystem, repository-boundary, extension, duplicate, and existence validation to ArchonApi.
+
+## New Extraction pane
+
+A New Extraction pane is the docked Snapshot Workspace workbench pane that hosts the extraction start form. It prioritizes repository root directory, compact repeated explicit solution path rows, and the submit action, while grouping optional branch, commit SHA, requested-by, and metadata fields as secondary context without adding recursive discovery or new backend behavior.
+
+## Snapshot update status
+
+Snapshot update status is the compact Snapshot Workspace region that summarizes the accepted or selected extraction run currently producing snapshot state. It uses existing accepted-run and polling responses to show lifecycle state, progress stage and message, warning count, error count, and produced snapshot identity when available, while avoiding global output panes, log consoles, event streams, raw diagnostics, and tighter polling cadence.
 
 ## Explicit solution path
 
@@ -48,11 +64,15 @@ An accepted run is the extraction lifecycle record returned by `POST /extraction
 
 ## Selected run detail
 
-A selected run detail is the ArchonExplorer page region that monitors one extraction run selected from history or from a successful start response. It polls `GET /extractions/{runId}` through the typed operational API client and TanStack Query, displays active and terminal status output, shows request summary, progress, timings, produced snapshot identity, and persistence diagnostics when available, and renders only normalized safe failure states when the status request cannot be read.
+A selected run detail is the ArchonExplorer page region that monitors one extraction run selected from history or from a successful start response. It polls `GET /extractions/{runId}` through the typed operational API client and TanStack Query, renders compact selected-run properties for request summary, progress, timings, produced snapshot identity, and persistence diagnostics when available, and renders only normalized safe failure states when the status request cannot be read.
+
+## Selected run properties
+
+Selected run properties are the compact label/value groups in the Snapshot Workspace details pane for one selected extraction run. They keep run identity, submitted request, progress, timing, produced snapshot, and persistence diagnostic facts scannable inside an internal details-pane scroll region instead of using large prose panels or browser-page scrolling.
 
 ## Background run monitor
 
-A background run monitor is the bottom-panel Extraction Center surface that keeps accepted or selected extraction runs visible while a user navigates elsewhere in the workbench. It stores only run identifiers, acknowledgement flags, and notification status memory in local feature state, while status responses remain TanStack Query server state.
+A background run monitor is the bottom-panel Snapshot Workspace surface that keeps accepted or selected extraction runs visible while a user navigates elsewhere in the workbench. It stores only run identifiers, acknowledgement flags, and notification status memory in local feature state, while status responses remain TanStack Query server state.
 
 ## Terminal acknowledgement
 
@@ -60,7 +80,7 @@ Terminal acknowledgement is the user action that hides a completed, failed, canc
 
 ## Duplicate request
 
-A duplicate request is the Extraction Center action that copies safely available submitted request values from a loaded selected-run status response into the editable start form without submitting a new extraction. It uses selected-run status rather than compact history, never scans the repository for solution files, and asks the user to re-enter metadata values because run status exposes metadata keys only.
+A duplicate request is the Snapshot Workspace action that copies safely available submitted request values from a loaded selected-run status response into the editable start form without submitting a new extraction. It uses selected-run status rather than compact history, never scans the repository for solution files, and asks the user to re-enter metadata values because run status exposes metadata keys only.
 
 ## Query key
 
@@ -68,7 +88,7 @@ A query key is the structured TanStack Query cache identity for one server-state
 
 ## Polling helper
 
-A polling helper is a frontend runtime utility that repeatedly checks asynchronous server work using bounded intervals, cancellation, and terminal stop conditions. ArchonExplorer's extraction polling helper lives in `src/ArchonExplorer/src/api/polling.ts` and supports the Extraction Center selected-run monitor without owning its visual rendering.
+A polling helper is a frontend runtime utility that repeatedly checks asynchronous server work using bounded intervals, cancellation, and terminal stop conditions. ArchonExplorer's extraction polling helper lives in `src/ArchonExplorer/src/api/polling.ts` and supports the Snapshot Workspace selected-run monitor without owning its visual rendering.
 
 ## Terminal status
 
@@ -101,6 +121,14 @@ Safe diagnostic shaping is the process of converting raw transport, validation, 
 ## Safe presentation
 
 Safe presentation is the UI practice of rendering only controlled labels, normalized errors, safe metadata, explicit unavailable states, and sanitized transient messages instead of raw backend or infrastructure diagnostics. In ArchonExplorer this applies to shell status text, notification runtime output, page-level errors, validation summaries, and any support references shown to users.
+
+## Workbench text policy
+
+Workbench text policy is the ArchonExplorer rule that primary panes show terse operational labels, state text, counts, and actions while longer explanations move to title/help affordances, tooltips/popovers, or wiki guidance. It keeps the fixed workbench from becoming a scrollable documentation page and preserves accessibility by keeping labels, accessible names, validation messages, and status text sufficient without requiring hover-only help.
+
+## Meaningful badge
+
+A meaningful badge is a compact text treatment that communicates state, categorization, keyboard shortcut, retry/action availability, or API/setup status. ArchonExplorer avoids badges that merely decorate placeholders or repeat non-actionable roadmap labels because badges should not make unavailable features look like implemented status cards.
 
 ## Notification runtime
 
@@ -136,11 +164,15 @@ A Vite resource is an Aspire-managed JavaScript application that starts a Vite d
 
 ## Workbench shell
 
-A workbench shell is the persistent desktop-style frame around ArchonExplorer's feature areas. The current shell includes the top app frame, activity rail, primary sidebar, tabbed work area, command/search affordance, keyboard-driven command palette, notification host, status bar, theme affordance, safe setup indicators, and the API-backed Extraction Center workflow while leaving full snapshot context activation, snapshot administration, architecture search results, graph rendering, evidence inspection, findings workflows, and a notification center to later work packages.
+  A workbench shell is the persistent desktop-style frame around ArchonExplorer's feature areas. The current shell fills the browser viewport, keeps navigation and status chrome visible, confines ordinary overflow to internal regions, and includes the top app frame, activity rail, primary sidebar, tabbed work area, command/search affordance, keyboard-driven command palette, notification host, status bar, theme affordance, safe setup indicators, and the API-backed Snapshot Workspace workflow while leaving full snapshot context activation, snapshot administration, architecture search results, graph rendering, evidence inspection, findings workflows, and a notification center to later work packages.
+
+## Scroll containment
+
+Scroll containment is the workbench layout rule that prevents the browser document body from becoming the primary scrolling surface during normal ArchonExplorer use. Content overflow belongs inside explicit regions such as the activity rail, primary sidebar, workspace, bottom panel, grids, forms, and detail panes so the shell frame remains visible like a desktop IDE.
 
 ## Activity rail
 
-An activity rail is the left-side navigation region that identifies major workbench areas. ArchonExplorer currently uses it for local shell navigation among Dashboard, Extraction Center, Snapshots, Search, Projects, Findings, Diagnostics, and Settings while keeping each activity's feature content clearly marked as placeholder-only.
+An activity rail is the compact left-side navigation strip that identifies major workbench areas without becoming a full sidebar. ArchonExplorer currently uses icon-only native buttons for local shell navigation among Snapshot Workspace, Search, Projects, Findings, Diagnostics, and Settings; each control keeps an accessible name, title text, tooltip text, and non-color selected-state indication while each activity's feature content remains clearly marked as placeholder-only where appropriate.
 
 ## Primary sidebar
 
@@ -148,11 +180,11 @@ A primary sidebar is the contextual navigation region beside the main work area.
 
 ## Tabbed work area
 
-A tabbed work area is the central shell region that hosts one or more workbench tabs. ArchonExplorer currently renders a required `Workbench Start` tab and uses local state to select tabs while later work packages add real feature documents.
+A tabbed work area is the central shell region that hosts one or more workbench tabs. ArchonExplorer currently renders a required `Snapshot Workspace` tab and uses local state to select tabs while later work packages add additional real feature documents.
 
 ## Workbench tab
 
-A workbench tab is a local shell document identity with a stable tab identifier, readable title, owning activity, and placeholder summary. The required start tab is the recovery destination when stale or invalid tab identifiers are encountered.
+A workbench tab is a local shell document identity with a stable tab identifier, readable title, owning activity, and placeholder summary. The required Snapshot Workspace tab is the recovery destination when stale or invalid tab identifiers are encountered.
 
 ## Local workbench state
 
@@ -176,7 +208,7 @@ A command palette is a keyboard-oriented shell dialog that lists and filters ava
 
 ## Shell command
 
-A shell command is a named local action that changes workbench shell state or publishes safe transient feedback. Current examples include switching activities, toggling the bottom panel, focusing the required start tab, resetting layout preferences, opening Extraction Center, focusing the Extraction Center request form, refreshing Extraction Center history, focusing a tracked background run, and explaining unavailable future architecture search.
+A shell command is a named local action that changes workbench shell state or publishes safe transient feedback. Current examples include switching activities, toggling the bottom panel, focusing the required Snapshot Workspace tab, resetting layout preferences, opening Snapshot Workspace, focusing the Snapshot New Extraction pane, refreshing Snapshot run history, focusing a tracked background run, and explaining unavailable future architecture search.
 
 ## Command/search affordance
 
@@ -208,7 +240,7 @@ Vitest is the Vite-aligned frontend test runner used by ArchonExplorer for TypeS
 
 ## TanStack Query
 
-TanStack Query is the server-state provider configured in ArchonExplorer's React provider tree. The current foundation creates the shared query client, uses it for the global API connectivity probe, defines stable query keys and invalidation selectors, supports the Extraction Center history query, and demonstrates extraction run polling; feature-specific mutations and later analytical screens remain staged for later work items.
+TanStack Query is the server-state provider configured in ArchonExplorer's React provider tree. The current foundation creates the shared query client, uses it for the global API connectivity probe, defines stable query keys and invalidation selectors, supports the Snapshot Workspace history query, and demonstrates extraction run polling; feature-specific mutations and later analytical screens remain staged for later work items.
 
 ## ADO.NET
 

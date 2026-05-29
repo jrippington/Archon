@@ -1,5 +1,4 @@
 import { Boxes, CircleHelp, Workflow } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 
 /**
  * Defines one explanatory start-state item for the foundation workspace.
@@ -16,7 +15,7 @@ interface StartStateItem {
   readonly title: string;
 
   /**
-   * Human-readable explanation of current behavior or current absence.
+   * Human-readable help text exposed through title attributes.
    */
   readonly description: string;
 
@@ -64,13 +63,8 @@ export function WorkspaceStartState() {
   return (
     <main className="workbench-workspace" aria-labelledby="workbench-start-title">
       <section className="workbench-start-summary">
-        <Badge variant="secondary">WP001 foundation shell</Badge>
         <h1 id="workbench-start-title">ArchonExplorer</h1>
-        <p>
-          A desktop-style architecture workbench shell is running. The layout is ready for later
-          operational slices, but this foundation view does not perform extraction, snapshot,
-          search, graph, lens, evidence, finding, or notification work.
-        </p>
+        <p title="The desktop-style shell reserves navigation, commands, workspace content, and status without performing extraction, snapshot, search, graph, lens, evidence, finding, or notification work.">Foundation shell.</p>
       </section>
       <section className="workbench-start-details" aria-label="Foundation shell explanation">
         {startStateItems.map((item) => {
@@ -81,8 +75,7 @@ export function WorkspaceStartState() {
               <Icon aria-hidden="true" size={18} />
               <div>
                 <h2>{item.title}</h2>
-                <p>{item.description}</p>
-                <Badge variant="outline">Placeholder only</Badge>
+                <p title={item.description}>Placeholder only.</p>
               </div>
             </article>
           );

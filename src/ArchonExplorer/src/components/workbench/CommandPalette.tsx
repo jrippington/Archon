@@ -27,7 +27,7 @@ export interface CommandPaletteProps {
 /**
  * Defines the visible group ordering used by the command palette.
  */
-const commandGroupOrder: readonly WorkbenchCommandGroup[] = ['Activities', 'Panels', 'Tabs', 'Layout', 'Focus', 'Extraction Center', 'Future Search'];
+const commandGroupOrder: readonly WorkbenchCommandGroup[] = ['Activities', 'Panels', 'Tabs', 'Layout', 'Focus', 'Snapshot Workspace', 'Future Search'];
 
 /**
  * Renders the Workbench command palette dialog.
@@ -72,8 +72,8 @@ export function CommandPalette({ commands, isOpen, onClose }: CommandPaletteProp
             Close
           </Button>
         </div>
-        <p className="workbench-command-palette__search-boundary">
-          Global architecture search arrives in a later work package. This palette only filters and runs local shell commands.
+        <p className="workbench-command-palette__search-boundary" title="Global architecture search arrives in a later work package; this palette only filters local shell commands.">
+          Local shell commands only.
         </p>
         <CommandInput
           ref={inputRef}
@@ -90,7 +90,7 @@ export function CommandPalette({ commands, isOpen, onClose }: CommandPaletteProp
         />
         <CommandList role="listbox" aria-label="Workbench shell commands">
           {visibleCommands.length === 0 ? (
-            <p className="workbench-command-palette__empty">No shell commands match this filter. Architecture search results are not available in this work package.</p>
+            <p className="workbench-command-palette__empty" title="The command palette does not query architecture data or backend search routes.">No matching commands.</p>
           ) : commandGroupOrder.map((group) => {
             const groupCommandsForRender = groupedCommands.get(group) ?? [];
 

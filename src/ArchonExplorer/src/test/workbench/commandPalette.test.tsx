@@ -39,9 +39,9 @@ describe('workbench shell commands', () => {
   it('registers grouped shell commands for activities, panels, tabs, and layout', () => {
     const commands = getWorkbenchShellCommands(createCommandContext());
 
-    expect(commands.some((command) => command.group === 'Activities' && command.label === 'Switch to Snapshots')).toBe(true);
+    expect(commands.some((command) => command.group === 'Activities' && command.label === 'Switch to Snapshot Workspace')).toBe(true);
     expect(commands.some((command) => command.group === 'Panels' && command.label === 'Toggle Bottom Panel')).toBe(true);
-    expect(commands.some((command) => command.group === 'Tabs' && command.label === 'Open Workbench Start')).toBe(true);
+    expect(commands.some((command) => command.group === 'Tabs' && command.label === 'Open Snapshot Workspace Tab')).toBe(true);
     expect(commands.some((command) => command.group === 'Layout' && command.label === 'Reset Layout Preferences')).toBe(true);
     expect(commands.some((command) => command.group === 'Future Search' && command.isDisabled === true)).toBe(true);
   });
@@ -60,11 +60,11 @@ describe('workbench shell commands', () => {
   });
 
   /**
-   * Confirms the start-tab command focuses the stable default tab identity.
+   * Confirms the Snapshot tab command focuses the stable default tab identity.
    */
-  it('focuses the default start tab through the tab command', () => {
+  it('focuses the default Snapshot tab through the tab command', () => {
     const context = createCommandContext();
-    const startTabCommand = getWorkbenchShellCommands(context).find((command) => command.id === 'workbench.tab.start');
+    const startTabCommand = getWorkbenchShellCommands(context).find((command) => command.id === 'workbench.tab.snapshotWorkspace');
 
     startTabCommand?.execute();
 

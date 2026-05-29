@@ -38,7 +38,7 @@ export interface StatusBarProps {
  * @param props.connectivityState Optional safe connectivity state override for deterministic tests.
  * @returns A status landmark with snapshot, API, background work, and selection placeholders.
  */
-export function StatusBar({ apiConfiguration, connectivityState, isBottomPanelVisible = false, activeActivityId = 'dashboard' }: StatusBarProps) {
+export function StatusBar({ apiConfiguration, connectivityState, isBottomPanelVisible = false, activeActivityId = 'snapshots' }: StatusBarProps) {
   // The wrapper delegates to a hook-consuming child only when a deterministic override is not
   // supplied. This keeps tests and controlled hosts from needing a QueryClient just to render
   // static status text, while production still uses the WP002 connectivity hook.
@@ -115,7 +115,7 @@ export interface StatusBarContentProps {
  * @param props.isBottomPanelVisible Indicates whether the bottom-panel region is currently visible.
  * @returns A status landmark with snapshot, API, background work, and selection placeholders.
  */
-export function StatusBarContent({ connectivityState, isBottomPanelVisible = false, activeActivityId = 'dashboard' }: StatusBarContentProps) {
+export function StatusBarContent({ connectivityState, isBottomPanelVisible = false, activeActivityId = 'snapshots' }: StatusBarContentProps) {
   // This pure component keeps status text rendering testable without executing network
   // probes, while StatusBar remains the production hook-consuming wrapper.
   const safeConnectivityState = connectivityState;

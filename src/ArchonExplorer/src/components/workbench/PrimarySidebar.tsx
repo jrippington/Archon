@@ -1,4 +1,3 @@
-import { Badge } from '@/components/ui/badge';
 import { getWorkbenchActivity, type WorkbenchActivityId } from './workbenchActivities';
 
 /**
@@ -24,21 +23,19 @@ export function PrimarySidebar({ activeActivityId }: PrimarySidebarProps) {
   const activity = getWorkbenchActivity(activeActivityId);
 
   return (
-    <aside className="workbench-primary-sidebar" aria-label="Primary workbench sidebar">
+    <aside className="workbench-primary-sidebar" aria-label="Primary workbench sidebar" data-scroll-region="primary-sidebar">
       <div className="workbench-primary-sidebar__header">
-        <Badge variant="secondary">Active activity</Badge>
         <h2>{activity.sidebarTitle}</h2>
-        <p>{activity.sidebarDescription}</p>
+        <p title={activity.sidebarDescription}>{activity.sidebarSummary}</p>
       </div>
       <div className="workbench-primary-sidebar__body" aria-label={`${activity.label} placeholder navigation`}>
-        <p className="workbench-primary-sidebar__boundary">
-          Extraction history is available in this slice. Snapshot, search, project, finding, diagnostics, submission, and run-monitoring workflows arrive in later work packages.
+        <p className="workbench-primary-sidebar__boundary" title="Future activity-specific navigation remains unavailable until its owning work package implements it.">
+          Navigation placeholders.
         </p>
         <ul className="workbench-primary-sidebar__list">
           {activity.placeholderItems.map((item) => (
             <li key={item}>
               <span>{item}</span>
-              <Badge variant="outline">Placeholder</Badge>
             </li>
           ))}
         </ul>

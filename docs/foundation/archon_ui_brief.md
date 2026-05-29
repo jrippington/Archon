@@ -10,6 +10,12 @@ The human-facing UI application is **ArchonExplorer**. It is a React and TypeScr
 **Workbench requirement:**  
 ArchonExplorer must behave like a desktop-style investigation workbench in the browser. Users should be able to keep multiple investigations open, pivot between artefacts, monitor extraction work, administer snapshots, inspect evidence, and preserve context while moving through architectural questions.
 
+The workbench chrome should stay compact and operational. Activity navigation should be a narrow icon-first rail with meaningful activity icons, accessible names, tooltip text for icon-only controls, and selected-state affordances that do not rely on color alone. Header and command surfaces should be thin command-oriented regions rather than page heroes, marketing banners, or large dashboard headers.
+
+Primary workbench copy should be terse and operational. Users should see labels, status text, route names, counts, and next actions rather than long explanatory paragraphs in the work surface. Tooltips, popovers, title text, documentation links, and wiki pages may carry supporting explanation, but they must supplement rather than replace accessible names, form labels, validation messages, and state text. Decorative notice icons and non-actionable placeholder badges should be avoided. Badges should communicate meaningful state, categorisation, keyboard shortcuts, retry/action availability, or API/setup status, and the same meaning must remain available in text so color is never the only signal.
+
+The default operational landing context should be the **Snapshot Workspace**. It should contain extraction request, update status, run history, and selected-detail regions inside the fixed workbench frame rather than sending users through a dashboard, standalone Extraction Center page, hero panel, or stacked web sections. The extraction request surface should appear as a compact docked New Extraction pane where repository root, explicit solution rows, and submit are primary, while optional branch, commit, requester, and metadata context remains grouped and secondary. Snapshot update status should be a focused operational status surface, not a global output pane or log console; it should summarize accepted or selected extraction progress from existing API feedback without introducing a tighter polling loop. Run history should use a dense table, grid, or workbench-list treatment for recent runs rather than cards: rows should support fast scanning of run identifier, status, repository, solution count, timestamps, diagnostics counts, and produced snapshot identity while preserving selection for the details region. Selected details should use compact property-grid or dense table treatment for run, request, progress, timings, produced snapshot, and persistence diagnostic facts; they should not become long prose panels, nested cards, or browser-page sections. The older Extraction Center concept remains the extraction workflow inside Snapshot Workspace, not a separate page-like destination.
+
 **Primary UI goal:**  
 Archon should let users find any architectural artefact, ask useful architectural questions about it, inspect a scoped slice of the architecture graph, and follow every claim back to evidence.
 
@@ -868,7 +874,7 @@ Reflection call detected; target method could not be resolved statically.
 
 ## 6.5 Workbench desktop shell
 
-ArchonExplorer should use a desktop-style workbench shell rather than a simple page-per-feature website. The browser is the delivery mechanism, but the interaction model should feel like an investigation desktop.
+ArchonExplorer should use a desktop-style workbench shell rather than a simple page-per-feature website. The browser is the delivery mechanism, but the interaction model should feel like an investigation desktop. The shell should fill the browser viewport and keep its primary chrome visible; ordinary document-level scrolling should not be the normal way users reach navigation, commands, status, or the active workspace.
 
 The workbench shell should include:
 
@@ -893,6 +899,7 @@ Allow split views for comparing lenses or snapshots.
 Preserve selected artefact, selected lens, filters, graph layout preferences, and panel sizes per tab.
 Expose contextual actions through command palette, toolbar buttons, context menus, and inspector actions.
 Surface background extraction runs without forcing users away from their current investigation.
+Contain scrolling inside explicit panes, grids, forms, detail regions, or bottom panels rather than allowing stacked page sections to expand the browser document.
 ```
 
 ArchonExplorer should avoid a traditional admin-console feel. Administrative views such as snapshot management and extraction history should still live inside the same workbench frame and reuse the same command, status, notification, and evidence patterns.
@@ -1078,7 +1085,7 @@ Primary jobs:
 ```text
 Start a new extraction run.
 Validate repository and solution inputs before submission where possible.
-Monitor queued, running, completed, failed, and cancelled runs.
+Monitor queued, running, completed, failed, cancelled, unavailable, and unknown runs.
 Inspect progress, timings, warnings, errors, and persistence diagnostics.
 Open the snapshot produced by a completed run.
 Review recent extraction history.
@@ -1096,7 +1103,7 @@ Optional requested-by value
 Optional metadata keys
 ```
 
-The form must reflect the API contract: solution paths are explicit and are not inferred by recursively scanning the repository. Relative solution paths should be shown as resolving against the submitted repository root. Validation errors should be user-actionable and should not expose raw exceptions or infrastructure details.
+The New Extraction pane must reflect the API contract: solution paths are explicit and are not inferred by recursively scanning the repository. Relative solution paths should be shown as resolving against the submitted repository root. Repository root, repeated solution-path rows, and submit should remain the dominant controls. Optional branch, commit SHA, requested-by, and metadata context should be grouped compactly so repeated extraction requests do not become a page-scrolling workflow. Validation errors should be user-actionable and should not expose raw exceptions or infrastructure details.
 
 Run monitor details:
 
@@ -1114,6 +1121,8 @@ Timing summary
 Produced snapshot identity, when available
 Persistence diagnostics, when available
 ```
+
+The compact Snapshot update status region should show only the subset of those facts that belongs in a small workbench status surface: lifecycle state, progress stage, progress message, warning count, error count, and produced snapshot identity. More detailed timings and persistence diagnostics belong in selected-run detail. Visible status copy should be concise, with longer safety or route-contract explanation moved to help affordances or documentation. Extraction progress must not be represented as a global output pane, log console, event stream, build-output clone, or arbitrary backend diagnostic viewer.
 
 Extraction Center should use the implemented API surface:
 
@@ -1198,13 +1207,15 @@ All views should use a consistent visual vocabulary.
 | Edge thickness | Coupling strength, call volume, co-change frequency, or dependency count |
 | Edge colour | Dependency type, risk, rule violation, legacy crossing, or runtime path |
 | Edge direction | Dependency direction, data flow, call direction, or ownership relation |
-| Badge/icon | Legacy tech, deprecated dependency, missing tests, rule violation, unknown owner |
+| Badge/icon | Meaningful state, categorisation, action, legacy tech, deprecated dependency, missing tests, rule violation, unknown owner |
 | Container/background | Capability, bounded context, team, repository, layer, or technology island |
 | Dashed edge | Inferred, low-confidence, tolerated, or indirect relationship |
 | Red edge | Forbidden dependency, risky edge, or rule violation |
 | Fog/opacity | Unknown, incomplete, or low-confidence data |
 
 Consistency is important because users will move between graph, matrix, health-map, data-access, and diff views.
+
+Badges and icons should earn their place. A badge is appropriate when it carries compact state or categorisation that the user can act on or use for scanning; it is not appropriate as decoration for an unavailable placeholder. Icons should identify major workbench areas, concrete actions, or domain states that are also available in text. Decorative icons in notices, prose panels, and placeholder rows should be removed when they do not improve comprehension.
 
 ---
 
@@ -1550,8 +1561,8 @@ Suggested mapping:
 | Snapshot, findings, and project explorers | `Table` |
 | Contextual actions | `DropdownMenu` and `ContextMenu` |
 | Inspectors and secondary detail | `Sheet` or docked resizable panel |
-| Tooltips and compact explanation | `Tooltip` and `Popover` |
-| Status and categorisation | `Badge` |
+| Tooltips and compact explanation | `Tooltip` and `Popover` as supplemental help, not replacements for accessible labels |
+| Status and categorisation | `Badge` only when the badge communicates meaningful text state or category |
 | Notifications | toast pattern |
 | Desktop-style panes | resizable panel primitives |
 
@@ -1635,7 +1646,7 @@ The brief should generate work packages in thin vertical slices. A suggested seq
 1. **ArchonExplorer foundation** - create the React/TypeScript shadcn/ui application, host it through Aspire, connect it to Archon API configuration, and render an empty workbench shell.
 2. **API client foundation** - add typed API client modules, TanStack Query setup, error shaping, polling helpers, and route constants using the no-common-`/api` route convention.
 3. **Workbench desktop shell** - implement activity bar, sidebar, tabbed document area, inspector area, bottom panel, status bar, command palette, layout persistence, and theme support.
-4. **Extraction Center** - implement extraction submission, run polling, history, progress details, warnings/errors, diagnostics, and open-produced-snapshot actions.
+4. **Snapshot Workspace extraction workflow** - implement extraction submission, compact update status, selected-run polling, dense history, selected-run properties, warnings/errors, diagnostics, background monitoring, duplicate request, and open-produced-snapshot placeholder actions inside the fixed workbench frame.
 5. **Snapshot Admin** - implement snapshot listing, filtering, lifecycle detail, compare/open actions, one-snapshot deletion, delete-all confirmation, and unavailable snapshot states.
 6. **Snapshot-aware dashboard** - implement latest/current snapshot dashboard cards and clickable navigation into workbench investigations.
 7. **Global search** - implement deterministic grouped search, recent selections, badges, available lens actions, and open-in-tab behaviour.

@@ -1,4 +1,3 @@
-import { Badge } from '@/components/ui/badge';
 import { ExtractionCenter } from '@/components/extraction-center/ExtractionCenter';
 import type { WorkbenchTab, WorkbenchTabId } from '@/state/workbenchStore';
 import { getWorkbenchActivity } from './workbenchActivities';
@@ -38,7 +37,7 @@ export function TabbedWorkArea({ tabs, activeTabId, onSelectTab }: TabbedWorkAre
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0];
 
   return (
-    <main className="workbench-workspace" aria-labelledby="workbench-work-area-title">
+    <main className="workbench-workspace" aria-label={activeTab?.title ?? 'Workbench workspace'} data-scroll-region="workspace">
       <section className="workbench-tabs" aria-label="Workbench tabs">
         <div className="workbench-tabs__bar" role="tablist" aria-label="Open workbench tabs">
           {tabs.map((tab) => {
@@ -57,7 +56,7 @@ export function TabbedWorkArea({ tabs, activeTabId, onSelectTab }: TabbedWorkAre
                 type="button"
               >
                 <span>{tab.title}</span>
-                {!tab.isClosable && <Badge variant="outline">Required</Badge>}
+                {!tab.isClosable && <span className="workbench-tabs__tab-state">Required</span>}
               </button>
             );
           })}
@@ -86,14 +85,14 @@ interface WorkbenchTabPanelProps {
  * @returns An accessible tab panel with honest unavailable-feature boundaries.
  */
 function WorkbenchTabPanel({ tab }: WorkbenchTabPanelProps) {
-  // The panel uses the activity catalog to describe context without loading feature data or
-  // introducing separate page navigation outside the workbench frame.
-  if (tab.id === 'extraction-center') {
+  // The panel uses the activity catalog to describe context without introducing separate page
+  // navigation outside the workbench frame.
+  if (tab.id === 'snapshot-workspace') {
     return (
       <section
-        aria-labelledby="workbench-tab-extraction-center"
+        aria-labelledby="workbench-tab-snapshot-workspace"
         className="workbench-tabs__panel"
-        id="workbench-tabpanel-extraction-center"
+        id="workbench-tabpanel-snapshot-workspace"
         role="tabpanel"
       >
         <ExtractionCenter />
@@ -112,25 +111,22 @@ function WorkbenchTabPanel({ tab }: WorkbenchTabPanelProps) {
       role="tabpanel"
     >
       <div className="workbench-start-summary">
-        <Badge variant="secondary">Local shell tab</Badge>
-        <h1 id="workbench-work-area-title">{tab.title}</h1>
-        <p>{tab.placeholderSummary}</p>
+        <h1>{tab.title}</h1>
+        <p title={tab.placeholderSummary}>Placeholder tab.</p>
       </div>
       <div className="workbench-start-details" aria-label="Workbench tab placeholder explanation">
         <article className="workbench-start-detail">
           <ActivityIcon aria-hidden="true" size={18} />
           <div>
             <h2>{activity.label} context</h2>
-            <p>{activity.description}</p>
-            <Badge variant="outline">Placeholder only</Badge>
+            <p title={activity.description}>Placeholder context.</p>
           </div>
         </article>
         <article className="workbench-start-detail">
           <div aria-hidden="true" className="workbench-start-detail__marker">!</div>
           <div>
-            <h2>Feature data is intentionally absent</h2>
-            <p>No extraction runs, snapshots, graph data, search results, evidence, or findings are loaded in this shell slice.</p>
-            <Badge variant="warning">Later work package</Badge>
+            <h2>Feature data absent</h2>
+            <p title="No extraction runs, snapshots, graph data, search results, evidence, or findings are loaded for placeholder tabs.">Later work package.</p>
           </div>
         </article>
       </div>
