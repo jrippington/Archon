@@ -39,16 +39,19 @@ This section is an unalterable execution requirement, not a guideline, preferenc
 ## Documentation Workflow (Summary)
 - For each new Work Package/piece of work: create a new numbered folder under `./docs/` named `xxx-<descriptor>` (e.g. `001-Initial-Shell`).
 - Store work-package planning artifacts, such as specs and implementation plans, together inside that Work Package folder.
+- For Archon work package specs, use the same format and location pattern as the existing numbered docs work packages; do not ask about spec format/location when the pattern is already present.
 - Do not create standalone implementation notes, implementation ledgers, architecture notes, or similar narrative records for contributor-facing implementation detail. Current-state contributor guidance, design rationale, validation workflows, setup guidance, architecture explanation, and terminology belong in `./wiki` under `.github/instructions/wiki.instructions.md`.
 - Work-package plan updates may record concise completion history and validation outcomes, but they must not become a parallel source of contributor guidance. If the content teaches contributors how the repository works, move that content into the wiki and link to the relevant wiki page from the plan.
 - Do not overwrite prior work packages; create the next incremental folder (e.g. `002-...`).
 - When asked to create specification documents for a work package, create only one document containing everything needed; do not split across multiple documents. If multiple were created, merge into one and delete the extras.
+- For API routes in specs, inspect the existing ArchonApi implementation rather than relying only on roadmap examples.
 - Use appropriate prompt family & phase from `.github/prompts/`.
 - When asking open questions from a spec, record each answer directly in that same spec file and do not create a new version.
 - When collaborating on specifications in this repository, do not repeat the draft spec in chat before clarification questions; ask the next question directly and keep the evolving draft in the spec file instead. If remaining questions are about look and feel only, use sensible defaults and revisit later instead of continuing to ask those presentation questions.
 - When documentation references repository wiki pages, prefer proper markdown links rather than inline code-formatted URLs or plain page names.
 - Repository documentation standards should be captured in `.github/instructions/documentation-pass.instructions.md` and referenced as a non-negotiable requirement from planning and execution prompts so they are enforced in every coding task.
 - Documentation should prefer book-like narrative depth over terse, bullet-heavy wiki pages, especially for core architecture, runtime foundations, and other critical concepts. This preference should be reflected in repository instructions and prompts.
+- When executing Archon work package plan/spec creation, continue autonomously through all planned steps until the requested document is finished; do not stop after step announcements or for status-only updates.
 
 ## Logging Standards
 - Prefer using `ILogger` abstractions (Microsoft.Extensions.Logging.Abstractions) over `Action<string>` logging callbacks in this codebase, including Domain pipeline nodes.

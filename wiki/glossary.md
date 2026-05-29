@@ -12,7 +12,79 @@ An AppHost is an Aspire project that describes which services, containers, and d
 
 ## ArchonExplorer
 
-ArchonExplorer is Archon's browser-facing user interface application. In the current foundation it is a standalone Vite, React, and TypeScript application under `src/ArchonExplorer` with a visible workbench shell, shadcn-compatible component foundation, safe API configuration indicator, placeholder-only workbench regions, and Aspire AppHost composition as a local Vite resource; later work items add functional API-backed behavior.
+ArchonExplorer is Archon's browser-facing user interface application. In the current foundation it is a standalone Vite, React, and TypeScript application under `src/ArchonExplorer` with a visible workbench shell, shadcn-compatible component foundation, safe API connectivity indicator, the shared ArchonApi route catalog, a typed operational API client, stable query-key and polling helpers, deterministic runtime test doubles, a safe notification runtime, placeholder-only workbench regions, and Aspire AppHost composition as a local Vite resource; later work items add functional API-backed feature behavior.
+
+## ArchonApi route catalog
+
+The ArchonApi route catalog is the frontend source of truth for public ArchonApi paths. It groups current API route constants and route builders under `src/ArchonExplorer/src/api/archonApiRoutes.ts`, preserves the no-common-`/api` route convention, and keeps query-string construction separate from base paths.
+
+## API client foundation
+
+An API client foundation is the shared browser-side boundary for communicating with ArchonApi. In ArchonExplorer it currently includes hand-authored TypeScript contracts, route-catalog integration, base URL resolution, typed query serialization, JSON request and response handling, cancellation and timeout-compatible abort behavior, and safe error shaping without implementing feature screens.
+
+## Operational API client
+
+An operational API client is the typed frontend wrapper over near-term ArchonApi operational routes. In ArchonExplorer it lives in `src/ArchonExplorer/src/api/archonApiClient.ts` and exposes health, readiness, extraction, snapshot lifecycle, destructive snapshot cleanup, and management run-history methods while delegating route construction to the route catalog and request execution to the shared request executor.
+
+## Server state
+
+Server state is data that belongs to ArchonApi and is cached in ArchonExplorer only as a browser-side copy. Examples include health and readiness responses, extraction run status, extraction history, snapshot lifecycle rows, dashboard summaries, search results, project catalogues, graph neighbourhoods, and finding lists.
+
+## Query key
+
+A query key is the structured TanStack Query cache identity for one server-state read. ArchonExplorer builds query keys in `src/ArchonExplorer/src/api/queryKeys.ts` from the ArchonApi area plus scope values such as repository stable key, solution stable key, snapshot selector, run identifier, filters, pagination, and search text.
+
+## Polling helper
+
+A polling helper is a frontend runtime utility that repeatedly checks asynchronous server work using bounded intervals, cancellation, and terminal stop conditions. ArchonExplorer's extraction polling helper lives in `src/ArchonExplorer/src/api/polling.ts` and supports extraction run status checks without implementing an Extraction Center screen.
+
+## Terminal status
+
+A terminal status is an operation status after which polling should stop because no later status is expected. For extraction run polling, ArchonExplorer treats completed, failed, canceled or cancelled, unavailable, and unknown statuses as terminal.
+
+## Runtime test double
+
+A runtime test double is a deterministic replacement for a real runtime dependency used by tests. ArchonExplorer's API client test double returns typed health, readiness, extraction, snapshot lifecycle, and destructive snapshot responses using route-catalog paths without requiring a live ArchonApi instance.
+
+## Request executor
+
+A request executor is the frontend transport helper that executes one ArchonApi HTTP request through browser-native `fetch` and returns either typed success data or a normalized safe error. ArchonExplorer's executor lives in `src/ArchonExplorer/src/api/request.ts` and reads the WP001 API base URL configuration seam before building absolute URLs.
+
+## API connectivity state
+
+API connectivity state is the safe browser-side summary of ArchonApi setup and availability. ArchonExplorer distinguishes configured, unconfigured, checking, reachable, not-ready, unreachable, and unknown states without exposing raw URLs, dependency internals, response bodies, exception text, stack traces, connection strings, credentials, raw Cypher, or Neo4j driver diagnostics.
+
+## Health check
+
+A health check is a lightweight operational API probe that answers whether a process can respond safely. ArchonExplorer uses ArchonApi's `/health` route as the first connectivity probe before asking whether dependencies are ready.
+
+## Readiness check
+
+A readiness check is an operational API probe that answers whether required dependencies are available for useful work. ArchonExplorer uses ArchonApi's `/ready` route after a successful health check so the shell can distinguish an unreachable API from an API that responds but is not ready for dependency-backed features.
+
+## Safe diagnostic shaping
+
+Safe diagnostic shaping is the process of converting raw transport, validation, server, or parsing failures into frontend errors that do not expose stack traces, connection strings, environment variable values, credentials, tokens, raw Cypher, Neo4j internals, driver details, or arbitrary backend exception text.
+
+## Safe presentation
+
+Safe presentation is the UI practice of rendering only controlled labels, normalized errors, safe metadata, explicit unavailable states, and sanitized transient messages instead of raw backend or infrastructure diagnostics. In ArchonExplorer this applies to shell status text, notification runtime output, page-level errors, validation summaries, and any support references shown to users.
+
+## Notification runtime
+
+A notification runtime is the frontend provider, hook, helper API, and viewport that creates transient success, information, warning, or error messages from safe operation copy and normalized API errors. ArchonExplorer implements this runtime in `src/ArchonExplorer/src/providers/NotificationProvider.tsx`; it suppresses unsafe diagnostics and supplements rather than replaces persistent page-level error state.
+
+## Transient notification
+
+A transient notification is a short-lived application message used to announce that an operation started, completed, changed state, or failed safely. It can help users notice operational events, but it must not be the only representation for validation failures, long-lived outages, retryable page errors, or other conditions that need durable page-level context.
+
+## Validation problem
+
+A validation problem is the ASP.NET Core problem-details response shape that carries request validation failures in an `errors` dictionary. ArchonExplorer converts validation problems into normalized field or form issues after sanitizing field names, messages, and trace metadata.
+
+## Route builder
+
+A route builder is a frontend function that inserts a caller-supplied path value into an ArchonApi route after encoding that value as a single path segment. ArchonExplorer uses route builders for run identifiers, snapshot stable keys, project stable keys, rule identities, finding stable keys, and finding history keys.
 
 ## Vite resource
 
@@ -32,7 +104,7 @@ A command/search affordance is a visible control region that reserves space for 
 
 ## Status bar
 
-A status bar is the bottom shell region that carries cross-cutting context. ArchonExplorer currently reserves status slots for active snapshot `current`, API configuration, background work, and selection context while showing safe placeholder text.
+A status bar is the bottom shell region that carries cross-cutting context. ArchonExplorer currently reserves status slots for active snapshot `current`, API connectivity, background work, and selection context while showing safe placeholder or connectivity text.
 
 ## Shell placeholder
 
@@ -50,9 +122,13 @@ A frontend foundation is the minimal runnable browser application structure that
 
 Vite is the frontend build and development server used by ArchonExplorer. It serves the React application during local development and produces browser assets during `npm run build` without making the application an ASP.NET Core-hosted SPA.
 
+## Vitest
+
+Vitest is the Vite-aligned frontend test runner used by ArchonExplorer for TypeScript unit tests such as route-catalog tests. It runs from the frontend project through `npm run test` and does not require the API host, MCP host, Neo4j, Docker, or the Aspire AppHost.
+
 ## TanStack Query
 
-TanStack Query is the server-state provider configured in ArchonExplorer's React provider tree. The current skeleton creates the shared query client but does not execute functional API calls.
+TanStack Query is the server-state provider configured in ArchonExplorer's React provider tree. The current foundation creates the shared query client, uses it for the global API connectivity probe, defines stable query keys and invalidation selectors, and demonstrates extraction run polling; feature-specific data queries, mutations, and screens remain staged for later work items.
 
 ## ADO.NET
 

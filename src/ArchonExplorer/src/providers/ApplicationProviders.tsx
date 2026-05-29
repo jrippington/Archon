@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
+import { NotificationProvider } from './NotificationProvider';
 
 /**
  * Creates the shared TanStack Query client for the ArchonExplorer runtime.
@@ -37,5 +38,11 @@ const queryClient = createQueryClient();
 export function ApplicationProviders({ children }: { children: ReactNode }) {
   // TanStack Query is installed during the skeleton slice so future server-state features
   // inherit one cache and one policy surface instead of introducing competing patterns.
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  // The notification provider is nested inside the query provider so future mutation callbacks
+  // can publish safe operation messages while still sharing the same application lifetime.
+  return (
+    <QueryClientProvider client={queryClient}>
+      <NotificationProvider>{children}</NotificationProvider>
+    </QueryClientProvider>
+  );
 }

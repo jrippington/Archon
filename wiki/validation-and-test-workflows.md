@@ -46,18 +46,37 @@ Before running this command, make sure Docker Desktop or another OCI-compatible 
 
 ArchonExplorer validates in two complementary ways. The frontend project still validates independently through npm because TypeScript and Vite failures should be caught without requiring WSL, Docker, Neo4j, the API host, or a running AppHost. The Aspire AppHost also composes ArchonExplorer as a local Vite resource so contributors can manually inspect the browser shell beside `ArchonApi`, `ArchonMcp`, and Neo4j when they need the full distributed application.
 
-Run these commands from the repository root when changing the frontend skeleton, provider setup, TypeScript configuration, Vite configuration, package manifest, package lockfile, shadcn-compatible component metadata, shared UI primitives, workbench shell components, theme tokens, or frontend CSS:
+Run these commands from the repository root when changing the frontend skeleton, provider setup, TypeScript configuration, Vite configuration, package manifest, package lockfile, shadcn-compatible component metadata, shared UI primitives, workbench shell components, ArchonApi route catalog, API request executor, typed operational API client, query-key helpers, extraction polling helpers, runtime test doubles, connectivity-state helpers, connectivity hook, notification runtime, safe error shaping helpers, typed API contracts, theme tokens, or frontend CSS:
 
 ```powershell
 cd .\src\ArchonExplorer
 npm install
+npm run test
 npm run typecheck
 npm run build
 ```
 
-`npm install` maintains the deterministic `package-lock.json` file, so it should be run after package version changes and in clean environments. `npm run typecheck` is the fast static check for TypeScript source and configuration. `npm run build` runs the same TypeScript project references and then builds the Vite output. The generated `dist` directory is a local build artifact and should not be treated as source guidance.
+`npm install` maintains the deterministic `package-lock.json` file, so it should be run after package version changes and in clean environments. `npm run test` runs the Vitest unit suite, including route-catalog tests that prove static route constants, path-value encoding, grouped route exports, and the no-common-`/api` convention; request/error tests that prove safe JSON parsing, empty response handling, missing base URL behavior, validation-problem shaping, safe query error shaping, redaction of unsafe text, network failure classification, timeout/cancellation classification, malformed JSON handling, and unexpected content-type handling; operational-client/connectivity tests that prove typed client route usage, destructive-operation no-retry intent, safe connectivity-state transitions, and safe status-bar text; query-key/polling/test-double tests that prove stable server-state cache identity, invalidation selector targets, bounded extraction polling intervals, terminal stop conditions, cancellation, stalled-operation handling, route-catalog-backed mock behavior, typed mock contracts, and destructive delete-all confirmation behavior; and notification-runtime tests that prove category handling, normalized-error conversion, unsafe-detail suppression, accessible rendering structure, and provider composition. `npm run typecheck` is the fast static check for TypeScript source and configuration. `npm run build` runs the same TypeScript project references and then builds the Vite output. The generated `dist` directory is a local build artifact and should not be treated as source guidance.
 
-The current shell reads `VITE_ARCHON_API_BASE_URL` only as safe configuration state. A missing value should not fail direct npm validation because the shell does not perform API connectivity checks. When the AppHost runs ArchonExplorer, it supplies this value from the `ArchonApi` HTTP endpoint so the shell can report that local API configuration exists without hardcoding a port into frontend source.
+When iterating only on the WP002 notification runtime, this targeted command is useful before the full frontend validation sequence:
+
+```powershell
+cd .\src\ArchonExplorer
+npm run test -- notifications
+```
+
+The targeted command exercises notification categories, safe operation-message shaping, normalized-error conversion, unsafe diagnostic suppression, provider hook availability, and application-provider viewport composition. It is an iteration aid, not a replacement for the full `npm run test`, `npm run typecheck`, and `npm run build` sequence before completing the work item.
+
+When iterating only on the WP002 query-key, polling, or runtime test-double slice, this targeted command is useful before the full frontend validation sequence:
+
+```powershell
+cd .\src\ArchonExplorer
+npm run test -- queryKeys polling testDoubles
+```
+
+The targeted command exercises the server-state key builders, extraction polling helper, and deterministic ArchonApi client test double without requiring a live API host. It is an iteration aid, not a replacement for the full `npm run test`, `npm run typecheck`, and `npm run build` sequence before completing the work item.
+
+The current shell reads `VITE_ARCHON_API_BASE_URL` as safe configuration state and, when configured, uses the typed operational client to probe `/health` and `/ready` for safe connectivity status. A missing value should not fail direct npm validation; the status bar should report that the API base URL is not configured and skip network probes. When the AppHost runs ArchonExplorer, it supplies this value from the `ArchonApi` HTTP endpoint so the shell can report configured connectivity without hardcoding a port into frontend source. If the API is unreachable or not ready during manual inspection, the shell should show controlled status text rather than a raw URL, exception, stack trace, or dependency diagnostic.
 
 When the change affects the visible shell, also run the Vite development server and inspect the printed local URL manually:
 
@@ -66,7 +85,7 @@ cd .\src\ArchonExplorer
 npm run dev
 ```
 
-The manual smoke check should confirm that the page identifies itself as `ArchonExplorer`, shows the app frame, activity rail, command/search placeholder, main workspace start state, status bar, theme control, and safe API configuration indicator. Stop the Vite process after inspection. This manual check is not a substitute for `npm run typecheck` and `npm run build`; it is the practical browser-facing confirmation that the shell can be served by Vite and that unavailable states remain visibly honest.
+The manual smoke check should confirm that the page identifies itself as `ArchonExplorer`, shows the app frame, activity rail, command/search placeholder, main workspace start state, status bar, theme control, and safe API connectivity indicator. With no API base URL, the status bar should explain that the API base URL is not configured. With a configured but unavailable API, it should report unreachable status with safe text. With a healthy and ready API, it should report that the API is reachable and ready. Stop the Vite process after inspection. This manual check is not a substitute for `npm run typecheck` and `npm run build`; it is the practical browser-facing confirmation that the shell can be served by Vite and that unavailable states remain visibly honest.
 
 ## WP002 graph domain validation
 
