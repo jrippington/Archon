@@ -69,6 +69,58 @@ namespace ArchonApi.Tests
         }
 
         /// <summary>
+        /// Confirms the development host allows Aspire-hosted ArchonExplorer browser requests from loopback Vite origins.
+        /// </summary>
+        /// <returns>A task that completes after a representative CORS preflight response has been validated.</returns>
+        [Fact]
+        public async Task CorsPreflight_WhenDevelopmentLoopbackOriginRequestsExtractionPost_ShouldAllowRequest()
+        {
+            // ArchonExplorer and ArchonApi run on different localhost ports in the Aspire dashboard, so
+            // the browser sends an OPTIONS preflight before POST /extractions with a JSON body.
+            await using WebApplication app = Program.BuildApplication(["--environment", "Development"], builder => builder.WebHost.UseTestServer());
+            await app.StartAsync();
+
+            using HttpClient client = app.GetTestClient();
+            using HttpRequestMessage request = new(HttpMethod.Options, "/extractions");
+            request.Headers.Add("Origin", "http://localhost:4173");
+            request.Headers.Add("Access-Control-Request-Method", "POST");
+            request.Headers.Add("Access-Control-Request-Headers", "content-type");
+
+            HttpResponseMessage response = await client.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+            Assert.True(response.Headers.TryGetValues("Access-Control-Allow-Origin", out IEnumerable<string>? origins));
+            Assert.Contains("http://localhost:4173", origins);
+            Assert.True(response.Headers.TryGetValues("Access-Control-Allow-Methods", out IEnumerable<string>? methods));
+            Assert.Contains(methods, value => value.Contains("POST", StringComparison.OrdinalIgnoreCase));
+            Assert.True(response.Headers.TryGetValues("Access-Control-Allow-Headers", out IEnumerable<string>? headers));
+            Assert.Contains(headers, value => value.Contains("content-type", StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
+        /// Confirms the production-style host does not enable the development loopback CORS policy.
+        /// </summary>
+        /// <returns>A task that completes after a representative production preflight response has been validated.</returns>
+        [Fact]
+        public async Task CorsPreflight_WhenProductionStyleHostReceivesLoopbackOrigin_ShouldNotAllowRequest()
+        {
+            // CORS is only needed for the local Vite resource in development. Production-style hosts should
+            // not emit allow-origin headers unless a future deployment policy explicitly adds them.
+            await using WebApplication app = Program.BuildApplication([], builder => builder.WebHost.UseTestServer());
+            await app.StartAsync();
+
+            using HttpClient client = app.GetTestClient();
+            using HttpRequestMessage request = new(HttpMethod.Options, "/extractions");
+            request.Headers.Add("Origin", "http://localhost:4173");
+            request.Headers.Add("Access-Control-Request-Method", "POST");
+            request.Headers.Add("Access-Control-Request-Headers", "content-type");
+
+            HttpResponseMessage response = await client.SendAsync(request);
+
+            Assert.False(response.Headers.Contains("Access-Control-Allow-Origin"));
+        }
+
+        /// <summary>
         /// Confirms the WP014 query and management endpoints are present in the development OpenAPI document with discoverable metadata.
         /// </summary>
         /// <returns>A task that completes after representative API documentation operations have been validated.</returns>

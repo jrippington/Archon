@@ -32,7 +32,7 @@ export function PrimarySidebar({ activeActivityId }: PrimarySidebarProps) {
       </div>
       <div className="workbench-primary-sidebar__body" aria-label={`${activity.label} placeholder navigation`}>
         <p className="workbench-primary-sidebar__boundary">
-          Functional extraction, snapshot, search, project, finding, and diagnostics workflows arrive in later work packages.
+          Extraction history is available in this slice. Snapshot, search, project, finding, diagnostics, submission, and run-monitoring workflows arrive in later work packages.
         </p>
         <ul className="workbench-primary-sidebar__list">
           {activity.placeholderItems.map((item) => (

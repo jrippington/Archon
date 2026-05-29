@@ -27,8 +27,9 @@ This section is an unalterable execution requirement, not a guideline, preferenc
 - Ask open clarification questions one at a time rather than batching multiple questions together.
 - Never write log files or other temporary files to the repo root; always use suitable temporary storage.
 - Do not run the Aspire AppHost for smoke testing; ask the user to perform the Aspire smoke test after completing the work item.
-- For UI styling in this repository, prefer plain desktop-IDE-style layouts over web-page-style visual treatment; avoid cards and avoid custom font-size tweaks unless explicitly requested.
+- For UI styling in this repository, prefer dense desktop workbench layouts with rails/toolbars/split panes/canvas or tables over card-heavy web-page-style visual treatment; avoid cards and avoid custom font-size tweaks unless explicitly requested.
 - Do not introduce custom theme colors unless the user explicitly asks for them; prefer standard theme tokens when styling UI.
+- ArchonExplorer will only be used through the Aspire dashboard; prioritize Aspire-hosted runtime behavior over direct standalone Vite usage when reasoning about local operation.
 - ArchonExplorer UI work packages must not deviate from standard UI toolkit coloring, text sizing, or control styling unless the user explicitly asks for that deviation.
 
 ## Project Structure

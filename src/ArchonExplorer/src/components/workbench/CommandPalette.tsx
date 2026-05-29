@@ -27,7 +27,7 @@ export interface CommandPaletteProps {
 /**
  * Defines the visible group ordering used by the command palette.
  */
-const commandGroupOrder: readonly WorkbenchCommandGroup[] = ['Activities', 'Panels', 'Tabs', 'Layout', 'Focus', 'Future Search'];
+const commandGroupOrder: readonly WorkbenchCommandGroup[] = ['Activities', 'Panels', 'Tabs', 'Layout', 'Focus', 'Extraction Center', 'Future Search'];
 
 /**
  * Renders the Workbench command palette dialog.

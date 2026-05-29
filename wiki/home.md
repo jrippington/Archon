@@ -23,7 +23,8 @@ Start here if you need the mental model before working on code:
 11. [MCP tool reference](mcp-tool-reference.md) explains the current read-only MCP capability inventory, tool/resource/prompt contracts, evidence-backed response examples, URI inputs, outputs, limits, unknowns, truncation, prompt workflow safety, troubleshooting categories, ambiguity semantics, and safe follow-ups; pair it with [runtime foundation](runtime-foundation.md) for MCP host setup, local verification, authorization, audit, redaction, prompt-injection handling, and readiness behavior.
 12. [Neo4j persistence foundation](neo4j-persistence-foundation.md) explains schema initialization, guarded recreation, snapshot persistence, relationship nodes, and persisted analysis outputs.
 13. [API extraction workflow](api-extraction-workflow.md) explains `POST /extractions`, status polling, validation boundaries, run lifecycle state, and the initial scheduler/run-history seams.
-14. [ArchonExplorer frontend foundation](archonexplorer-frontend-foundation.md) explains the current Vite, React, TypeScript, npm, TanStack Query provider, shadcn-compatible component foundation, visible workbench shell, local activity and tab state, layout preference persistence, bottom-panel placeholders, theme affordance, safe API configuration indicator, and Aspire-hosted local Vite resource before functional API-backed behavior is implemented.
+14. [ArchonExplorer frontend foundation](archonexplorer-frontend-foundation.md) explains the current Vite, React, TypeScript, npm, TanStack Query provider, shadcn-compatible component foundation, visible workbench shell, local activity and tab state, layout preference persistence, bottom-panel placeholders, theme affordance, safe API configuration indicator, and Aspire-hosted local Vite resource.
+15. [ArchonExplorer Extraction Center](archonexplorer-extraction-center.md) explains the current API-backed Extraction Center start, history, selected-run polling, duplicate-request, and produced-snapshot placeholder workflows.
 
 ### Build and validation path
 
@@ -39,7 +40,7 @@ Use the [glossary](glossary.md) for repository-specific terms such as AppHost, c
 
 ## Current capability summary
 
-Archon currently provides extraction, analysis, persistence, API, MCP, and browser-shell foundations that are documented in the topic pages above. The API and MCP hosts expose controlled, evidence-backed behavior; the extraction pipeline contributes static architecture facts and analysis outputs; Neo4j persistence stores approved graph shapes; and ArchonExplorer is currently a placeholder-only browser workbench shell with safe local navigation, commands, layout preferences, validation coverage, and no API-backed feature screens yet.
+Archon currently provides extraction, analysis, persistence, API, MCP, and browser-shell foundations that are documented in the topic pages above. The API and MCP hosts expose controlled, evidence-backed behavior; the extraction pipeline contributes static architecture facts and analysis outputs; Neo4j persistence stores approved graph shapes; and ArchonExplorer is currently a browser workbench shell with safe local navigation, commands, layout preferences, validation coverage, and the API-backed Extraction Center workflow for starting runs, reviewing history, monitoring selected/background runs, duplicating safe request values, and recognizing produced snapshot identities.
 
 ## Wiki maintenance standard
 

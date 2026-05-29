@@ -5,6 +5,7 @@ using Archon.Infrastructure.Neo4j.Configuration;
 using Archon.Infrastructure.Neo4j.DependencyInjection;
 using Archon.ServiceDefaults;
 using Scalar.AspNetCore;
+using System.Net;
 
 namespace ArchonApi
 {
@@ -16,6 +17,11 @@ namespace ArchonApi
     /// </remarks>
     public static class Program
     {
+        /// <summary>
+        /// Names the development-only CORS policy used by the Aspire-hosted ArchonExplorer Vite resource.
+        /// </summary>
+        private const string LocalDevelopmentCorsPolicyName = "LocalDevelopmentCors";
+
         /// <summary>
         /// Starts the Archon API host with shared service defaults and health probe endpoints.
         /// </summary>
@@ -55,6 +61,18 @@ namespace ArchonApi
             configureBuilder?.Invoke(builder);
             builder.AddServiceDefaults();
             builder.Services.AddOpenApi();
+            builder.Services.AddCors(options =>
+            {
+                // ArchonExplorer is served by Vite on a separate localhost port in the Aspire dashboard.
+                // The policy is intentionally development-scoped and limited to loopback origins so browser
+                // preflight requests can reach JSON endpoints without opening the API to arbitrary sites.
+                options.AddPolicy(LocalDevelopmentCorsPolicyName, policy =>
+                {
+                    policy.SetIsOriginAllowed(IsLocalDevelopmentOrigin)
+                        .AllowAnyHeader()
+                        .AllowAnyMethod();
+                });
+            });
             builder.Services.AddArchonExtractionApi();
             builder.Services.AddArchonQueryApi();
             builder.Services.AddArchonManagementApi();
@@ -77,6 +95,11 @@ namespace ArchonApi
                     options.Title = "Archon API";
                     options.OpenApiRoutePattern = "/openapi/v1.json";
                 });
+
+                // Vite serves ArchonExplorer from its own local origin, while ArchonApi listens on a separate
+                // Aspire-assigned endpoint. Enabling this policy in development lets the browser complete
+                // CORS preflight for POST /extractions and other JSON routes before endpoint handlers run.
+                app.UseCors(LocalDevelopmentCorsPolicyName);
             }
 
             // Health probes remain mapped alongside feature modules so operational endpoints stay available for every host slice.
@@ -100,6 +123,33 @@ namespace ArchonApi
             return !string.IsNullOrWhiteSpace(section[nameof(Neo4jOptions.Uri)])
                 || !string.IsNullOrWhiteSpace(section[nameof(Neo4jOptions.Username)])
                 || !string.IsNullOrWhiteSpace(section[nameof(Neo4jOptions.Password)]);
+        }
+
+        /// <summary>
+        /// Determines whether a browser Origin value represents a trusted local development frontend.
+        /// </summary>
+        /// <param name="origin">The Origin header value supplied by the browser CORS request.</param>
+        /// <returns><see langword="true" /> when the origin is HTTP or HTTPS loopback; otherwise <see langword="false" />.</returns>
+        private static bool IsLocalDevelopmentOrigin(string origin)
+        {
+            // Aspire and Vite can allocate different localhost ports, so the policy validates the
+            // scheme and loopback host instead of hardcoding a single port that would drift locally.
+            if (!Uri.TryCreate(origin, UriKind.Absolute, out Uri? uri))
+            {
+                return false;
+            }
+
+            if (uri.Scheme is not "http" and not "https")
+            {
+                return false;
+            }
+
+            if (string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return IPAddress.TryParse(uri.Host, out IPAddress? address) && IPAddress.IsLoopback(address);
         }
     }
 }

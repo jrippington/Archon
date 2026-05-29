@@ -16,6 +16,7 @@ import { ThemeToggle } from './ThemeToggle';
 import { getWorkbenchShellCommands } from './workbenchCommands';
 import { useWorkbenchKeyboardShortcuts } from '@/hooks/useWorkbenchKeyboardShortcuts';
 import { useNotifications } from '@/providers/NotificationProvider';
+import { ExtractionCenterStoreProvider, useExtractionCenterStore } from '@/state/extractionCenterStore';
 import { useWorkbenchStore, WorkbenchStoreProvider } from '@/state/workbenchStore';
 
 /**
@@ -46,7 +47,9 @@ export function WorkbenchShell({ apiConfiguration, connectivityState }: Workbenc
   // application-level query and notification providers from the runtime foundation.
   return (
     <WorkbenchStoreProvider>
-      <WorkbenchShellFrame apiConfiguration={apiConfiguration} connectivityState={connectivityState} />
+      <ExtractionCenterStoreProvider>
+        <WorkbenchShellFrame apiConfiguration={apiConfiguration} connectivityState={connectivityState} />
+      </ExtractionCenterStoreProvider>
     </WorkbenchStoreProvider>
   );
 }
@@ -74,6 +77,7 @@ function WorkbenchShellFrame({ apiConfiguration, connectivityState }: WorkbenchS
     resetLayoutPreferences,
     setCommandPaletteVisible,
   } = useWorkbenchStore();
+  const extractionCenterStore = useExtractionCenterStore();
   const { notifyInformation } = useNotifications();
   const commandPaletteTriggerRef = useRef<HTMLButtonElement | null>(null);
   const commandPaletteCommands = useMemo(() => getWorkbenchShellCommands({
@@ -86,7 +90,13 @@ function WorkbenchShellFrame({ apiConfiguration, connectivityState }: WorkbenchS
     resetLayoutPreferences,
     setCommandPaletteVisible,
     notifyInformation,
-  }), [hideBottomPanel, notifyInformation, resetLayoutPreferences, selectActivity, selectTab, setCommandPaletteVisible, showBottomPanel, state, toggleBottomPanel]);
+    extractionCenter: {
+      state: extractionCenterStore.state,
+      requestFormFocus: extractionCenterStore.requestFormFocus,
+      requestHistoryRefresh: extractionCenterStore.requestHistoryRefresh,
+      focusActiveBackgroundRun: extractionCenterStore.focusActiveBackgroundRun,
+    },
+  }), [extractionCenterStore.focusActiveBackgroundRun, extractionCenterStore.requestFormFocus, extractionCenterStore.requestHistoryRefresh, extractionCenterStore.state, hideBottomPanel, notifyInformation, resetLayoutPreferences, selectActivity, selectTab, setCommandPaletteVisible, showBottomPanel, state, toggleBottomPanel]);
   useWorkbenchKeyboardShortcuts({
     isCommandPaletteVisible: state.panels.isCommandPaletteVisible,
     setCommandPaletteVisible,

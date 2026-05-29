@@ -296,7 +296,7 @@ Establish the split between:
 
 ---
 
-## WP003 - Workbench Desktop Shell
+## WP003 - Workbench Desktop Shell - complete
 
 ### UI brief references
 

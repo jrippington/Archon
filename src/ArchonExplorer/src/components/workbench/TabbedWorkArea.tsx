@@ -1,4 +1,5 @@
 import { Badge } from '@/components/ui/badge';
+import { ExtractionCenter } from '@/components/extraction-center/ExtractionCenter';
 import type { WorkbenchTab, WorkbenchTabId } from '@/state/workbenchStore';
 import { getWorkbenchActivity } from './workbenchActivities';
 
@@ -87,6 +88,19 @@ interface WorkbenchTabPanelProps {
 function WorkbenchTabPanel({ tab }: WorkbenchTabPanelProps) {
   // The panel uses the activity catalog to describe context without loading feature data or
   // introducing separate page navigation outside the workbench frame.
+  if (tab.id === 'extraction-center') {
+    return (
+      <section
+        aria-labelledby="workbench-tab-extraction-center"
+        className="workbench-tabs__panel"
+        id="workbench-tabpanel-extraction-center"
+        role="tabpanel"
+      >
+        <ExtractionCenter />
+      </section>
+    );
+  }
+
   const activity = getWorkbenchActivity(tab.activityId);
   const ActivityIcon = activity.icon;
 

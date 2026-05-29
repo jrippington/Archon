@@ -1,11 +1,12 @@
 import { defaultWorkbenchTabId, type WorkbenchState } from '@/state/workbenchStore';
+import type { ExtractionCenterState } from '@/state/extractionCenterStore';
 import { workbenchActivities, type WorkbenchActivityId } from './workbenchActivities';
 import type { OperationNotificationOptions } from '@/providers/NotificationProvider';
 
 /**
  * Names the stable command groups shown in the Workbench command palette.
  */
-export type WorkbenchCommandGroup = 'Activities' | 'Panels' | 'Tabs' | 'Layout' | 'Focus' | 'Future Search';
+export type WorkbenchCommandGroup = 'Activities' | 'Panels' | 'Tabs' | 'Layout' | 'Focus' | 'Extraction Center' | 'Future Search';
 
 /**
  * Describes one shell-level command that can be rendered and executed by the command palette.
@@ -100,6 +101,36 @@ export interface WorkbenchCommandContext {
    * Publishes safe transient shell feedback through the notification runtime.
    */
   readonly notifyInformation: (options: OperationNotificationOptions) => void;
+
+  /**
+   * Supplies optional Extraction Center command state and actions when that feature is composed.
+   */
+  readonly extractionCenter?: ExtractionCenterCommandContext;
+}
+
+/**
+ * Describes the Extraction Center-specific state and actions used by shell commands.
+ */
+export interface ExtractionCenterCommandContext {
+  /**
+   * Provides shared local Extraction Center workflow state for command enablement decisions.
+   */
+  readonly state: ExtractionCenterState;
+
+  /**
+   * Requests focus on the Extraction Center new request form.
+   */
+  readonly requestFormFocus: () => void;
+
+  /**
+   * Requests a TanStack Query refresh of recent extraction history.
+   */
+  readonly requestHistoryRefresh: () => void;
+
+  /**
+   * Selects the first visible tracked background run for detail monitoring.
+   */
+  readonly focusActiveBackgroundRun: () => void;
 }
 
 /**
@@ -118,6 +149,7 @@ export function getWorkbenchShellCommands(context: WorkbenchCommandContext): rea
     ...createTabCommands(context),
     ...createLayoutCommands(context),
     ...createFocusCommands(context),
+    ...createExtractionCenterCommands(context),
     createFutureSearchCommand(context),
   ];
 }
@@ -254,6 +286,86 @@ function createFocusCommands(context: WorkbenchCommandContext): readonly Workben
       group: 'Focus',
       description: 'Open the bottom panel so keyboard focus can move to its controls.',
       execute: context.showBottomPanel,
+    },
+  ];
+}
+
+/**
+ * Creates Extraction Center workflow commands that coordinate with the feature store.
+ *
+ * @param context The command context that supplies shell navigation plus Extraction Center actions.
+ * @returns Extraction Center commands for opening the feature, focusing the form, refreshing history, and selecting tracked runs.
+ */
+function createExtractionCenterCommands(context: WorkbenchCommandContext): readonly WorkbenchShellCommand[] {
+  // These commands keep users in the existing workbench frame. They communicate feature intents
+  // through shared local state while TanStack Query remains responsible for server-state refreshes.
+  const extractionCenter = context.extractionCenter;
+  const hasVisibleTrackedRun = extractionCenter?.state.trackedRuns.some((run) => !run.isAcknowledged) === true;
+  const prerequisiteMessage = 'Open Extraction Center before running this command so the feature workflow state is available.';
+
+  return [
+    {
+      id: 'extractionCenter.open',
+      label: 'Open Extraction Center',
+      group: 'Extraction Center',
+      description: 'Open or focus the API-backed Extraction Center tab inside the workbench shell.',
+      execute: () => {
+        context.selectActivity('extraction-center');
+      },
+    },
+    {
+      id: 'extractionCenter.focusForm',
+      label: 'Focus Extraction Center New Request Form',
+      group: 'Extraction Center',
+      description: 'Open Extraction Center and move focus to the persistent start-form summary when the page is mounted.',
+      isDisabled: extractionCenter === undefined,
+      disabledReason: extractionCenter === undefined ? prerequisiteMessage : undefined,
+      execute: () => {
+        context.selectActivity('extraction-center');
+        if (extractionCenter === undefined) {
+          context.notifyInformation({ operationName: 'Extraction Center command unavailable', detail: prerequisiteMessage });
+          return;
+        }
+
+        extractionCenter.requestFormFocus();
+      },
+    },
+    {
+      id: 'extractionCenter.refreshHistory',
+      label: 'Refresh Extraction Center History',
+      group: 'Extraction Center',
+      description: 'Open Extraction Center and request a safe TanStack Query refresh of recent extraction history.',
+      isDisabled: extractionCenter === undefined,
+      disabledReason: extractionCenter === undefined ? prerequisiteMessage : undefined,
+      execute: () => {
+        context.selectActivity('extraction-center');
+        if (extractionCenter === undefined) {
+          context.notifyInformation({ operationName: 'Extraction Center command unavailable', detail: prerequisiteMessage });
+          return;
+        }
+
+        extractionCenter.requestHistoryRefresh();
+      },
+    },
+    {
+      id: 'extractionCenter.focusActiveBackgroundRun',
+      label: 'Focus Active Extraction Background Run',
+      group: 'Extraction Center',
+      description: 'Open Extraction Center and select the first tracked run still visible in the bottom-panel monitor.',
+      isDisabled: !hasVisibleTrackedRun,
+      disabledReason: hasVisibleTrackedRun ? undefined : 'No tracked extraction run is currently visible in the bottom-panel monitor.',
+      execute: () => {
+        context.selectActivity('extraction-center');
+        if (extractionCenter === undefined || !hasVisibleTrackedRun) {
+          context.notifyInformation({
+            operationName: 'No active extraction background run',
+            detail: 'Start or select an extraction run before focusing a background run from the command palette.',
+          });
+          return;
+        }
+
+        extractionCenter.focusActiveBackgroundRun();
+      },
     },
   ];
 }

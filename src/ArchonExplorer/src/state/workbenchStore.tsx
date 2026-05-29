@@ -19,6 +19,22 @@ import {
 export type WorkbenchTabId = 'workbench-start' | string;
 
 /**
+ * Names the stable workbench tab that hosts the Extraction Center history slice.
+ */
+export const extractionCenterTabId: WorkbenchTabId = 'extraction-center';
+
+/**
+ * Provides the tab descriptor used whenever the Extraction Center activity opens.
+ */
+export const extractionCenterTab: WorkbenchTab = {
+  id: extractionCenterTabId,
+  title: 'Extraction Center',
+  activityId: 'extraction-center',
+  isClosable: true,
+  placeholderSummary: 'The Extraction Center loads recent extraction run history from ArchonApi while later slices add submission and run-detail monitoring.',
+};
+
+/**
  * Describes a tab hosted by the Workbench desktop shell.
  */
 export interface WorkbenchTab {
@@ -332,6 +348,19 @@ export function reduceWorkbenchState(state: WorkbenchState, action: WorkbenchAct
       const activeActivityId = isWorkbenchActivityId(action.activityId)
         ? action.activityId
         : getDefaultWorkbenchActivityId();
+
+      if (activeActivityId === 'extraction-center') {
+        // Selecting the Extraction Center activity opens the feature tab immediately so the
+        // main work area shows the real API-backed history surface instead of a placeholder.
+        const openTabs = ensureDefaultTab([...state.openTabs, extractionCenterTab]);
+
+        return {
+          ...state,
+          activeActivityId,
+          openTabs,
+          activeTabId: resolveActiveTabId(extractionCenterTab.id, openTabs),
+        };
+      }
 
       return {
         ...state,

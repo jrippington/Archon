@@ -7,7 +7,8 @@ import { BottomPanel } from '@/components/workbench/BottomPanel';
 import { StatusBarContent } from '@/components/workbench/StatusBar';
 import { TabbedWorkArea } from '@/components/workbench/TabbedWorkArea';
 import { WorkbenchShell } from '@/components/workbench/WorkbenchShell';
-import { NotificationProvider } from '@/providers/NotificationProvider';
+import { ApplicationProviders } from '@/providers/ApplicationProviders';
+import { ExtractionCenterStoreProvider } from '@/state/extractionCenterStore';
 import {
   createWorkbenchPreferencesFromState,
   getDefaultWorkbenchState,
@@ -43,12 +44,12 @@ function renderShellMarkup(): string {
   // Server rendering keeps these tests aligned with the existing frontend test estate while
   // still proving the composed shell exposes its landmarks, placeholders, and default tab.
   return renderToStaticMarkup(
-    <NotificationProvider>
+    <ApplicationProviders>
       <WorkbenchShell
         apiConfiguration={{ isConfigured: false }}
         connectivityState={safeConnectivityState}
       />
-    </NotificationProvider>,
+    </ApplicationProviders>,
   );
 }
 
@@ -75,11 +76,23 @@ describe('workbench shell rendering', () => {
   it('renders safe placeholder text without implying unavailable features are complete', () => {
     const markup = renderShellMarkup();
 
-    expect(markup).toContain('Functional extraction, snapshot, search, project, finding, and diagnostics workflows arrive in later work packages.');
+    expect(markup).toContain('Extraction history is available in this slice. Snapshot, search, project, finding, diagnostics, submission, and run-monitoring workflows arrive in later work packages.');
     expect(markup).toContain('No extraction runs, snapshots, graph data, search results, evidence, or findings are loaded in this shell slice.');
     expect(markup).not.toContain('Password=');
     expect(markup).not.toContain('System.Exception');
     expect(markup).not.toContain('Neo4j driver');
+  });
+
+  /**
+   * Confirms selecting Extraction Center opens the API-backed feature tab.
+   */
+  it('opens the Extraction Center tab when its activity is selected', () => {
+    const initialState = getDefaultWorkbenchState();
+    const selectedState = reduceWorkbenchState(initialState, { type: 'selectActivity', activityId: 'extraction-center' });
+
+    expect(selectedState.activeActivityId).toBe('extraction-center');
+    expect(selectedState.activeTabId).toBe('extraction-center');
+    expect(selectedState.openTabs.some((tab) => tab.id === 'extraction-center' && tab.title === 'Extraction Center')).toBe(true);
   });
 });
 
@@ -368,7 +381,11 @@ describe('workbench bottom panel', () => {
    * Confirms bottom-panel placeholder copy is safe and does not expose raw diagnostics.
    */
   it('renders safe placeholders for background work, extraction runs, and diagnostics', () => {
-    const markup = renderToStaticMarkup(<BottomPanel onHide={() => undefined} />);
+    const markup = renderToStaticMarkup(
+      <ExtractionCenterStoreProvider>
+        <BottomPanel onHide={() => undefined} />
+      </ExtractionCenterStoreProvider>,
+    );
 
     expect(markup).toContain('Background Work');
     expect(markup).toContain('Extraction Runs');

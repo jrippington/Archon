@@ -64,6 +64,11 @@ export interface ArchonApiTestDoubleOptions {
   readonly extractionRuns?: Readonly<Record<string, ExtractionRunStatusResponse>>;
 
   /**
+   * Supplies ordered status responses returned each time a run is polled.
+   */
+  readonly extractionRunSequences?: Readonly<Record<string, readonly ExtractionRunStatusResponse[]>>;
+
+  /**
    * Supplies snapshot lifecycle rows returned by `listSnapshots`.
    */
   readonly snapshots?: readonly SnapshotLifecycleItemResponse[];
@@ -82,6 +87,11 @@ export class ArchonApiClientTestDouble {
    * Stores mutable extraction run responses indexed by run identifier.
    */
   private readonly extractionRuns = new Map<string, ExtractionRunStatusResponse>();
+
+  /**
+   * Stores ordered poll responses for runs that should change state during a test journey.
+   */
+  private readonly extractionRunSequences = new Map<string, ExtractionRunStatusResponse[]>();
 
   /**
    * Stores mutable snapshot lifecycle rows used by list and deletion operations.
@@ -113,6 +123,15 @@ export class ArchonApiClientTestDouble {
     const runs = options.extractionRuns ?? { [defaultRunId]: createExtractionRunStatus({ runId: defaultRunId }) };
     for (const [runId, status] of Object.entries(runs)) {
       this.extractionRuns.set(runId, status);
+    }
+
+    for (const [runId, statuses] of Object.entries(options.extractionRunSequences ?? {})) {
+      // Each sequence is copied because polling mutates the remaining response queue while tests
+      // should still be free to reuse their original fixtures for assertions.
+      this.extractionRunSequences.set(runId, [...statuses]);
+      if (statuses[0] !== undefined && !this.extractionRuns.has(runId)) {
+        this.extractionRuns.set(runId, statuses[0]);
+      }
     }
   }
 
@@ -176,6 +195,17 @@ export class ArchonApiClientTestDouble {
     // Missing runs return the same normalized result shape as the request foundation,
     // enabling component tests to exercise unavailable polling without raw diagnostics.
     this.record({ operation: 'getExtractionStatus', method: 'GET', path: archonApiRoutes.extraction.byRunId(runId) });
+    const sequence = this.extractionRunSequences.get(runId);
+    if (sequence !== undefined && sequence.length > 0) {
+      // Sequence-backed runs let component and browser-like tests prove queued/running/completed
+      // transitions without timers, random values, or a live ArchonApi scheduler.
+      const nextStatus = sequence.shift();
+      if (nextStatus !== undefined) {
+        this.extractionRuns.set(runId, nextStatus);
+        return ok(nextStatus);
+      }
+    }
+
     const status = this.extractionRuns.get(runId);
     if (status === undefined) {
       return failure('notFound', 'Extraction run was not found.', false, 404);

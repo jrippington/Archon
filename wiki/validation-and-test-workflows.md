@@ -87,6 +87,15 @@ npm run test -- workbench
 
 The targeted command exercises initial shell rendering, local activity selection, invalid activity fallback, roadmap activity controls, default start-tab state, placeholder tab focus behavior, invalid tab fallback, accessible tab markup, layout preference defaults, preference save/load/reset behavior, invalid JSON recovery, incompatible-shape recovery, bottom-panel visibility state, safe bottom-panel placeholder copy, command registration and grouping, command execution through local shell state actions, disabled future-search feedback without fabricated architecture artefacts, command palette rendering, command shortcut recognition, notification host placement, layout size clamping, safe placeholder copy, and status-bar placeholders. It is an iteration aid, not a replacement for `npm run typecheck` and `npm run build` before completing the work item.
 
+When iterating only on the WP004 Extraction Center submission, history, selected-run detail, duplicate-request, or produced-snapshot placeholder slices, this targeted command is useful before the full frontend validation sequence:
+
+```powershell
+cd .\src\ArchonExplorer
+npm run test -- extraction-center
+```
+
+The targeted command exercises the extraction history hook, start-extraction request mapping, duplicate-request reconstruction from selected run status, metadata-value omission guidance, compact-history unavailable duplication guidance, typed API client usage, extraction history and selected-run query keys, deterministic client test double, polling state mapping, background tracking state, terminal acknowledgement rules, bottom-panel monitor rendering, Extraction Center command registration, safe normalized error mapping, empty history rendering, populated history rendering, accepted-run summary rendering, selected-run detail rendering, persistence diagnostic rendering, produced-snapshot placeholder rendering, selectable history rows, API-unconfigured feedback, validation problem mapping, and unsafe diagnostic suppression. It does not start ArchonApi or prove live backend availability; the route and response behavior remain covered by API tests and focused browser mocks.
+
 Pair that unit-level command with the focused Playwright command when the change affects browser-visible shell flow, keyboard operation, focus behavior, accessible names, landmarks, tab semantics, command-palette behavior, or bottom-panel controls:
 
 ```powershell
@@ -95,6 +104,15 @@ npm run test:e2e -- workbench-shell
 ```
 
 Success means the browser can load the Vite-served shell, keyboard users can open the command palette and land in the filter input, activity switching updates sidebar and status context inside the shell frame, bottom-panel visibility can be changed and reported textually, and major controls expose roles or labels that Playwright can find through the accessibility tree. If the run reports that the Chromium executable is missing, run `npx playwright install chromium` from `src/ArchonExplorer` and rerun the focused command. Do not treat the generated `playwright-report` or `test-results` folders as source documentation; they are local validation artifacts.
+
+When the browser-visible change affects Extraction Center submission or history, pair the shell journey with the focused Extraction Center Playwright journey:
+
+```powershell
+cd .\src\ArchonExplorer
+npm run test:e2e -- extraction-center
+```
+
+Success means a browser user can open Extraction Center from the activity rail, the work area focuses the `Extraction Center` tab, mocked `GET /extractions` responses render populated and empty history states, a selected active run remains visible in the bottom-panel background monitor while another activity is selected, Extraction Center command palette actions open the feature and request focus or safe feedback, a mocked valid form submission posts to `POST /extractions`, the accepted run identity is rendered, selecting a mocked history run polls `GET /extractions/{runId}` from running to completed, terminal output displays produced snapshot identity and persistence diagnostics when present, duplicating a selected run copies safe request values into the form without auto-submitting, the produced-snapshot placeholder publishes safe guidance without calling graph/search/dashboard/lens/visualization or snapshot-delete routes, and the page avoids `/api/extractions`, stack traces, connection strings, raw Cypher, Neo4j driver text, or other unsafe diagnostics. The Playwright route mock is intentionally local to the browser test; it is not a replacement for backend contract tests or manual verification against a configured ArchonApi instance.
 
 When iterating only on the WP002 query-key, polling, or runtime test-double slice, this targeted command is useful before the full frontend validation sequence:
 

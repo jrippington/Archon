@@ -14,8 +14,9 @@ import { defineConfig } from 'vitest/config';
 function createViteConfiguration() {
   // React remains the only Vite plugin for this slice; the alias below is a compile-time
   // convenience that keeps shell components and UI primitives aligned with components.json. The
-  // Vitest exclusion keeps Playwright browser journeys in their own runner even when contributors
-  // pass broad filters such as `workbench` to the unit-test command.
+      // Vitest stays scoped to authored frontend unit and component tests. The include pattern
+      // prevents dependency package tests under node_modules from being collected during the full
+      // suite, while the exclusion keeps Playwright browser journeys in their own runner.
   return defineConfig({
     plugins: [react()],
     resolve: {
@@ -24,6 +25,7 @@ function createViteConfiguration() {
       },
     },
     test: {
+      include: ['src/test/**/*.test.{ts,tsx}'],
       exclude: ['src/test-e2e/**'],
     },
   });

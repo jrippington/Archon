@@ -51,6 +51,11 @@ export interface UseExtractionRunPollingResult {
   readonly status?: ExtractionRunStatusResponse;
 
   /**
+   * Contains the latest safe polling error when the status request failed.
+   */
+  readonly error?: NormalizedArchonApiError;
+
+  /**
    * Indicates whether TanStack Query is currently fetching a status update.
    */
   readonly isFetching: boolean;
@@ -70,7 +75,7 @@ export interface UseExtractionRunPollingResult {
  * Polls one extraction run status through TanStack Query without implementing a feature screen.
  *
  * @param options - Run identifier, optional client override, enablement flag, and polling bounds.
- * @returns The current polling state, latest status, fetch flag, continuation flag, and query key.
+ * @returns The current polling state, latest status, safe error, fetch flag, continuation flag, and query key.
  */
 export function useExtractionRunPolling(options: UseExtractionRunPollingOptions): UseExtractionRunPollingResult {
   // The hook proves the runtime pattern for later Extraction Center work while keeping
@@ -113,6 +118,7 @@ export function useExtractionRunPolling(options: UseExtractionRunPollingOptions)
   return {
     state: enabled ? state : 'idle',
     status: query.data,
+    error: query.error ?? undefined,
     isFetching: query.isFetching,
     continuePolling: enabled && state === 'polling',
     queryKey,

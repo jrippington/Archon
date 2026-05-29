@@ -66,10 +66,10 @@ export const workbenchActivities = [
   {
     id: 'extraction-center',
     label: 'Extraction Center',
-    description: 'Future extraction submission and monitoring area.',
-    sidebarTitle: 'Extraction center placeholder',
-    sidebarDescription: 'Functional extraction submission, extraction run history, and background monitoring arrive in later work packages.',
-    placeholderItems: ['Future extraction queue', 'Future run monitor', 'Future submission entry point'],
+    description: 'API-backed extraction history and future submission area.',
+    sidebarTitle: 'Extraction Center',
+    sidebarDescription: 'Recent extraction history is available now. Submission, run-detail monitoring, and background run controls arrive in later Extraction Center slices.',
+    placeholderItems: ['Recent extraction history', 'Future extraction queue', 'Future run monitor'],
     icon: Activity,
   },
   {

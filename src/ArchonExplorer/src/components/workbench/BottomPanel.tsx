@@ -1,5 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ExtractionBackgroundMonitor } from '@/components/extraction-center/ExtractionBackgroundMonitor';
 
 /**
  * Describes the bottom panel inputs supplied by the local workbench shell.
@@ -41,11 +42,6 @@ const bottomPanelSections: readonly BottomPanelSection[] = [
     stateLabel: 'Idle',
   },
   {
-    title: 'Extraction Runs',
-    description: 'Extraction run history is not loaded in this shell slice. Real extraction submission and run detail arrive in later work packages.',
-    stateLabel: 'Unavailable',
-  },
-  {
     title: 'Diagnostics',
     description: 'Diagnostics are limited to safe shell placeholders and never include stack traces, connection strings, environment variables, raw Cypher, Neo4j internals, or driver details.',
     stateLabel: 'Safe placeholder',
@@ -74,6 +70,7 @@ export function BottomPanel({ onHide }: BottomPanelProps) {
         </Button>
       </div>
       <div className="workbench-bottom-panel__sections">
+        <ExtractionBackgroundMonitor />
         {bottomPanelSections.map((section) => (
           <section key={section.title} className="workbench-bottom-panel__section" aria-label={section.title}>
             <div className="workbench-bottom-panel__section-heading">
